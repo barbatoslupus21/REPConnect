@@ -1,0 +1,1326 @@
+class EmployeePortalUI {
+    constructor() {
+        this.currentTheme = localStorage.getItem('theme') || 'light';
+        this.charts = {};
+        this.init();
+    }
+
+    init() {
+        this.setupTheme();
+        this.setupEventListeners();
+        this.initializeCharts();
+        this.setupAnimations();
+        this.setupDropdowns();
+        this.setupTabs();
+        this.setupSearch();
+        this.setupTables();
+        this.setupTimeline();
+        this.setupForms();
+        this.setupSidebar();
+        this.setupNavigation();
+    }
+
+    setupTheme() {
+        document.documentElement.setAttribute('data-theme', this.currentTheme);
+        const themeToggle = document.getElementById('theme-toggle-checkbox');
+        
+        if (themeToggle) {
+            themeToggle.checked = this.currentTheme === 'dark';
+            themeToggle.addEventListener('change', () => this.toggleTheme());
+        }
+    }
+
+    toggleTheme() {
+        const toggle = document.getElementById('theme-toggle-checkbox');
+        
+        this.createThemeWave();
+        
+        setTimeout(() => {
+            this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', this.currentTheme);
+            localStorage.setItem('theme', this.currentTheme);
+            
+            this.updateChartsForTheme();
+        }, 300);
+        
+        toggle.style.transform = 'scale(0.8) rotate(360deg)';
+        
+        setTimeout(() => {
+            toggle.style.transform = 'scale(1) rotate(0deg)';
+        }, 600);
+    }
+
+    createThemeWave() {
+        const existingWave = document.querySelector('.theme-wave');
+        if (existingWave) {
+            existingWave.remove();
+        }
+
+        const wave = document.createElement('div');
+        wave.className = 'theme-wave';
+        
+        const toggleBtn = document.getElementById('theme-toggle-checkbox');
+        const toggleRect = toggleBtn.getBoundingClientRect();
+        
+        const centerX = toggleRect.left + toggleRect.width / 2;
+        const centerY = toggleRect.top + toggleRect.height / 2;
+        
+        wave.style.left = centerX + 'px';
+        wave.style.top = centerY + 'px';
+        wave.style.marginLeft = '-50vw';
+        wave.style.marginTop = '-50vh';
+        wave.style.width = '100vw';
+        wave.style.height = '100vh';
+        
+        const newTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+        if (newTheme === 'dark') {
+            wave.style.background = '#0f172a';
+        } else {
+            wave.style.background = '#ffffff';
+        }
+        
+        document.body.appendChild(wave);
+        
+        requestAnimationFrame(() => {
+            wave.classList.add('animate');
+        });
+        
+        setTimeout(() => {
+            if (wave.parentNode) {
+                wave.remove();
+            }
+        }, 800);
+    }
+
+    setupSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mainContent = document.querySelector('.main-content');
+        const logo = document.querySelector('.logo-container');
+
+        if (!this.isMobile()) {
+            let savedState = this.getSidebarState();
+            if (!localStorage.getItem('sidebar-state')) {
+                savedState = 'minimized';
+                this.saveSidebarState('minimized');
+            }
+            if (savedState === 'expanded') {
+                sidebar.classList.remove('minimized');
+                sidebar.classList.add('expanded');
+                mainContent.style.marginLeft = 'var(--sidebar-width-expanded)';
+            } else {
+                sidebar.classList.remove('expanded');
+                sidebar.classList.add('minimized');
+                mainContent.style.marginLeft = 'var(--sidebar-width-minimized)';
+            }
+        } else {
+            sidebar.classList.remove('minimized');
+            sidebar.classList.add('mobile-hidden');
+            mainContent.style.marginLeft = '0';
+        }
+
+        if (mobileToggle) {
+            mobileToggle.addEventListener('click', () => {
+                this.toggleMobileSidebar();
+            });
+        }
+
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                if (!this.isMobile()) {
+                    this.toggleDesktopSidebar();
+                }
+            });
+        }
+
+        if (logo) {
+            logo.addEventListener('click', () => {
+                if (!this.isMobile() && sidebar.classList.contains('minimized')) {
+                    this.toggleDesktopSidebar();
+                }
+            });
+        }
+
+        this.setupUserProfile();
+        this.setActiveSidebarItem();
+        
+        if (mainContent) {
+            mainContent.addEventListener('click', () => {
+                if (this.isMobile() && sidebar.classList.contains('mobile-visible')) {
+                    this.closeMobileSidebar();
+                }
+            });
+        }
+    }
+
+    setActiveSidebarItem() {
+        const currentPath = window.location.pathname;
+        const navItems = document.querySelectorAll('.nav-item');
+        
+        navItems.forEach(item => {
+            const dataUrl = item.getAttribute('data-url');
+            if (dataUrl && dataUrl !== '#') {
+                if (currentPath === dataUrl || currentPath.startsWith(dataUrl)) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            }
+        });
+        
+        if (currentPath === '/' || currentPath === '/Overview/Dashboard') {
+            const overviewItem = document.querySelector('[data-url="/Overview/Dashboard"]');
+            if (overviewItem) {
+                overviewItem.classList.add('active');
+            }
+        }
+    }
+
+    getSidebarState() {
+        return localStorage.getItem('sidebar-state') || 'expanded';
+    }
+
+    saveSidebarState(state) {
+        localStorage.setItem('sidebar-state', state);
+    }
+
+    toggleMobileSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const icon = mobileToggle.querySelector('i');
+        
+        mobileToggle.classList.toggle('active');
+        sidebar.classList.toggle('mobile-visible');
+        
+        if (sidebar.classList.contains('mobile-visible')) {
+            sidebar.classList.remove('minimized');
+            sidebar.classList.remove('mobile-hidden');
+            icon.classList.remove('fa-chevron-right');
+            icon.classList.add('fa-chevron-left');
+        } else {
+            sidebar.classList.add('mobile-hidden');
+            icon.classList.remove('fa-chevron-left');
+            icon.classList.add('fa-chevron-right');
+        }
+    }
+
+    closeMobileSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const icon = mobileToggle.querySelector('i');
+        
+        sidebar.classList.remove('mobile-visible');
+        sidebar.classList.add('mobile-hidden');
+        mobileToggle.classList.remove('active');
+        icon.classList.remove('fa-chevron-left');
+        icon.classList.add('fa-chevron-right');
+    }
+
+    toggleDesktopSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.querySelector('.main-content');
+        
+        sidebar.classList.toggle('minimized');
+        
+        if (sidebar.classList.contains('minimized')) {
+            mainContent.style.marginLeft = 'var(--sidebar-width-minimized)';
+            sidebar.classList.remove('expanded');
+            this.saveSidebarState('minimized');
+        } else {
+            mainContent.style.marginLeft = 'var(--sidebar-width-expanded)';
+            sidebar.classList.add('expanded');
+            this.saveSidebarState('expanded');
+        }
+        this.positionDropdown();
+    }
+
+    setupUserProfile() {
+        const userProfile = document.getElementById('user-profile');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+
+        if (userProfile && dropdownMenu) {
+            userProfile.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdownMenu.classList.toggle('active');
+                
+                this.positionDropdown();
+                
+                if (dropdownMenu.classList.contains('active')) {
+                    dropdownMenu.style.animation = 'none';
+                    setTimeout(() => {
+                        dropdownMenu.style.animation = 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                    }, 10);
+                }
+            });
+
+            dropdownMenu.addEventListener('click', e => e.stopPropagation());
+
+            document.addEventListener('click', () => {
+                if (dropdownMenu.classList.contains('active')) {
+                    dropdownMenu.classList.remove('active');
+                }
+            });
+        }
+    }
+
+    positionDropdown() {
+        const userProfile = document.getElementById('user-profile');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        
+        if (!userProfile || !dropdownMenu) return;
+
+        if (this.isMobile()) {
+            dropdownMenu.style.position = 'absolute';
+            dropdownMenu.style.left = '0';
+            dropdownMenu.style.bottom = '100%';
+            dropdownMenu.style.width = '100%';
+            return;
+        }
+
+        const userProfileRect = userProfile.getBoundingClientRect();
+        const spaceBetween = 10;
+
+        dropdownMenu.style.position = 'fixed';
+        dropdownMenu.style.left = (userProfileRect.right + spaceBetween) + 'px';
+        dropdownMenu.style.bottom = (window.innerHeight - userProfileRect.bottom) + 'px';
+        dropdownMenu.style.width = 'auto';
+    }
+
+    setupNavigation() {
+        const sidebarNavItems = document.querySelectorAll('.nav-item');
+        
+        sidebarNavItems.forEach(item => {
+            const link = item.querySelector('a');
+            if (link) {
+                link.addEventListener('click', (e) => {
+                    const page = link.getAttribute('data-page');
+                    const href = link.getAttribute('href');
+                    
+                    if (page) {
+                        e.preventDefault();
+                        this.setSidebarActiveItem(item);
+                        this.showPage(page);
+                        
+                        const icon = link.querySelector('svg');
+                        if (icon) {
+                            icon.style.animation = 'none';
+                            setTimeout(() => {
+                                icon.style.animation = 'bounceIcon 0.5s ease';
+                            }, 10);
+                        }
+                        
+                        if (this.isMobile()) {
+                            this.closeMobileSidebar();
+                        }
+                    } else if (href && href !== '#') {
+                        this.setSidebarActiveItem(item);
+                        
+                        const icon = link.querySelector('svg');
+                        if (icon) {
+                            icon.style.animation = 'none';
+                            setTimeout(() => {
+                                icon.style.animation = 'bounceIcon 0.5s ease';
+                            }, 10);
+                        }
+                        
+                        if (this.isMobile()) {
+                            this.closeMobileSidebar();
+                        }
+                        
+                        this.showPageLoadingIndicator();
+                        window.location.href = href;
+                    }
+                });
+            }
+        });
+    }
+
+    setSidebarActiveItem(activeItem) {
+        const sidebarNavItems = document.querySelectorAll('.nav-item');
+        sidebarNavItems.forEach(item => {
+            item.classList.remove('active');
+        });
+        activeItem.classList.add('active');
+    }
+
+    showPage(pageId) {
+        const pages = document.querySelectorAll('.tab-content');
+        
+        pages.forEach(page => {
+            page.classList.remove('active');
+        });
+        
+        const targetPage = document.getElementById(pageId);
+        if (targetPage) {
+            targetPage.classList.add('active');
+            
+            setTimeout(() => {
+                const statsCards = targetPage.querySelectorAll('.stats-card');
+                statsCards.forEach((card, index) => {
+                    card.style.animationDelay = `${index * 0.1}s`;
+                    card.style.animation = 'fadeIn 0.5s ease forwards';
+                });
+            }, 100);
+        }
+        
+        const pageNames = {
+            'components': 'Components',
+            'forms': 'Forms',
+            'data': 'Data & Charts',
+            'layouts': 'Layouts'
+        };
+        
+        const title = pageNames[pageId] || 'Components';
+        document.title = `UniSync - ${title}`;
+        document.getElementById('page-title').textContent = title;
+
+        if (pageId === 'data') {
+            setTimeout(() => this.reinitializeCharts(), 100);
+        }
+    }
+
+    showPageLoadingIndicator() {
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'page-loading-overlay';
+        loadingOverlay.className = 'page-loading-overlay';
+        loadingOverlay.innerHTML = `
+            <div class="page-loading-spinner">
+                <div style="--size: 64px; --dot-size: 6px; --dot-count: 6; --color: var(--primary-color); --speed: 1s; --spread: 60deg;" class="dots">
+                  <div style="--i: 0;" class="dot"></div>
+                  <div style="--i: 1;" class="dot"></div>
+                  <div style="--i: 2;" class="dot"></div>
+                  <div style="--i: 3;" class="dot"></div>
+                  <div style="--i: 4;" class="dot"></div>
+                  <div style="--i: 5;" class="dot"></div>
+                </div>
+                <p>Loading page...</p>
+            </div>
+        `;
+        document.body.appendChild(loadingOverlay);
+        
+        setTimeout(() => {
+            if (loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+            }
+        }, 2000);
+    }
+
+    isMobile() {
+        return window.innerWidth <= 768;
+    }
+
+    setupEventListeners() {
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                const modal = e.target.closest('.modal');
+                if (modal) this.closeModal(modal.id);
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const openModal = document.querySelector('.modal.show');
+                if (openModal) this.closeModal(openModal.id);
+                
+                if (this.isMobile() && document.querySelector('.sidebar').classList.contains('mobile-visible')) {
+                    this.closeMobileSidebar();
+                }
+                
+                const dropdownMenu = document.getElementById('dropdown-menu');
+                if (dropdownMenu && dropdownMenu.classList.contains('active')) {
+                    dropdownMenu.classList.remove('active');
+                }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            this.handleResize();
+        });
+
+        window.addEventListener('scroll', () => {
+            this.handleScroll();
+        });
+
+        // Setup scroll-based scrollbar visibility
+        this.setupScrollbarVisibility();
+    }
+
+    setupScrollbarVisibility() {
+        let scrollTimeout;
+        
+        // Function to add scrolling class
+        const addScrollingClass = (element) => {
+            element.classList.add('scrolling');
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                element.classList.remove('scrolling');
+            }, 1000); // Hide scrollbar 1 second after scrolling stops
+        };
+
+        // Add scroll listeners to all scrollable elements
+        const setupScrollListener = (element) => {
+            element.addEventListener('scroll', () => addScrollingClass(element));
+        };
+
+        // Setup for window scroll
+        window.addEventListener('scroll', () => addScrollingClass(document.documentElement));
+
+        // Setup for all existing scrollable elements
+        const scrollableElements = document.querySelectorAll('[style*="overflow"], .table-container, .data-table, .modal-body, .dropdown-menu, .sidebar, .content');
+        scrollableElements.forEach(setupScrollListener);
+
+        // Setup for dynamically added elements using MutationObserver
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1) { // Element node
+                        // Check if the added node is scrollable
+                        const style = window.getComputedStyle(node);
+                        if (style.overflow === 'auto' || style.overflow === 'scroll' || 
+                            style.overflowY === 'auto' || style.overflowY === 'scroll') {
+                            setupScrollListener(node);
+                        }
+                        
+                        // Check child elements as well
+                        const scrollableChildren = node.querySelectorAll('[style*="overflow"], .table-container, .data-table, .modal-body, .dropdown-menu');
+                        scrollableChildren.forEach(setupScrollListener);
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    handleResize() {
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.querySelector('.main-content');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const icon = mobileToggle.querySelector('i');
+
+        if (window.innerWidth > 768) {
+            sidebar.classList.remove('mobile-visible');
+            sidebar.classList.remove('mobile-hidden');
+            mobileToggle.classList.remove('active');
+            icon.classList.remove('fa-chevron-left');
+            icon.classList.add('fa-chevron-right');
+            
+            const savedState = this.getSidebarState();
+            if (savedState === 'minimized') {
+                sidebar.classList.add('minimized');
+                mainContent.style.marginLeft = 'var(--sidebar-width-minimized)';
+            } else {
+                sidebar.classList.add('expanded');
+                mainContent.style.marginLeft = 'var(--sidebar-width-expanded)';
+            }
+        } else {
+            mainContent.style.marginLeft = '0';
+            if (!sidebar.classList.contains('mobile-visible')) {
+                sidebar.classList.remove('minimized');
+                sidebar.classList.add('mobile-hidden');
+            }
+        }
+        
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        if (dropdownMenu && dropdownMenu.classList.contains('active')) {
+            this.positionDropdown();
+        }
+
+        Object.values(this.charts).forEach(chart => {
+            if (chart) chart.resize();
+        });
+    }
+
+    openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.style.display = 'flex';
+        requestAnimationFrame(() => {
+            modal.classList.add('show');
+            modal.classList.remove('closing');
+        });
+    }
+
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.classList.add('closing');
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.classList.remove('closing');
+            modal.style.display = 'none';
+        }, 200);
+    }
+
+    setupTabs() {
+        const navTabs = document.querySelectorAll('.tab-btn');
+        navTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                this.switchMainTab(targetTab, tab);
+            });
+        });
+
+        const componentTabs = document.querySelectorAll('.tab');
+        componentTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetPanel = tab.dataset.target;
+                this.switchComponentTab(targetPanel, tab);
+            });
+        });
+    }
+
+    switchMainTab(targetTab, activeTab) {
+        document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
+        activeTab.classList.add('active');
+
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        const targetContent = document.getElementById(targetTab);
+        if (targetContent) {
+            targetContent.classList.add('active');
+            
+            if (targetTab === 'data') {
+                setTimeout(() => this.reinitializeCharts(), 100);
+            }
+        }
+    }
+
+    switchComponentTab(targetPanel, activeTab) {
+        const tabContainer = activeTab.closest('.tabs-horizontal');
+        if (!tabContainer) return;
+
+        tabContainer.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        activeTab.classList.add('active');
+
+        tabContainer.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+
+        const targetPanelEl = document.getElementById(targetPanel);
+        if (targetPanelEl) {
+            targetPanelEl.classList.add('active');
+        }
+    }
+
+    initializeCharts() {
+        this.initPieChart();
+        this.initBarChart();
+        this.initLineChart();
+    }
+
+    initPieChart() {
+        const ctx = document.getElementById('pieChart');
+        if (!ctx) return;
+
+        const isDark = this.currentTheme === 'dark';
+        const textColor = isDark ? '#f8fafc' : '#0f172a';
+
+        this.charts.pie = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'],
+                datasets: [{
+                    data: [35, 25, 20, 12, 8],
+                    backgroundColor: [
+                        '#6366f1',
+                        '#06b6d4',
+                        '#10b981',
+                        '#f59e0b',
+                        '#ef4444'
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: textColor,
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        borderColor: isDark ? '#334155' : '#e2e8f0',
+                        borderWidth: 1
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    duration: 1000
+                }
+            }
+        });
+    }
+
+    initBarChart() {
+        const ctx = document.getElementById('barChart');
+        if (!ctx) return;
+
+        const isDark = this.currentTheme === 'dark';
+        const textColor = isDark ? '#f8fafc' : '#0f172a';
+        const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+        this.charts.bar = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Performance Score',
+                    data: [85, 92, 78, 96, 87, 94],
+                    backgroundColor: '#6366f1',
+                    borderRadius: 8,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        borderColor: isDark ? '#334155' : '#e2e8f0',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: textColor
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+
+    initLineChart() {
+        const ctx = document.getElementById('lineChart');
+        if (!ctx) return;
+
+        const isDark = this.currentTheme === 'dark';
+        const textColor = isDark ? '#f8fafc' : '#0f172a';
+        const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+        this.charts.line = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Employee Count',
+                    data: [1150, 1180, 1165, 1200, 1225, 1248],
+                    borderColor: '#06b6d4',
+                    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: '#06b6d4',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        borderColor: isDark ? '#334155' : '#e2e8f0',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: textColor
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+
+    updateChartsForTheme() {
+        Object.values(this.charts).forEach(chart => {
+            if (chart) chart.destroy();
+        });
+        setTimeout(() => this.initializeCharts(), 100);
+    }
+
+    reinitializeCharts() {
+        this.updateChartsForTheme();
+    }
+
+    setupDropdowns() {
+        const dropdowns = document.querySelectorAll('.dropdown');
+        
+        dropdowns.forEach(dropdown => {
+            const toggle = dropdown.querySelector('.dropdown-toggle');
+            const menu = dropdown.querySelector('.dropdown-menu');
+            
+            if (!toggle || !menu) return;
+
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleDropdown(dropdown);
+            });
+
+            const checkboxes = menu.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    this.updateDropdownToggleText(dropdown);
+                });
+            });
+        });
+
+        document.addEventListener('click', () => {
+            dropdowns.forEach(dropdown => {
+                dropdown.classList.remove('open');
+            });
+        });
+    }
+
+    toggleDropdown(dropdown) {
+        document.querySelectorAll('.dropdown').forEach(d => {
+            if (d !== dropdown) d.classList.remove('open');
+        });
+
+        dropdown.classList.toggle('open');
+    }
+
+    updateDropdownToggleText(dropdown) {
+        const toggle = dropdown.querySelector('.dropdown-toggle');
+        const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]:checked');
+        
+        if (checkboxes.length === 0) {
+            toggle.childNodes[0].textContent = 'Select Department';
+        } else if (checkboxes.length === 1) {
+            toggle.childNodes[0].textContent = checkboxes[0].closest('label').textContent.trim();
+        } else {
+            toggle.childNodes[0].textContent = `${checkboxes.length} selected`;
+        }
+    }
+
+    setupSearch() {
+        const searchInputs = document.querySelectorAll('.search-input');
+        
+        searchInputs.forEach(input => {
+            const clearBtn = input.parentElement.querySelector('.search-clear');
+            
+            input.addEventListener('input', (e) => {
+                this.handleSearch(e.target.value);
+            });
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    input.value = '';
+                    input.focus();
+                    this.handleSearch('');
+                });
+            }
+        });
+    }
+
+    handleSearch(query) {
+        const searchIcon = document.querySelector('.search-icon');
+        if (searchIcon) {
+            searchIcon.style.color = query ? 'var(--primary-color)' : 'var(--text-muted)';
+        }
+    }
+
+    setupTables() {
+        const sortableHeaders = document.querySelectorAll('.sortable');
+        
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                this.sortTable(header);
+            });
+        });
+    }
+
+    sortTable(header) {
+        const table = header.closest('table');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const columnIndex = Array.from(header.parentElement.children).indexOf(header);
+        
+        const isAscending = header.dataset.sortDirection !== 'asc';
+        header.dataset.sortDirection = isAscending ? 'asc' : 'desc';
+        
+        table.querySelectorAll('.sortable i').forEach(icon => {
+            icon.className = 'fas fa-sort';
+        });
+        
+        const icon = header.querySelector('i');
+        icon.className = isAscending ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        
+        rows.sort((a, b) => {
+            const aValue = a.children[columnIndex].textContent.trim();
+            const bValue = b.children[columnIndex].textContent.trim();
+            
+            const aNum = parseFloat(aValue.replace(/[$,]/g, ''));
+            const bNum = parseFloat(bValue.replace(/[$,]/g, ''));
+            
+            let result;
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                result = aNum - bNum;
+            } else {
+                result = aValue.localeCompare(bValue);
+            }
+            
+            return isAscending ? result : -result;
+        });
+        
+        rows.forEach((row, index) => {
+            row.style.transform = 'translateX(-10px)';
+            row.style.opacity = '0.7';
+            
+            setTimeout(() => {
+                tbody.appendChild(row);
+                row.style.transform = 'translateX(0)';
+                row.style.opacity = '1';
+            }, index * 50);
+        });
+    }
+
+    filterProjectTable() {
+        const input = document.getElementById('projectSearchInput');
+        const filter = input.value.toLowerCase();
+        const table = document.getElementById('projectTable');
+        const tbody = table.querySelector('tbody');
+        
+        Array.from(tbody.querySelectorAll('.no-data-row')).forEach(row => row.remove());
+        let noDataRow = null;
+        const trs = Array.from(tbody.getElementsByTagName('tr')).filter(tr => !tr.classList.contains('no-data-row'));
+        let visibleCount = 0;
+        let pending = trs.length;
+
+        function showNoData() {
+            if (!noDataRow) {
+                noDataRow = document.createElement('tr');
+                noDataRow.className = 'no-data-row filter-show';
+                noDataRow.innerHTML = `<td colspan="5" style="text-align:center; padding: 48px 0;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                        <i class='fas fa-folder-open' style='font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px;'></i>
+                        <div style='font-size: 1.1rem; color: var(--text-muted);'>No data found</div>
+                    </div>
+                </td>`;
+                tbody.appendChild(noDataRow);
+                setTimeout(() => noDataRow.classList.remove('filter-show'), 350);
+            }
+        }
+
+        function hideNoData() {
+            if (noDataRow) {
+                noDataRow.classList.add('filter-hide');
+                setTimeout(() => {
+                    if (noDataRow && noDataRow.parentNode) noDataRow.remove();
+                }, 350);
+            }
+        }
+
+        trs.forEach(tr => {
+            const tds = tr.getElementsByTagName('td');
+            let show = false;
+            for (let j = 0; j < tds.length - 1; j++) {
+                if (tds[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                    show = true;
+                    break;
+                }
+            }
+            if (show) {
+                tr.classList.remove('filter-hide');
+                tr.classList.add('filter-show');
+                tr.style.display = '';
+                setTimeout(() => tr.classList.remove('filter-show'), 350);
+                visibleCount++;
+            } else {
+                tr.classList.remove('filter-show');
+                tr.classList.add('filter-hide');
+                setTimeout(() => {
+                    tr.style.display = 'none';
+                    pending--;
+                    if (pending === 0 && visibleCount === 0) showNoData();
+                }, 350);
+            }
+        });
+        if (visibleCount > 0) hideNoData();
+        if (trs.length === 0) showNoData();
+    }
+
+    setupTimeline() {
+        const timelineItems = document.querySelectorAll('.timeline-item');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate');
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        });
+        
+        timelineItems.forEach(item => {
+            observer.observe(item);
+        });
+    }
+
+    setupForms() {
+        const forms = document.querySelectorAll('.form');
+        const passwordToggles = document.querySelectorAll('.input-action');
+        const fileInputs = document.querySelectorAll('.file-input');
+        
+        forms.forEach(form => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleFormSubmit(form);
+            });
+        });
+        
+        passwordToggles.forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                const input = toggle.previousElementSibling;
+                const icon = toggle.querySelector('i');
+                
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.className = 'fas fa-eye-slash';
+                } else {
+                    input.type = 'password';
+                    icon.className = 'fas fa-eye';
+                }
+            });
+        });
+        
+        fileInputs.forEach(input => {
+            input.addEventListener('change', (e) => {
+                const label = input.nextElementSibling;
+                const span = label.querySelector('span');
+                
+                if (e.target.files.length > 0) {
+                    span.textContent = `${e.target.files.length} file(s) selected`;
+                    label.style.borderColor = 'var(--success-color)';
+                    label.style.color = 'var(--success-color)';
+                } else {
+                    span.textContent = 'Choose file or drag here';
+                    label.style.borderColor = 'var(--border-color)';
+                    label.style.color = 'var(--text-muted)';
+                }
+            });
+        });
+        
+        const inputs = document.querySelectorAll('.form-input');
+        inputs.forEach(input => {
+            input.addEventListener('blur', () => {
+                this.validateInput(input);
+            });
+        });
+    }
+
+    handleFormSubmit(form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        
+        submitBtn.innerHTML = '<span class="loading-spinner"></span> Submitting...';
+        submitBtn.disabled = true;
+        
+        setTimeout(() => {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+            
+            this.showNotification('Form submitted successfully!', 'success');
+        }, 2000);
+    }
+
+    validateInput(input) {
+        const value = input.value.trim();
+        const type = input.type;
+        
+        input.classList.remove('valid', 'invalid');
+        
+        let isValid = true;
+        
+        if (input.required && !value) {
+            isValid = false;
+        } else if (type === 'email' && value) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            isValid = emailRegex.test(value);
+        }
+        
+        input.classList.add(isValid ? 'valid' : 'invalid');
+    }
+
+    setupAnimations() {
+        const cards = document.querySelectorAll('.component-card');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate');
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+        
+        cards.forEach(card => {
+            observer.observe(card);
+        });
+    }
+
+    handleScroll() {
+        const scrolled = window.pageYOffset;
+        const header = document.querySelector('.header');
+        
+        if (header) {
+            const opacity = Math.max(0, 1 - scrolled / 300);
+            header.style.opacity = opacity;
+        }
+    }
+
+    showNotification(message, type = 'info', duration = 5000) {
+        const toastContainer = this.getToastContainer();
+        const toast = this.createToast(message, type);
+        toastContainer.appendChild(toast);
+
+        if (duration > 0) {
+            setTimeout(() => this.removeToast(toast), duration);
+        }
+        return toast;
+    }
+
+    showPersistentNotification(message, type = 'info') {
+        const toastContainer = this.getToastContainer();
+        const toast = this.createToast(message, type, false);
+        toastContainer.appendChild(toast);
+        return toast;
+    }
+
+    createPersistentProgressToast(message, type = 'success') {
+        // Remove any previous uploading toast
+        const toastContainer = this.getToastContainer();
+        const existing = toastContainer.querySelector('.persistent-toast.uploading-toast');
+        if (existing) toastContainer.removeChild(existing);
+        // Always use green background for uploading
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-success persistent-toast uploading-toast';
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                <span class="spinner-border spinner-border-sm me-2" role="status" style="display:inline-block;vertical-align:middle;"></span>
+                <span class="message-text ms-2" style="font-weight:500;">${message}</span>
+            </div>
+            <button type="button" class="message-close">&times;</button>
+        `;
+        toast.querySelector('.message-close').addEventListener('click', () => this.removeToast(toast));
+        toastContainer.appendChild(toast);
+        return toast;
+    }
+
+    getToastContainer() {
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container';
+            document.body.appendChild(toastContainer);
+        }
+        return toastContainer;
+    }
+
+    createToast(message, type, withSpinner = false) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        let iconHtml = '';
+        if (withSpinner) {
+            iconHtml = `<span class="spinner-border spinner-border-sm me-2" role="status" style="display:inline-block;vertical-align:middle;"></span>`;
+        } else {
+            const icon = this.getIconForType(type);
+            iconHtml = `<i class="fas fa-${icon}"></i>`;
+        }
+
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                ${iconHtml}
+                <span class="message-text ms-2" style="font-weight:500;">${message}</span>
+            </div>
+            <button type="button" class="message-close">&times;</button>
+        `;
+
+        toast.querySelector('.message-close').addEventListener('click', () => this.removeToast(toast));
+        return toast;
+    }
+
+    getIconForType(type) {
+        switch (type) {
+            case 'success': return 'check-circle';
+            case 'error': return 'exclamation-circle';
+            case 'warning': return 'exclamation-triangle';
+            default: return 'info-circle';
+        }
+    }
+
+    removeToast(toast) {
+        if (toast && toast.parentNode) {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }
+    }
+
+    getTheme() {
+        return this.currentTheme;
+    }
+
+    setTheme(theme) {
+        if (theme === 'light' || theme === 'dark') {
+            this.currentTheme = theme;
+            this.setupTheme();
+        }
+    }
+
+    openModalPublic(modalId) {
+        this.openModal(modalId);
+    }
+
+    closeModalPublic(modalId) {
+        this.closeModal(modalId);
+    }
+}
+
+function openModal(modalId) {
+    if (window.portalUI) {
+        window.portalUI.openModalPublic(modalId);
+    }
+}
+
+function closeModal(modalId) {
+    if (window.portalUI) {
+        window.portalUI.closeModalPublic(modalId);
+    }
+}
+
+function filterProjectTable() {
+    if (window.portalUI) {
+        window.portalUI.filterProjectTable();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.portalUI = new EmployeePortalUI();
+    
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.portalUI.showNotification('Logging out...', 'info');
+            setTimeout(() => {
+                window.portalUI.showNotification('Successfully logged out!', 'success');
+            }, 1000);
+        });
+    }
+
+    const demoButton = document.querySelector('.btn-loading');
+    if (demoButton) {
+        demoButton.addEventListener('click', () => {
+            setTimeout(() => {
+                demoButton.classList.remove('btn-loading');
+                demoButton.innerHTML = 'Completed!';
+                setTimeout(() => {
+                    demoButton.innerHTML = '<span class="loading-spinner"></span>Loading...';
+                    demoButton.classList.add('btn-loading');
+                }, 2000);
+            }, 3000);
+        });
+    }
+
+    const projectSearchInput = document.getElementById('projectSearchInput');
+    if (projectSearchInput) {
+        projectSearchInput.addEventListener('input', filterProjectTable);
+    }
+
+    const statsCards = document.querySelectorAll('.stats-card');
+    statsCards.forEach(card => {
+        card.addEventListener('click', function() {
+            this.style.animation = 'pulse 0.3s ease';
+            setTimeout(() => {
+                this.style.animation = '';
+            }, 300);
+            window.portalUI.showNotification('Stats card clicked!', 'info', 2000);
+        });
+    });
+    
+    const jobItems = document.querySelectorAll('.job-item');
+    jobItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const jobTitle = this.querySelector('h4').textContent;
+            window.portalUI.showNotification(`Opened: ${jobTitle}`, 'info', 2000);
+        });
+    });
+});
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = EmployeePortalUI;
+}

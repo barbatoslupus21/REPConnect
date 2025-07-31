@@ -1,0 +1,132 @@
+<div class="email-selection-form">
+    <form method="post" id="email-selection-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label class="form-label">Choose where to send your payslip:</label>
+            <div class="radio-input">
+                {% for choice in form.email_type %}
+                    <label class="label">
+                        {{ choice.tag }}
+                        <p class="text">{{ choice.choice_label }}</p>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="payslip-info">
+            <h4>Payslip Details</h4>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Employee:</span>
+                    <span class="value">{{ payslip.employee.name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Period:</span>
+                    <span class="value">{{ payslip.cutoff_from }} to {{ payslip.cutoff_to }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Type:</span>
+                    <span class="value">{{ payslip.get_employee_type_display }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-envelope"></i>
+                Send Payslip
+            </button>
+            <button type="button" class="btn btn-outline" onclick="history.back()">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.email-selection-form {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: var(--space-xl);
+}
+
+.payslip-info {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin: var(--space-lg) 0;
+    border: 1px solid var(--border-color);
+}
+
+.payslip-info h4 {
+    color: var(--text-primary);
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.info-grid {
+    display: grid;
+    gap: var(--space-sm);
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+}
+
+.info-item .label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.info-item .value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.radio-input {
+    margin: var(--space-md) 0;
+}
+
+.radio-input .label {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md);
+    margin-bottom: var(--space-sm);
+    background: var(--surface);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.radio-input .label:hover {
+    border-color: var(--primary-color);
+    background: var(--surface-hover);
+}
+
+.radio-input .label input[type="radio"] {
+    margin-right: var(--space-md);
+}
+
+.radio-input .label input[type="radio"]:checked + .text {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.radio-input .label .text {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+    margin-top: var(--space-xl);
+}
+</style>

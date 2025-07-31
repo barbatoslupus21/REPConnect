@@ -1,0 +1,371 @@
+/* Loan Table: Fixed footer, scrollable tbody */
+.user-finance-table.loan-table-fixed-footer {
+  position: relative;
+  max-height: 400px;
+  overflow: hidden;
+}
+
+.user-finance-table.loan-table-fixed-footer table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.user-finance-table.loan-table-fixed-footer thead,
+.user-finance-table.loan-table-fixed-footer tfoot {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.user-finance-table.loan-table-fixed-footer tbody {
+  display: block;
+  max-height: 270px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.user-finance-table.loan-table-fixed-footer tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.user-finance-table.loan-table-fixed-footer tfoot tr {
+  background: #f8fafc;
+  font-weight: bold;
+}
+/* Fade-in effect for inactive loan rows */
+@keyframes fadeInRow {
+  from { opacity: 0; background-color: #b9fbc0; }
+  to { opacity: 1; background-color: transparent; }
+}
+
+.fade-in-effect {
+  animation: fadeInRow 0.7s ease;
+}
+/* Make radio button label full width in modal */
+.radio-input .label {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Finance table container enhancements */
+.user-finance-table,
+.data-table {
+    overflow: auto;
+    max-height: 400px; /* Ensure tables can be scrollable if content is long */
+}
+
+/* Email Selection Modal Styles */
+.email-selection-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.email-option-card {
+    position: relative;
+}
+
+.email-option-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.email-option-label {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color, #e1e5e9);
+    border-radius: 8px;
+    background: var(--surface, #ffffff);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 12px;
+}
+
+.email-option-label:hover {
+    border-color: var(--primary-color, #4f46e5);
+    background: var(--surface-hover, #f8fafc);
+}
+
+.email-option-card input[type="radio"]:checked + .email-option-label {
+    border-color: var(--primary-color, #4f46e5);
+}
+
+.email-option-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--muted-light, #f1f5f9);
+    color: var(--text-muted, #64748b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.email-option-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.email-option-name {
+    font-weight: 500;
+    color: var(--text-primary, #1e293b);
+    font-size: 15px;
+    margin-bottom: 2px;
+    word-break: break-all;
+}
+
+.email-option-username {
+    color: var(--text-muted, #64748b);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.email-option-check {
+    color: var(--primary-color, #4f46e5);
+    font-size: 18px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.email-option-card input[type="radio"]:checked + .email-option-label .email-option-check {
+    opacity: 1;
+}
+
+.email-option-card input[type="radio"]:checked + .email-option-label .email-option-name {
+    color: var(--text-primary, #1e293b);
+    font-weight: 600;
+}
+/* User Finance Summary - Unique Styles */
+.user-finance-summary {
+    display: flex;
+    gap: 4px;
+    margin-bottom: var(--space-lg);
+}
+
+.left-finance-col {
+    width: 65%;
+}
+
+.right-finance-col {
+    width: 35%;
+}
+
+
+.user-finance-table{
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    overflow-y: auto;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    width: 100%;
+    min-height: 385px;
+    max-height: 385px;
+}
+
+.user-finance-table {
+    overflow-x: auto;
+}
+.user-finance-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.user-finance-table th,
+.user-finance-table td {
+    padding: var(--space-md) var(--space-lg);
+    text-align: left;
+    border-bottom: 0.5px solid var(--border-color);
+}
+
+/* Ensure better spacing between Payment Progress and Balance columns */
+.user-finance-table th:nth-child(3),
+.user-finance-table td:nth-child(3) {
+    min-width: 180px;
+}
+.user-finance-table th:nth-child(4),
+.user-finance-table td:nth-child(4) {
+    min-width: 120px;
+    text-align: right;
+}
+
+/* Center align Principal Balance, Status, and Action columns in loan table */
+.user-finance-table th:nth-child(2),
+.user-finance-table td:nth-child(2),
+.user-finance-table th:nth-child(5),
+.user-finance-table td:nth-child(5),
+.user-finance-table th:nth-child(6),
+.user-finance-table td:nth-child(6) {
+    text-align: center;
+}
+
+.user-finance-table th {
+    background: var(--surface-hover);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.user-finance-table td {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.user-section-content {
+    padding: var(--space-xs) var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+
+
+
+
+
+
+
+.user-finance-card.user-finance-empty:only-child {
+    flex: 1;
+}
+
+.user-finance-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.user-finance-card-title-section {
+    flex: 1;
+}
+
+.user-finance-card-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-xs) 0;
+}
+
+.user-finance-card-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.user-finance-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    font-size: var(--font-size-xl);
+}
+
+.user-finance-card-content {
+    flex: 1;
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+}
+
+.user-finance-payslips-list,
+.user-finance-allowances-list {
+    flex: 1;
+}
+
+.user-finance-payslip-item,
+.user-finance-allowance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--space-md) 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.user-finance-payslip-item:last-child,
+.user-finance-allowance-item:last-child {
+    border-bottom: none;
+}
+
+.user-finance-payslip-info,
+.user-finance-allowance-info {
+    flex: 1;
+}
+
+.user-finance-payslip-period,
+.user-finance-allowance-type {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+}
+
+.user-finance-payslip-type,
+.user-finance-allowance-frequency {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.user-finance-payslip-amount,
+.user-finance-allowance-amount {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.user-finance-amount-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.user-finance-card-footer {
+    padding: var(--space-md) var(--space-lg);
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.user-finance-empty-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+    text-align: center;
+}
+
+.user-finance-empty-icon {
+    font-size: 48px;
+    color: var(--text-muted);
+    margin-bottom: var(--space-lg);
+}
+
+.user-finance-empty-text {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 768px) {
+    .user-finance-table table {
+        width: 200%;
+    }
+}
+
+@media (max-width: 480px) {
+    .user-finance-table table {
+        width: 150%;
+    }
+
+    .user-section-content {
+        padding: var(--space-md);
+    }
+}

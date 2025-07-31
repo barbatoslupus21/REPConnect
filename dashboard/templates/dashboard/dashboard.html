@@ -1,0 +1,90 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - Overview{% endblock title %}
+{% block pagetitle %}Company Overview{% endblock %}
+
+{% block extra_css %}
+{% comment %} <link rel="stylesheet" href="{% static 'css/calendar/calendar.css' %}"> {% endcomment %}
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+    <h3>Company Overview</h3>
+
+    <!-- Test Modern Statistics Cards -->
+    <div class="modern-stats-grid">
+        <div class="modern-stat-card">
+            <div class="modern-stat-header">
+                <div class="modern-stat-icon blue">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+            <div class="modern-stat-label">Total Employees</div>
+            <div class="modern-stat-value">1,234</div>
+            <div class="modern-stat-change positive">
+                <span class="modern-stat-change-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </span>
+                8.2%
+                <span class="modern-stat-change-text">vs prev. month</span>
+            </div>
+        </div>
+
+        <div class="modern-stat-card">
+            <div class="modern-stat-header">
+                <div class="modern-stat-icon green">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+            </div>
+            <div class="modern-stat-label">Active Projects</div>
+            <div class="modern-stat-value">42</div>
+            <div class="modern-stat-change positive">
+                <span class="modern-stat-change-icon">
+                    <i class="fas fa-arrow-up"></i>
+                </span>
+                15%
+                <span class="modern-stat-change-text">vs prev. month</span>
+            </div>
+        </div>
+
+        <div class="modern-stat-card">
+            <div class="modern-stat-header">
+                <div class="modern-stat-icon orange">
+                    <i class="fas fa-clock"></i>
+                </div>
+            </div>
+            <div class="modern-stat-label">Pending Tasks</div>
+            <div class="modern-stat-value">156</div>
+            <div class="modern-stat-change negative">
+                <span class="modern-stat-change-icon">
+                    <i class="fas fa-arrow-down"></i>
+                </span>
+                3.1%
+                <span class="modern-stat-change-text">vs prev. week</span>
+            </div>
+        </div>
+
+        <div class="modern-stat-card">
+            <div class="modern-stat-header">
+                <div class="modern-stat-icon red">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+            <div class="modern-stat-label">Issues</div>
+            <div class="modern-stat-value">7</div>
+            <div class="modern-stat-change negative">
+                <span class="modern-stat-change-icon">
+                    <i class="fas fa-arrow-down"></i>
+                </span>
+                12%
+                <span class="modern-stat-change-text">vs prev. week</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+{% comment %} <script src="{% static 'js/calendar/calendar.js' %}"></script> {% endcomment %}
+{% endblock %}

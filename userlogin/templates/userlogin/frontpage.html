@@ -1,0 +1,376 @@
+{% extends "homepage.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block content %}
+
+  <!-- Hero Section with Navigation -->
+  <section class="ryonan_hero" id="home">
+    <nav class="ryonan_navbar">
+        <a href="#" class="ryonan_logo">REPConnect</a>
+        <div class="ryonan_nav_links">
+            <ul class="ryonan_nav_list">
+                <li class="ryonan_nav_item"><a href="#home" class="ryonan_nav_link">Home</a></li>
+                <li class="ryonan_nav_item"><a href="#customers" class="ryonan_nav_link">Customers</a></li>
+                <li class="ryonan_nav_item"><a href="#features1" class="ryonan_nav_link">Mission & Vision</a></li>
+                <li class="ryonan_nav_item"><a href="#creed" class="ryonan_nav_link">Company Creed</a></li>
+                <li class="ryonan_nav_item"><a href="#contact" class="ryonan_nav_link">Contact</a></li>
+            </ul>
+            <button class="ryonan_login_btn" id="loginBtn">Sign in</button>
+            <button class="ryonan_login_btn" id="registerBtn">Sign up</button>
+        </div>
+    </nav>
+    
+    <div class="ryonan_hero_content ryonan_animated ryonan_slideInLeft">
+        <div class="ryonan_subtitle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+            </svg>
+            Empowering People. Connecting Excellence.
+        </div>
+        <h1 class="ryonan_hero_title">Your Gateway to Seamless Production & Employee Engagement</h1>
+        <p class="ryonan_hero_description">
+            Welcome to REPConnect, the unified portal for Ryonan Electric Philippines. Access real-time production data, collaborate across teams, and manage employee needs—all in one secure, efficient platform designed for growth and innovation.
+        </p>
+        <button class="ryonan_cta_btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polygon points="10 8 16 12 10 16 10 8" fill="white"></polygon>
+            </svg>
+            Access Portal
+        </button>
+    </div>
+</section>
+
+<!-- Customers Section -->
+<section class="ryonan_customers_section" id="customers">
+    <div class="ryonan_customers_container">
+        <div class="ryonan_section_header">
+            <p>Trusted by leading companies</p>
+        </div>
+        <div class="ryonan_customers_grid">
+            <img src="{% static 'images/homepage/73fa72dd6d4de67f34123d54aa5d3b52.png' %}" alt="Customer Logo" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/lamcor.png' %}" alt="Lamcor" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/mitsuba.png' %}" alt="Mitsuba" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/naganuma.png' %}" alt="Naganuma" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/pngwing.com.png' %}" alt="Customer Logo" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/Semitec.png' %}" alt="Semitec" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/Sumiden-Wire.png' %}" alt="Sumiden Wire" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/Sumitomo.png' %}" alt="Sumitomo" class="ryonan_customer_logo">
+            <img src="{% static 'images/homepage/Tsukiden.png' %}" alt="Tsukiden" class="ryonan_customer_logo">
+        </div>
+    </div>
+</section>
+
+<!-- Features Section 1 -->
+<section class="ryonan_features_section" id="features1">
+    <div class="ryonan_features_container">
+        <div class="ryonan_section_header">
+            <h2>Our Mission & Vision</h2>
+            <p>Driving excellence and innovation in everything we do</p>
+        </div>
+        <div class="ryonan_features_grid">
+            <div class="ryonan_feature_card" data-delay="0">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">🎯</i>
+                </div>
+                <h3>Our Mission</h3>
+                <p>To provide excellent QUALITY, COST, DELIVERY, SERVICE, and RESPONSE SPEED for customer to be impressed. To continuously improve safety, clean facilities, and employees happiness. To continuously develop employees knowledge, skills, ability and technological adaptibility.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="150">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">🌟</i>
+                </div>
+                <h3>Vision 2030</h3>
+                <p>Ryonan Group possesses extensive global capabilities, providing new value that customers demands. We aim to be a company that excites everyone.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section 2 -->
+<section class="ryonan_features_section alternate" id="features2">
+    <div class="ryonan_features_container">
+        <div class="ryonan_section_header">
+            <h2>Three Promises to Realize Our Vision</h2>
+            <p>Building the foundation for our future success</p>
+        </div>
+        <div class="ryonan_features_grid">
+            <div class="ryonan_feature_card" data-delay="0">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">⚡</i>
+                </div>
+                <h3>Achieving Speed</h3>
+                <p>Flexible responsiveness that is trusted by customers and partners, "Achieving Speed".</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="150">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">🌍</i>
+                </div>
+                <h3>Global Human Resource Development</h3>
+                <p>Realizing global human resource development that takes advantage of individuality.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="300">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">🏭</i>
+                </div>
+                <h3>Advanced Technological Capabilities</h3>
+                <p>Empowering both people and machines to evolve through advanced technological capabilities and continuous kaizen improvements, striving to create an inspiring production factory.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Image Carousel Section -->
+<section class="ryonan_carousel_section">
+    <div class="ryonan_carousel" id="ryonanCarousel">
+        <div class="ryonan_carousel_slide active" style="background-image: url('{% static 'images/homepage/ryonan-drone.jpg' %}');">
+            <div class="ryonan_carousel_text">
+                <h2>Innovative Solutions, Tailored to You</h2>
+                <p>We understand that each project has specific requirements. At Ryonan Electric Philippines, we work closely with our clients to design and deliver customized wiring solutions that drive efficiency, enhance performance, and align with industry standards.</p>
+            </div>
+        </div>
+        <div class="ryonan_carousel_slide" style="background-image: url('{% static 'images/homepage/team-building.JPG' %}');">
+            <div class="ryonan_carousel_text">
+                <h2>Trusted by Industry Leaders</h2>
+                <p>Our commitment to quality and innovation has earned us the trust of top companies in the industry.</p>
+            </div>
+        </div>
+        <div class="ryonan_carousel_slide" style="background-image: url('{% static 'images/homepage/ryonan-group.jpg' %}');">
+            <div class="ryonan_carousel_text">
+                <h2>Empowering Progress</h2>
+                <p>We empower both people and technology to achieve new heights in manufacturing excellence.</p>
+            </div>
+        </div>
+        <button class="ryonan_carousel_arrow left" id="carouselPrev">&#10094;</button>
+        <button class="ryonan_carousel_arrow right" id="carouselNext">&#10095;</button>
+    </div>
+</section>
+
+<!-- Features Section 3 -->
+<section class="ryonan_features_section" id="creed">
+    <div class="ryonan_features_container">
+        <div class="ryonan_section_header">
+            <h2>Our Company Creed</h2>
+            <p>Our guiding principles that shape our culture and drive our commitment to excellence.</p>
+        </div>
+        <div class="ryonan_features_grid">
+            <div class="ryonan_feature_card" data-delay="0">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">🛎️</i>
+                </div>
+                <h3>Customer First Principle</h3>
+                <p>We prioritize customer needs, delivering responsive, value-driven service.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="50">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">⚡</i>
+                </div>
+                <h3>Speed</h3>
+                <p>We act swiftly, resolve issues fast, and uphold deadlines.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="100">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">💡</i>
+                </div>
+                <h3>Genba Principle</h3>
+                <p>We ensure a safe, quality-focused workplace through real-world engagement.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="150">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">💬</i>
+                </div>
+                <h3>Communication</h3>
+                <p>We build strong relationships through open, respectful communication.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="200">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">🙏</i>
+                </div>
+                <h3>Gratitude</h3>
+                <p>We express gratitude, respect, and celebrate mutual growth.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="250">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">🚀</i>
+                </div>
+                <h3>Challenge</h3>
+                <p>We embrace innovation, exploring new fields and technologies.</p>
+            </div>
+            <div class="ryonan_feature_card" data-delay="300">
+                <div class="ryonan_feature_icon">
+                    <i class="ryonan_feature_circle">👥</i>
+                </div>
+                <h3>Corporate Culture</h3>
+                <p>We uphold compliance, respect, and social responsibility in all we do.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="ryonan_footer" id="contact">
+    <div class="ryonan_footer_content">
+        <p>&copy; 2025 Ryonan Electric Philippines. All rights reserved.</p>
+        <p>REPConnect - Ryonan Employee Portal System v1.0</p>
+    </div>
+</footer>
+
+<!-- Login Modal -->
+<div class="ryonan_modal_container {% if login_modal %}active{% endif %}" id="modalContainer">
+    <div class="ryonan_modal">
+        <div class="ryonan_modal_header ryonan_modal_header_centered">
+            <h3 class="ryonan_modal_title">Welcome to REPConnect</h3>
+            <div class="ryonan_modal_subtitle">Access. Communicate. Collaborate.</div>
+        </div>
+        <button class="ryonan_close_modal ryonan_modal_close_topright" id="closeModal">&times;</button>
+        <div class="ryonan_modal_body">
+            {% if messages %}
+            <div class="ryonan_error_message show" id="errorMessage">
+                {% for message in messages %}
+                    {{ message }}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="ryonan_error_message" id="errorMessage"></div>
+            {% endif %}
+            
+            <form id="loginForm" method="POST" action="{% url 'user-login' %}">
+                {% csrf_token %}
+                <div class="ryonan_form_group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="ryonan_form_group">
+                    <label for="password">Password</label>
+                    <div class="ryonan_password_container">
+                        <input type="password" id="password" name="password" required>
+                        <button type="button" class="ryonan_password_toggle" id="passwordToggle">
+                            <svg class="ryonan_eye_icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="ryonan_eye_off_icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="ryonan_submit_btn" id="submitBtn">
+                    <span>Login</span>
+                    <div class="ryonan_spinner"></div>
+                </button>
+            </form>
+            <hr class="ryonan_modal_switch_hr">
+            <div class="ryonan_modal_switch_prompt">
+                Don't have an account? <a href="#" id="openRegisterModal" class="ryonan_modal_switch_link">Sign up</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Modal -->
+<div class="ryonan_modal_container" id="registerModalContainer">
+    <div class="ryonan_modal ryonan_register_modal">
+        <div class="ryonan_modal_header ryonan_modal_header_centered">
+            <h3 class="ryonan_modal_title">Welcome</h3>
+            <div class="ryonan_modal_subtitle">Create your account to get started.</div>
+        </div>
+        <button class="ryonan_close_modal ryonan_modal_close_topright" id="closeRegisterModal">&times;</button>
+        <div class="ryonan_modal_body">
+            <div class="ryonan_error_message{% if register_error or register_error_list %} show{% endif %}" id="registerErrorMessage">
+                {% if register_error %}{{ register_error }}{% endif %}
+                {% if register_error_list %}
+                    <ul style="margin: 0; padding-left: 1.2em; text-align: left;">
+                        {% for err in register_error_list %}
+                            <li>{{ err }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+            <form id="registerForm" method="POST" action="{% url 'user-register' %}" novalidate>
+                {% csrf_token %}
+                <div class="ryonan_form_row">
+                    <div class="ryonan_form_group">
+                        <label for="register_first_name">First Name</label>
+                        <input type="text" id="register_first_name" name="first_name" required>
+                    </div>
+                    <div class="ryonan_form_group">
+                        <label for="register_last_name">Last Name</label>
+                        <input type="text" id="register_last_name" name="last_name" required>
+                    </div>
+                </div>
+                <div class="ryonan_form_row">
+                    <div class="ryonan_form_group">
+                        <label for="register_idnumber">ID Number</label>
+                        <input type="text" id="register_idnumber" name="idnumber" required>
+                    </div>
+                    <div class="ryonan_form_group">
+                        <label for="register_email">Email</label>
+                        <input type="email" id="register_email" name="email" required>
+                    </div>
+                </div>
+                <div class="ryonan_form_group">
+                    <label for="register_username">Username</label>
+                    <input type="text" id="register_username" name="username" required>
+                </div>
+                <div class="ryonan_form_group">
+                    <label for="register_password">Password</label>
+                    <div class="ryonan_password_container">
+                        <input type="password" id="register_password" name="password" required>
+                        <button type="button" class="ryonan_password_toggle" id="registerPasswordToggle">
+                            <svg class="ryonan_eye_icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="ryonan_eye_off_icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="ryonan_form_group">
+                    <label for="register_confirm_password">Confirm Password</label>
+                    <div class="ryonan_password_container">
+                        <input type="password" id="register_confirm_password" name="confirm_password" required>
+                        <button type="button" class="ryonan_password_toggle" id="registerConfirmPasswordToggle">
+                            <svg class="ryonan_eye_icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <svg class="ryonan_eye_off_icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="ryonan_submit_btn" id="registerSubmitBtn">
+                    <span>Register</span>
+                    <div class="ryonan_spinner"></div>
+                </button>
+            </form>
+            <hr class="ryonan_modal_switch_hr">
+            <div class="ryonan_modal_switch_prompt">
+                Already have an account? <a href="#" id="openLoginModal" class="ryonan_modal_switch_link">Sign in</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if confirmation_modal %}
+<div class="ryonan_modal_container active" id="confirmationModalContainer">
+    <div class="ryonan_modal">
+        <div class="ryonan_modal_header ryonan_modal_header_centered">
+            <h3 class="ryonan_modal_title">Account Created!</h3>
+        </div>
+        <button class="ryonan_close_modal ryonan_modal_close_topright" id="closeConfirmationModal">&times;</button>
+        <div class="ryonan_modal_body" style="text-align:center;">
+            <p style="margin-bottom:24px;">Thank you for registering with REPConnect.<br>Your account was created successfully.<br>Your account is under review. You will receive a confirmation email within 1 day.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock content %}
