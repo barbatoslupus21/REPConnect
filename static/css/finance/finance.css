@@ -90,12 +90,6 @@
     }
 }
 
-/* Modal size adjustment for OJT payslip */
-.modal-lg .modal-content {
-    width: 90%;
-    max-width: 1000px;
-}
-
 /* Special styling for totals section */
 .ojt-info-group.totals-section {
     border: 2px solid var(--primary-color);
@@ -112,10 +106,6 @@
 }
 
 @media (max-width: 768px) {
-    .modal-lg .modal-content {
-        width: 95%;
-        margin: 1rem;
-    }
     
     .ojt-info-item {
         padding: 0.875rem 1rem;
@@ -151,11 +141,7 @@
     min-width: 1200px;
     border-collapse: collapse;
 }
-/* Scrollable modal content for loan deductions */
-#loanDeductionsModal .modal-content {
-    max-height: 80vh;
-    overflow-y: auto;
-}
+
 body, .profile-container, .profile-card, .profile-main-info, .profile-main-name, .profile-main-meta, .profile-tag, .profile-card-title, .table-no-data, .table-no-data-title, .table-no-data-desc, .empty-icon, .profile-sidepanel, .profile-tags, .profile-tag-close, .profile-meta-item, .profile-meta-dot, .profile-main-content, .tab, .tab-list, .tab-panel, .profile-sidebar, .profile-activity {
     font-family: 'Poppins', Arial, Helvetica, sans-serif !important;
 }
@@ -1180,6 +1166,11 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
     font-size: var(--font-size-md);
 }
 
+.loan-date-started{
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
 .loan-status .status-badge {
     padding: var(--space-xs) var(--space-md);
     border-radius: var(--radius-md);
@@ -1275,6 +1266,17 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
 
 /* Responsive design for loan cards */
 @media (max-width: 768px) {
+
+    .loan-type-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+    }
+
+    .loan-date-started{
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+    }
 
     .loans-table-container table {
         width: 200%;

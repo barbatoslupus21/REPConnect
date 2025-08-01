@@ -750,6 +750,244 @@ document.addEventListener('DOMContentLoaded', () => {
     window.employeeFinance = new EmployeeFinanceModule();
 });
 
+// User Finance Page Tour Function
+function startUserFinanceTour() {
+    // Check if user is OJT - don't show tour for OJT users
+    const userEmploymentType = document.body.getAttribute('data-employment-type');
+    if (userEmploymentType === 'OJT') {
+        alert('Page tour is not available for OJT users as some sections are not accessible.');
+        return;
+    }
+
+    // Collect available tour steps
+    const availableSteps = [];
+
+    // Welcome step (no element, just intro)
+    availableSteps.push({
+        intro: '<h2>Welcome to your Finance Dashboard!</h2><p>This quick tour will guide you through the main features so you can make the most of your financial tools.</p>',
+        position: 'center'
+    });
+
+    // Always include dashboard stats (step 1)
+    const dashboardElement = document.querySelector('[data-step="1"]');
+    if (dashboardElement) {
+        availableSteps.push({
+            element: '[data-step="1"]',
+            intro: dashboardElement.getAttribute('data-intro'),
+            position: 'bottom'
+        });
+    }
+    
+    // Check for loans section (steps 2, 3, 4, 5)
+    const loanTableElement = document.querySelector('[data-step="2"]');
+    const loanToggleElement = document.querySelector('[data-step="3"]');
+    const viewLoanBtnElement = document.querySelector('[data-step="4"]');
+    
+    if (loanTableElement && loanToggleElement) {
+        availableSteps.push({
+            element: '[data-step="2"]',
+            intro: loanTableElement.getAttribute('data-intro'),
+            position: 'top'
+        });
+        
+        availableSteps.push({
+            element: '[data-step="3"]',
+            intro: loanToggleElement.getAttribute('data-intro'),
+            position: 'bottom'
+        });
+        
+        if (viewLoanBtnElement) {
+            availableSteps.push({
+                element: '[data-step="4"]',
+                intro: viewLoanBtnElement.getAttribute('data-intro'),
+                position: 'top'
+            });
+            
+            // Add deduction modal step only if view loan button exists
+            availableSteps.push({
+                element: '[data-step="5"]',
+                intro: '<b>Loan Deductions Modal</b><br>This modal shows detailed information about loan deductions including payment schedules and amounts.',
+                position: 'bottom'
+            });
+        }
+    }
+    
+    // Check for payslips section (steps 6, 7, 8)
+    const payslipTableElement = document.querySelector('[data-step="6"]');
+    const emailPayslipBtnElement = document.querySelector('[data-step="7"]');
+    
+    if (payslipTableElement) {
+        availableSteps.push({
+            element: '[data-step="6"]',
+            intro: payslipTableElement.getAttribute('data-intro'),
+            position: 'top'
+        });
+        
+        if (emailPayslipBtnElement) {
+            availableSteps.push({
+                element: '[data-step="7"]',
+                intro: emailPayslipBtnElement.getAttribute('data-intro'),
+                position: 'top'
+            });
+            
+            // Add email modal step only if email button exists
+            availableSteps.push({
+                element: '[data-step="8"]',
+                intro: '<b>Email Selection Modal</b><br>Choose which email address to send your payslip to - your personal email or work email.',
+                position: 'bottom'
+            });
+        }
+    }
+    
+    // Check for allowances section (step 9)
+    const allowancesElement = document.querySelector('[data-step="9"]');
+    if (allowancesElement) {
+        availableSteps.push({
+            element: '[data-step="9"]',
+            intro: allowancesElement.getAttribute('data-intro'),
+            position: 'top'
+        });
+    }
+    
+    // Check for savings section (step 10)
+    const savingsElement = document.querySelector('[data-step="10"]');
+    if (savingsElement) {
+        availableSteps.push({
+            element: '[data-step="10"]',
+            intro: savingsElement.getAttribute('data-intro'),
+            position: 'top'
+        });
+    }
+    
+    // If no sections are available except dashboard, show a message
+    if (availableSteps.length <= 1) {
+        alert('No financial data available for tour. Please check back once you have loans, payslips, allowances, or savings data.');
+        return;
+    }
+
+    // Configure intro.js
+    introJs.tour().setOptions({
+        showStepNumbers: true,
+        showBullets: false,
+        exitOnOverlayClick: false,
+        exitOnEsc: true,
+        nextLabel: 'Next →',
+        prevLabel: '← Back',
+        doneLabel: 'Finish Tour',
+        skipLabel: '×',
+        highlightClass: 'tour-highlight',
+        scrollToElement: true,
+        scrollPadding: 50,
+        positionPrecedence: ['bottom', 'top', 'right', 'left'],
+        showProgress: true,
+        progressBarAdditionalClass: 'tour-progress-bar',
+        steps: availableSteps
+    }).onbeforechange(function(targetElement) {
+        // Handle modal visibility during tour
+        const stepElement = targetElement;
+        const intro = stepElement ? stepElement.getAttribute('data-intro') || '' : '';
+        
+        // Show deduction modal for deduction modal step
+        if (intro.includes('Loan Deductions Modal')) {
+            const modal = document.getElementById('loanDeductionsModal');
+            if (modal) {
+                modal.classList.add('show');
+                // Add sample content if modal body is empty
+                const modalBody = document.getElementById('loanDeductionsBody');
+                if (modalBody && modalBody.innerHTML.trim() === '') {
+                    modalBody.innerHTML = `
+                        <div style="padding: 20px; text-align: center;">
+                            <h4>Sample Loan Deduction Details</h4>
+                            <table style="width:100%;margin:1em 0;border-collapse:collapse;">
+                                <thead>
+                                    <tr style="background:#f3f4f6;">
+                                        <th style="padding:8px;border:1px solid #e5e7eb;">Date</th>
+                                        <th style="padding:8px;border:1px solid #e5e7eb;">Amount</th>
+                                        <th style="padding:8px;border:1px solid #e5e7eb;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;">2025-08-15</td>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;">₱ 2,000.00</td>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;"><span style="color: #10b981; font-weight: bold;">Paid</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;">2025-09-15</td>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;">₱ 2,000.00</td>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;"><span style="color: #f59e0b; font-weight: bold;">Upcoming</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;">2025-10-15</td>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;">₱ 2,000.00</td>
+                                        <td style="padding:8px;border:1px solid #e5e7eb;"><span style="color: #f59e0b; font-weight: bold;">Upcoming</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p style="margin-top:1em;color:#64748b;"><em>This is a demo for the tour - actual data would appear here when viewing a real loan.</em></p>
+                        </div>
+                    `;
+                }
+                // Center modal in viewport
+                setTimeout(() => {
+                    modal.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            }
+        }
+        
+        // Show email modal for email modal step
+        if (intro.includes('Email Selection Modal')) {
+            const modal = document.getElementById('emailSelectionModal');
+            if (modal) {
+                modal.classList.add('show');
+            }
+        }
+        
+        // Hide modals when not on modal steps or when moving to next step
+        if (!intro.includes('Loan Deductions Modal')) {
+            const deductionModal = document.getElementById('loanDeductionsModal');
+            if (deductionModal) {
+                deductionModal.classList.remove('show');
+            }
+        }
+        
+        if (!intro.includes('Email Selection Modal')) {
+            const emailModal = document.getElementById('emailSelectionModal');
+            if (emailModal) {
+                emailModal.classList.remove('show');
+            }
+        }
+        
+        // Scroll to element with better positioning
+        if (targetElement) {
+            const rect = targetElement.getBoundingClientRect();
+            const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+            
+            if (!isVisible) {
+                targetElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center',
+                    inline: 'nearest'
+                });
+            }
+        }
+    }).onexit(function() {
+        // Clean up - hide any open modals
+        const modals = document.querySelectorAll('.modal.show');
+        modals.forEach(modal => modal.classList.remove('show'));
+    }).oncomplete(function() {
+        // Clean up - hide any open modals
+        const modals = document.querySelectorAll('.modal.show');
+        modals.forEach(modal => modal.classList.remove('show'));
+        
+        // Optional: Show completion message
+        // (Removed alert on tour completion)
+    }).start();
+}
+
+// Make tour function globally available
+window.startUserFinanceTour = startUserFinanceTour;
+
 // Export for potential external use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = EmployeeFinanceModule;

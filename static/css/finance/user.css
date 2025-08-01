@@ -1,3 +1,93 @@
+.savings-active-icon {
+  color: #22c55e;
+  font-size: 16px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.allowance-date-icon {
+  color: var(--text-muted);
+  margin-right: 6px;
+  font-size: 12px;
+}
+/* Allowance card: flex row layout for type/date left, amount right */
+.allowance-flex-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.allowance-info-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+.allowance-amount-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 90px;
+}
+
+/* Allowance Card/List Design */
+.allowance-list {
+  display: flex;
+  flex-direction: column;
+  /* gap: 8px; */
+  /* padding: 8px; */
+}
+.allowance-item {
+  background: var(--surface, #fff);
+  border-bottom: 1px solid var(--border-color);
+  /* border-radius: 10px; */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  padding: 16px 20px 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+.allowance-type {
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+.allowance-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-color, #4f46e5);
+  margin-bottom: 8px;
+}
+.allowance-date {
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
+}
+/* Finance summary flex layout for user-finance.html */
+.finance-flex-row {
+    display: flex;
+    gap: 24px;
+    width: 100%;
+}
+.finance-flex-payslip {
+    flex: 1 1 0%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.finance-flex-fixed {
+    flex: 0 0 22%;
+    width: 22%;
+    display: flex;
+    flex-direction: column;
+}
+
+.user-finance-card{
+    position: relative;
+    max-height: 400px;
+    overflow: hidden;
+}
+
 /* Loan Table: Fixed footer, scrollable tbody */
 .user-finance-table.loan-table-fixed-footer {
   position: relative;
@@ -55,7 +145,7 @@
 .user-finance-table,
 .data-table {
     overflow: auto;
-    max-height: 400px; /* Ensure tables can be scrollable if content is long */
+    max-height: 400px;
 }
 
 /* Email Selection Modal Styles */
@@ -147,8 +237,8 @@
 /* User Finance Summary - Unique Styles */
 .user-finance-summary {
     display: flex;
-    gap: 4px;
-    margin-bottom: var(--space-lg);
+    gap: var(--space-lg);
+    margin-bottom: var(--space-sm);
 }
 
 .left-finance-col {
@@ -158,8 +248,34 @@
 .right-finance-col {
     width: 35%;
 }
+ 
+.center-align {
+    text-align: center !important;
+}
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
 .user-finance-table{
     background: var(--surface);
     border-radius: var(--radius-lg);
@@ -197,14 +313,18 @@
     text-align: right;
 }
 
-/* Center align Principal Balance, Status, and Action columns in loan table */
+/* Remove center alignment for specific columns in user-finance-table */
 .user-finance-table th:nth-child(2),
 .user-finance-table td:nth-child(2),
+.user-finance-table th:nth-child(3),
+.user-finance-table td:nth-child(3),
+.user-finance-table th:nth-child(4),
+.user-finance-table td:nth-child(4),
 .user-finance-table th:nth-child(5),
 .user-finance-table td:nth-child(5),
 .user-finance-table th:nth-child(6),
 .user-finance-table td:nth-child(6) {
-    text-align: center;
+    text-align: left !important;
 }
 
 .user-finance-table th {
@@ -219,17 +339,41 @@
     font-size: var(--font-size-sm);
 }
 
-.user-section-content {
-    padding: var(--space-xs) var(--space-md);
-    margin-bottom: var(--space-lg);
+.finance-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: var(--space-xs) 0;
+    margin-bottom: var(--space-md);
 }
 
+.user-section-content {
+    padding: 0;
+    margin-bottom: var(--space-lg);
+    overflow: hidden;
 
+}
 
-
-
-
-
+/* Align all table cells to the left and add spacing between columns */
+.left-align-table th,
+.left-align-table td {
+    text-align: left !important;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.left-align-table th:first-child,
+.left-align-table td:first-child {
+    padding-left: 24px;
+}
+.left-align-table th:last-child,
+.left-align-table td:last-child {
+    padding-right: 24px;
+}
+.left-align-table th,
+.left-align-table td {
+    min-width: 120px;
+}
 
 .user-finance-card.user-finance-empty:only-child {
     flex: 1;
@@ -354,18 +498,98 @@
     font-size: var(--font-size-sm);
 }
 
+@media (max-width: 1100px) {
+    .finance-flex-fixed { flex-basis: 220px; max-width: 220px; min-width: 160px; }
+}
+
+@media (max-width: 1024px) {
+    .loan-responsive-table .loan-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table.loan-table-fixed-footer {
+        max-height: 600px;
+    }
+    .user-finance-table .payslip-hide-mobile {
+        display: none !important;
+    }
+    .finance-flex-fixed {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
+}
+
+@media (max-width: 900px) {
+    .finance-flex-row { 
+        flex-direction: column; 
+        gap: 0; 
+    }
+    .finance-flex-fixed, .finance-flex-payslip { 
+        max-width: 100%; 
+        min-width: 0; flex: 1 1 100%; 
+    }
+}
+
 @media (max-width: 768px) {
+    .loan-responsive-table .loan-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table.loan-table-fixed-footer {
+        max-height: 600px;
+    }
+    .user-finance-table .payslip-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table{
+        min-height: 385px;
+        max-height: 500px;
+    }
+
     .user-finance-table table {
-        width: 200%;
+        width: 100%;
+    }
+
+    .user-finance-table th {
+        background: var(--surface-hover);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: var(--font-size-xs);
+    }
+
+    .user-finance-table td {
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+    }
+    .finance-flex-fixed {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
     }
 }
 
 @media (max-width: 480px) {
+    .loan-responsive-table .loan-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table.loan-table-fixed-footer {
+        max-height: 600px;
+    }
+    .user-finance-table .payslip-hide-mobile {
+        display: none !important;
+    }
     .user-finance-table table {
-        width: 150%;
+            width: 100%;
     }
 
     .user-section-content {
         padding: var(--space-md);
+    }
+    .finance-flex-fixed {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
     }
 }

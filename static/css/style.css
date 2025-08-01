@@ -1,4 +1,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+/* Custom Tooltip for Tour Button */
+
+.tour-btn {
+  position: relative;
+}
+
+.tour-tooltip {
+  position: absolute;
+  left: 50%;
+  top: 120%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-sm, 0.375rem);
+  box-shadow: var(--shadow-sm, 0 2px 8px 0 rgba(0,0,0,0.066));
+  padding: 0.75em 1.5em;
+  min-width: 240px;
+  max-width: 340px;
+  width: 260px;
+  font-size: var(--font-size-md, 1rem);
+  white-space: normal;
+  z-index: 100;
+  display: none;
+  text-align: center;
+}
+
+.tour-btn:hover .tour-tooltip,
+.tour-btn:focus .tour-tooltip {
+  display: block;
+}
 
 :root {
     --primary-color: #6366f1;
@@ -706,7 +737,7 @@ input:checked + .slider:before {
     overflow-y: auto;
     min-height: 0;
     width: 100%;
-    padding: 15px;
+    padding: 15px var(--space-lg);
     animation: pageContentEntrance 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s forwards;
     opacity: 0;
     transform: translateY(20px);
@@ -4538,7 +4569,7 @@ select.form-input {
 }
 
 /* Intro.js Custom Styles (moved from certificate.css) */
-.introjs-tooltip {
+/* .introjs-tooltip {
     border-radius: var(--radius-lg) !important;
     box-shadow: var(--shadow-lg) !important;
     border: 1px solid var(--border-color) !important;
@@ -4582,7 +4613,6 @@ select.form-input {
     display: inline-block !important;
     background: var(--surface, #fff) !important;
     color: var(--text-muted) !important;
-    /* border: 1.5px solid var(--primary-color, #2563eb) !important; */
     border-radius: var(--radius-md, 6px) !important;
     padding: 4px 16px !important;
     font-size: 0.8em !important;
@@ -4609,7 +4639,7 @@ select.form-input {
     font-size: 0.95em;
     margin-bottom: 8px;
     text-align: center;
-}
+} */
 
 .congrats-modal {
     position: relative;
@@ -5265,58 +5295,6 @@ textarea:required:invalid {
     margin-bottom: 0;
 }
 
-.custom-tour-tooltip {
-  border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-lg) !important;
-  border: 1px solid var(--border-color) !important;
-  background: var(--surface) !important;
-  color: var(--text-primary) !important;
-  font-size: 1rem !important;
-  padding: var(--space-lg) !important;
-  max-width: 350px !important;
-}
-.custom-tour-tooltip .introjs-tooltip-title {
-  color: var(--primary-color) !important;
-  font-weight: 600 !important;
-  font-size: 1.1em !important;
-  margin-bottom: var(--space-sm) !important;
-}
-.custom-tour-tooltip .introjs-tooltiptext {
-  color: var(--text-secondary) !important;
-  font-size: 1em !important;
-}
-.custom-tour-tooltip .introjs-button {
-  background: var(--primary-color) !important;
-  color: var(--text-inverse) !important;
-  border-radius: var(--radius-md) !important;
-  font-weight: 500 !important;
-  font-size: 1em !important;
-  padding: 8px 18px !important;
-  margin: 0 4px !important;
-  border: none !important;
-  box-shadow: var(--shadow-sm) !important;
-  transition: background 0.2s;
-}
-.custom-tour-tooltip .introjs-button:hover {
-  background: var(--primary-hover) !important;
-}
-.custom-tour-tooltip .introjs-skipbutton {
-  background: var(--surface) !important;
-  color: var(--text-muted) !important;
-  border-radius: var(--radius-md) !important;
-  font-size: 0.95em !important;
-  font-weight: 400 !important;
-  padding: 4px 16px !important;
-  border: none !important;
-}
-.custom-tour-tooltip .introjs-progressbar {
-  background: var(--primary-color) !important;
-}
-.custom-tour-tooltip .introjs-step-number {
-  color: var(--primary-color) !important;
-  font-weight: 600 !important;
-  font-size: 1em !important;
-}
 .custom-tour-highlight {
   box-shadow: 0 0 0 4px var(--primary-color), 0 2px 8px rgba(30,41,59,0.10) !important;
   border-radius: var(--radius-md) !important;
@@ -5347,134 +5325,6 @@ textarea:required:invalid {
 }
 [data-theme="dark"] .customHighlight {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4) !important;
-}
-
-.pagetour-tooltip {
-    background: #fff;
-    color: #222;
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(30,41,59,0.10), 0 1.5px 6px rgba(30,41,59,0.06);
-    border: none;
-    padding: 2rem 2.2rem 1.2rem 2.2rem;
-    max-width: 400px;
-    min-width: 320px;
-    font-size: 1rem;
-    font-family: 'Poppins', sans-serif;
-    line-height: 1.6;
-    z-index: 9999999 !important;
-}
-.pagetour-tooltip .introjs-tooltip-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #222;
-    margin-bottom: 0.5rem;
-}
-.pagetour-tooltip .introjs-tooltiptext {
-    color: #444;
-    font-size: 1rem;
-    margin-bottom: 1.2rem;
-}
-.pagetour-tooltip .introjs-progressbar {
-    background: var(--primary-color, #6366f1);
-    height: 5px;
-    border-radius: 4px;
-    margin-bottom: 1.2rem;
-}
-.pagetour-tooltip .introjs-button {
-    background: var(--primary-color, #6366f1);
-    color: #fff;
-    border-radius: 8px;
-    font-weight: 500;
-    font-size: 1rem;
-    padding: 8px 24px;
-    border: none;
-    margin: 0 4px;
-    box-shadow: 0 1px 4px rgba(30,41,59,0.06);
-    transition: background 0.2s;
-}
-.pagetour-tooltip .introjs-button:hover {
-    background: var(--primary-hover, #5856eb);
-}
-.pagetour-tooltip .introjs-skipbutton {
-    background: none;
-    color: #888;
-    font-size: 0.95em;
-    font-weight: 400;
-    border: none;
-    position: absolute;
-    top: 1.1rem;
-    right: 1.5rem;
-    padding: 0;
-    cursor: pointer;
-    text-decoration: underline;
-}
-.pagetour-tooltip .introjs-tooltipbuttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 1.2rem;
-}
-.pagetour-tooltip .introjs-tooltip {
-    box-shadow: none;
-    border: none;
-}
-.pagetour-tooltip .introjs-progress {
-    margin-bottom: 1rem;
-}
-
-.driver-popover {
-    background: #fff !important;
-    color: #222 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 24px rgba(30,41,59,0.10), 0 1.5px 6px rgba(30,41,59,0.06) !important;
-    border: none !important;
-    padding: 1.5rem 2rem 1.2rem 2rem !important;
-    min-width: 320px;
-    max-width: 400px;
-    font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
-    line-height: 1.6;
-}
-.driver-popover-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #222;
-}
-.driver-popover-description {
-    color: #444;
-    font-size: 1rem;
-    margin-bottom: 1.2rem;
-}
-.driver-popover-arrow {
-    display: block;
-}
-
-.driver-popover-footer button {
-    border-radius: 6px !important;
-    font-size: 1rem !important;
-    padding: 0.5rem 1.2rem !important;
-    font-weight: 500 !important;
-    border: none !important;
-    cursor: pointer !important;
-}
-.driver-popover-next-btn {
-    background: var(--primary-color) !important;
-    color: #fff !important;
-    font-weight: 300 !important;
-    transition: background 0.2s !important;
-}
-.driver-popover-next-btn:hover {
-    background: var(--primary-hover) !important;
-}
-.driver-popover-prev-btn {
-    background: #f3f3f3 !important;
-    color: #222 !important;
-    font-weight: 300 !important;
-    border: 1px solid #ddd !important;
-}
-.driver-popover-footer .btn-outline:hover {
-    background: #e5e5e5 !important;
 }
 
 .table-responsive {

@@ -194,6 +194,7 @@ def finance_dashboard(request):
     return render(request, 'finance/admin-finance.html', context)
 
 @login_required
+
 def user_finance(request):
     user = request.user
     now = timezone.now()
@@ -202,14 +203,61 @@ def user_finance(request):
     else:
         employment_type = 'regular'
 
-
     # Get payslips, allowances, loans, and savings for the current user
     payslips = Payslip.objects.filter(employee=user).order_by('-cutoff_date')
+    from django.db.models import Sum
     allowances = Allowance.objects.filter(employee=user).order_by('-created_at')
     loans = Loan.objects.filter(employee=user).order_by('-created_at')
-    # List savings: active (not withdrawn) first, then withdrawn
     savings = list(Savings.objects.filter(employee=user).order_by('-created_at'))
     savings_sorted = sorted(savings, key=lambda s: (s.is_withdrawn, -s.created_at.timestamp() if s.created_at else 0))
+
+    # Dashboard stats: this month vs last month for each metric
+    from datetime import timedelta
+    first_of_this_month = now.replace(day=1)
+    first_of_last_month = (first_of_this_month - timedelta(days=1)).replace(day=1)
+    # Payslips
+    payslips_this_month = Payslip.objects.filter(employee=user, cutoff_date__gte=first_of_this_month).count()
+    payslips_last_month = Payslip.objects.filter(employee=user, cutoff_date__gte=first_of_last_month, cutoff_date__lt=first_of_this_month).count()
+    total_payslips = payslips.count()
+    payslips_percent = 0
+    payslips_positive = True
+    if payslips_last_month:
+        payslips_percent = round(((payslips_this_month - payslips_last_month) / payslips_last_month) * 100, 1)
+        payslips_percent = min(payslips_percent, 100)
+        payslips_positive = payslips_this_month >= payslips_last_month
+
+    # Allowances
+    allowances_this_month = Allowance.objects.filter(employee=user, created_at__gte=first_of_this_month).count()
+    allowances_last_month = Allowance.objects.filter(employee=user, created_at__gte=first_of_last_month, created_at__lt=first_of_this_month).count()
+    total_allowances = allowances.aggregate(total=Sum('amount'))['total'] or 0
+    allowances_percent = 0
+    allowances_positive = True
+    if allowances_last_month:
+        allowances_percent = round(((allowances_this_month - allowances_last_month) / allowances_last_month) * 100, 1)
+        allowances_percent = min(allowances_percent, 100)
+        allowances_positive = allowances_this_month >= allowances_last_month
+
+    # Savings
+    savings_this_month = Savings.objects.filter(employee=user, created_at__gte=first_of_this_month).count()
+    savings_last_month = Savings.objects.filter(employee=user, created_at__gte=first_of_last_month, created_at__lt=first_of_this_month).count()
+    total_savings = Savings.objects.filter(employee=user, is_withdrawn=False).aggregate(total=Sum('amount'))['total'] or 0
+    savings_percent = 0
+    savings_positive = True
+    if savings_last_month:
+        savings_percent = round(((savings_this_month - savings_last_month) / savings_last_month) * 100, 1)
+        savings_percent = min(savings_percent, 100)
+        savings_positive = savings_this_month >= savings_last_month
+
+    # Loans
+    loans_this_month = Loan.objects.filter(employee=user, created_at__gte=first_of_this_month).count()
+    loans_last_month = Loan.objects.filter(employee=user, created_at__gte=first_of_last_month, created_at__lt=first_of_this_month).count()
+    total_loans = Loan.objects.filter(employee=user, is_active=True).aggregate(total=models.Sum('current_balance'))['total'] or 0
+    loans_percent = 0
+    loans_positive = True
+    if loans_last_month:
+        loans_percent = round(((loans_this_month - loans_last_month) / loans_last_month) * 100, 1)
+        loans_percent = min(loans_percent, 100)
+        loans_positive = loans_this_month >= loans_last_month
 
     # Precompute paid and percent for each loan (similar to employee_finance_details)
     total_active_loan_balance = 0
@@ -240,6 +288,18 @@ def user_finance(request):
         'loans': loans,
         'savings': savings_sorted,
         'total_active_loan_balance': total_active_loan_balance,
+        'total_payslips': total_payslips,
+        'payslips_percent': payslips_percent,
+        'payslips_positive': payslips_positive,
+        'total_allowances': total_allowances,
+        'allowances_percent': allowances_percent,
+        'allowances_positive': allowances_positive,
+        'total_savings': total_savings,
+        'savings_percent': savings_percent,
+        'savings_positive': savings_positive,
+        'total_loans': total_loans,
+        'loans_percent': loans_percent,
+        'loans_positive': loans_positive,
     }
     return render(request, 'finance/user-finance.html', content)
 
