@@ -16,6 +16,7 @@ urlpatterns = [
     path('general-settings/', include('generalsettings.urls')),
     path('api/', include('generalsettings.urls')),
     path('finance/', include('finance.urls')),
+    path('leave/', include('leaverequest.urls')),
 ]
 
 if settings.DEBUG:

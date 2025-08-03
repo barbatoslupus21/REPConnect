@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'userprofile.apps.UserprofileConfig',
     'generalsettings.apps.GeneralsettingsConfig',
     'finance.apps.FinanceConfig',
+    'leaverequest.apps.LeaverequestConfig',
 ]
 
 AUTH_USER_MODEL = 'userlogin.EmployeeLogin'

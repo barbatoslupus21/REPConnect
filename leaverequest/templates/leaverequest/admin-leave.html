@@ -1,0 +1,511 @@
+
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - Leave Management{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/leave/leave.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Employee Leave Management</h1>
+            <p class="page-subtitle">Manage all leave requests and employee balances</p>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-accent" data-action="add-balance">
+                <i class="fas fa-plus"></i>
+                Add Leave Balance
+            </button>
+            <button class="btn btn-secondary" data-action="export-data">
+                <i class="fas fa-download"></i>
+                Export Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <section class="component-section">
+        <h2 class="section-title">
+            <i class="fas fa-chart-bar"></i>
+            Overview Statistics
+        </h2>
+        <div class="admin-overview-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <h4>Total Requests</h4>
+                    <span class="stat-number">{{ stats.total_requests|default:0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h4>Pending</h4>
+                    <span class="stat-number">{{ stats.pending_requests|default:0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div class="stat-content">
+                    <h4>Approved</h4>
+                    <span class="stat-number">{{ stats.approved_requests|default:0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-times"></i>
+                </div>
+                <div class="stat-content">
+                    <h4>Disapproved</h4>
+                    <span class="stat-number">{{ stats.disapproved_requests|default:0 }}</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Search and Filter Controls -->
+    <section class="component-section">
+        <div class="card">
+            <div class="card-header">
+                <h3>
+                    <i class="fas fa-search"></i>
+                    Search & Filter
+                </h3>
+                <button class="btn btn-outline btn-sm" data-action="reset-filters">
+                    <i class="fas fa-undo"></i>
+                    Reset
+                </button>
+            </div>
+            <div class="card-body">
+                <form id="searchFilterForm" method="get">
+                    <div class="form-row form-row-4col">
+                        <div class="form-group">
+                            <label for="search">Search</label>
+                            <input type="text" id="search" name="search" class="form-control" placeholder="Control number, employee name..." value="{{ search_form.search.value|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="status">Status</label>
+                            <select id="status" name="status" class="form-control">
+                                <option value="">All Status</option>
+                                <option value="routing" {% if search_form.status.value == 'routing' %}selected{% endif %}>Routing</option>
+                                <option value="approved" {% if search_form.status.value == 'approved' %}selected{% endif %}>Approved</option>
+                                <option value="disapproved" {% if search_form.status.value == 'disapproved' %}selected{% endif %}>Disapproved</option>
+                                <option value="cancelled" {% if search_form.status.value == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="leave_type">Leave Type</label>
+                            <select id="leave_type" name="leave_type" class="form-control">
+                                <option value="">All Leave Types</option>
+                                {% for leave_type in leave_types %}
+                                <option value="{{ leave_type.id }}" {% if search_form.leave_type.value == leave_type.id|stringformat:"s" %}selected{% endif %}>{{ leave_type.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                                Search
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-row form-row-3col">
+                        <div class="form-group">
+                            <label for="date_from">Date From</label>
+                            <input type="date" id="date_from" name="date_from" class="form-control" value="{{ search_form.date_from.value|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="date_to">Date To</label>
+                            <input type="date" id="date_to" name="date_to" class="form-control" value="{{ search_form.date_to.value|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="department">Department</label>
+                            <select id="department" name="department" class="form-control">
+                                <option value="">All Departments</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept }}">{{ dept }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Leave Requests Table -->
+    <section class="component-section">
+        <div class="card">
+            <div class="card-header">
+                <h3>
+                    <i class="fas fa-table"></i>
+                    Leave Requests Management
+                </h3>
+                <div class="card-header-actions">
+                    <span class="results-count">{{ leave_requests.paginator.count }} results</span>
+                    <button class="btn btn-outline btn-sm" data-action="refresh-table">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-container">
+                    <table class="data-table" id="leaveRequestsTable">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" class="bulk-select-all">
+                                </th>
+                                <th data-sort="control_number">Control Number</th>
+                                <th data-sort="employee">Employee Name</th>
+                                <th data-sort="department">Department</th>
+                                <th data-sort="leave_type">Leave Type</th>
+                                <th data-sort="duration">Duration</th>
+                                <th data-sort="status">Status</th>
+                                <th data-sort="date_prepared">Date Prepared</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leave in leave_requests %}
+                            <tr data-leave-id="{{ leave.id }}">
+                                <td>
+                                    <input type="checkbox" class="bulk-select-item" value="{{ leave.id }}">
+                                </td>
+                                <td>
+                                    <span class="control-number">{{ leave.control_number }}</span>
+                                </td>
+                                <td>
+                                    <div class="employee-info">
+                                        <span class="employee-name">{{ leave.employee.full_name }}</span>
+                                        <small class="employee-id">{{ leave.employee.idnumber }}</small>
+                                    </div>
+                                </td>
+                                <td>{{ leave.employee.department|default:"N/A" }}</td>
+                                <td>{{ leave.leave_type.name }}</td>
+                                <td>{{ leave.duration_display }}</td>
+                                <td>
+                                    <span class="status-badge status-{{ leave.status }}">
+                                        {{ leave.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ leave.date_prepared|date:"M d, Y" }}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-sm btn-outline" data-action="view-details" data-control-number="{{ leave.control_number }}" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if leave.status == 'routing' %}
+                                        <button class="btn btn-sm btn-success" data-action="quick-approve" data-control-number="{{ leave.control_number }}" title="Quick Approve">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-error" data-action="quick-disapprove" data-control-number="{{ leave.control_number }}" title="Quick Disapprove">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-secondary dropdown-toggle" data-action="dropdown-toggle">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <div class="dropdown-menu">
+                                                <button class="dropdown-item" data-action="view-timeline" data-control-number="{{ leave.control_number }}">
+                                                    <i class="fas fa-history"></i>
+                                                    View Timeline
+                                                </button>
+                                                <button class="dropdown-item" data-action="export-request" data-control-number="{{ leave.control_number }}">
+                                                    <i class="fas fa-download"></i>
+                                                    Export PDF
+                                                </button>
+                                                {% if leave.status == 'routing' %}
+                                                <div class="dropdown-divider"></div>
+                                                <button class="dropdown-item text-error" data-action="cancel-request" data-control-number="{{ leave.control_number }}">
+                                                    <i class="fas fa-ban"></i>
+                                                    Cancel Request
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center">
+                                    <div class="empty-state">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <h5>No Leave Requests Found</h5>
+                                        <p>No leave requests match your current filters.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Bulk Actions -->
+                <div class="bulk-actions" id="bulkActions" style="display: none;">
+                    <div class="bulk-actions-content">
+                        <span class="selected-count">0 items selected</span>
+                        <div class="bulk-action-buttons">
+                            <button class="btn btn-success btn-sm" data-action="bulk-approve">
+                                <i class="fas fa-check"></i>
+                                Approve Selected
+                            </button>
+                            <button class="btn btn-error btn-sm" data-action="bulk-disapprove">
+                                <i class="fas fa-times"></i>
+                                Disapprove Selected
+                            </button>
+                            <button class="btn btn-secondary btn-sm" data-action="bulk-export">
+                                <i class="fas fa-download"></i>
+                                Export Selected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pagination -->
+                {% if leave_requests.has_other_pages %}
+                <div class="pagination-container">
+                    <div class="pagination">
+                        {% if leave_requests.has_previous %}
+                            <a href="?page={{ leave_requests.previous_page_number }}" class="pagination-btn">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        {% endif %}
+                        
+                        <div class="pagination-info">
+                            Page {{ leave_requests.number }} of {{ leave_requests.paginator.num_pages }}
+                        </div>
+                        
+                        {% if leave_requests.has_next %}
+                            <a href="?page={{ leave_requests.next_page_number }}" class="pagination-btn">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Leave Details Modal -->
+<div id="leaveDetailsModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-file-alt"></i>
+                Leave Request Details
+            </h3>
+            <button class="modal-close" data-action="close-modal" data-modal="leaveDetailsModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="leaveDetailsContent">
+            <!-- Content loaded via AJAX -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="leaveDetailsModal">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline Modal -->
+<div id="timelineModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-history"></i>
+                Request Timeline
+            </h3>
+            <button class="modal-close" data-action="close-modal" data-modal="timelineModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="timelineContent">
+            <!-- Content loaded via AJAX -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="timelineModal">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Balance Modal -->
+<div id="addBalanceModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-plus"></i>
+                Add Leave Balance
+            </h3>
+            <button class="modal-close" data-action="close-modal" data-modal="addBalanceModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="addBalanceForm" method="post">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="employee">Employee *</label>
+                        <select name="employee" id="employee" class="form-control" required>
+                            <option value="">Select Employee</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">{{ employee.full_name }} ({{ employee.idnumber }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="leave_type_balance">Leave Type *</label>
+                        <select name="leave_type" id="leave_type_balance" class="form-control" required>
+                            <option value="">Select Leave Type</option>
+                            {% for leave_type in leave_types %}
+                            <option value="{{ leave_type.id }}">{{ leave_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row form-row-3col">
+                    <div class="form-group">
+                        <label for="entitled">Entitled Days *</label>
+                        <input type="number" name="entitled" id="entitled" class="form-control" min="0" step="0.5" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="valid_from">Valid From *</label>
+                        <input type="date" name="valid_from" id="valid_from" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="valid_to">Valid To *</label>
+                        <input type="date" name="valid_to" id="valid_to" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="addBalanceModal">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Add Balance
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Action Confirmation Modal -->
+<div id="bulkConfirmModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-exclamation-triangle"></i>
+                Confirm Bulk Action
+            </h3>
+            <button class="modal-close" data-action="close-modal" data-modal="bulkConfirmModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="bulkConfirmMessage">Are you sure you want to perform this action on selected items?</p>
+            <div class="form-group">
+                <label for="bulkComments">Comments (Optional)</label>
+                <textarea id="bulkComments" class="form-control" rows="3" placeholder="Add comments for this bulk action..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="bulkConfirmModal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="confirmBulkAction">
+                <i class="fas fa-check"></i>
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Options Modal -->
+<div id="exportModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-download"></i>
+                Export Data
+            </h3>
+            <button class="modal-close" data-action="close-modal" data-modal="exportModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="export-options">
+                <div class="export-option">
+                    <input type="radio" id="exportPDF" name="exportType" value="pdf" checked>
+                    <label for="exportPDF">
+                        <i class="fas fa-file-pdf"></i>
+                        PDF Report
+                    </label>
+                </div>
+                <div class="export-option">
+                    <input type="radio" id="exportExcel" name="exportType" value="excel">
+                    <label for="exportExcel">
+                        <i class="fas fa-file-excel"></i>
+                        Excel Spreadsheet
+                    </label>
+                </div>
+                <div class="export-option">
+                    <input type="radio" id="exportCSV" name="exportType" value="csv">
+                    <label for="exportCSV">
+                        <i class="fas fa-file-csv"></i>
+                        CSV File
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Date Range</label>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <input type="date" id="exportDateFrom" class="form-control" placeholder="From Date">
+                    </div>
+                    <div class="form-group">
+                        <input type="date" id="exportDateTo" class="form-control" placeholder="To Date">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="includeTimeline"> Include Timeline Data
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="exportModal">Cancel</button>
+            <button type="button" class="btn btn-primary" data-action="start-export">
+                <i class="fas fa-download"></i>
+                Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/leave/admin_leave.js' %}"></script>
+{% endblock %}
