@@ -21,4 +21,10 @@ urlpatterns = [
     
     # AJAX endpoints
     path('ajax/balance/', views.get_leave_balance, name='get_leave_balance'),
+    path('ajax/chart-data/', views.leave_chart_data, name='leave_chart_data'),
+
+    # API endpoints
+    path('api/leave-reasons/<int:leave_type_id>/', views.leave_reasons_api, name='leave_reasons_api'),
+    path('api/holidays-and-exceptions/', views.holidays_and_exceptions_api, name='holidays_and_exceptions_api'),
+    path('api/check-approver/', views.check_approver_api, name='check_approver_api'),
 ]

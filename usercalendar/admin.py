@@ -12,7 +12,7 @@ class HolidayAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Holiday Information', {
-            'fields': ('name', 'date', 'holiday_type', 'description', 'image')
+            'fields': ('name', 'date', 'holiday_type', 'description')  # Removed 'image'
         }),
         ('System Information', {
             'fields': ('created_by',),

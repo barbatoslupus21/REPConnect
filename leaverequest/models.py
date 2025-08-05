@@ -1,11 +1,25 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.utils import timezone
+from datetime import timedelta
 from userlogin.models import EmployeeLogin
+from usercalendar.models import Holiday
+
+class SundayException(models.Model):
+    date = models.DateField(unique=True)
+    description = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Sunday Exception on {self.date} - {self.description}"
+
+    class Meta:
+        ordering = ['date']
 
 class LeaveType(models.Model):
     name = models.CharField(max_length=50, unique=True)
     code = models.CharField(max_length=10, unique=True)
+    go_to_clinic = models.BooleanField(default=False)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -77,15 +91,16 @@ class LeaveRequest(models.Model):
     control_number = models.CharField(max_length=20, unique=True, editable=False)
     employee = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='leave_requests')
     leave_type = models.ForeignKey(LeaveType, on_delete=models.CASCADE)
+    leave_reason = models.ForeignKey(LeaveReason, on_delete=models.CASCADE, null=True, blank=True)
     date_from = models.DateField()
     date_to = models.DateField()
-    days_requested = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0.5)])
+    days_requested = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)])
+    hrs_requested = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0)], default=0.0)
     reason = models.TextField()
-    attachment = models.FileField(upload_to='leave_attachments/', blank=True, null=True)
+    current_approver = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='current_approvals', null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='routing')
     date_prepared = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
     
     def save(self, *args, **kwargs):
         if not self.control_number:
@@ -94,10 +109,35 @@ class LeaveRequest(models.Model):
             self.control_number = f"LV-{year}-{count:03d}"
         
         if self.date_from and self.date_to:
-            delta = self.date_to - self.date_from
-            self.days_requested = delta.days + 1
+            working_days = self.calculate_working_days(self.date_from, self.date_to)
+            self.days_requested = working_days  # Allow 0 working days
             
         super().save(*args, **kwargs)
+    
+    def calculate_working_days(self, start_date, end_date):
+        working_days = 0
+        current_date = start_date
+        
+        holidays = set(Holiday.objects.filter(
+            date__range=[start_date, end_date]
+        ).values_list('date', flat=True))
+        
+        sunday_exceptions = set(SundayException.objects.filter(
+            date__range=[start_date, end_date]
+        ).values_list('date', flat=True))
+        
+        while current_date <= end_date:
+            is_holiday = current_date in holidays
+            
+            is_sunday = current_date.weekday() == 6
+            is_sunday_exempted = current_date in sunday_exceptions
+            
+            if not is_holiday and (not is_sunday or is_sunday_exempted):
+                working_days += 1
+            
+            current_date += timedelta(days=1)
+        
+        return working_days
     
     def __str__(self):
         return f"{self.control_number} - {self.employee.full_name}"

@@ -1,4 +1,3 @@
-
 {% extends "main.html" %}
 {% load static %}
 
@@ -9,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-content">
+<div class="page-content" id="page-content">
     <header class="page-header">
         <div class="page-header-content">
             <h2>Leave Management</h2>
@@ -23,85 +22,62 @@
         </div>
     </header>
 
-    <!-- Leave Balances Section -->
-    {% comment %} {% if request.user.employment_info.employment_type == 'Regular' %}
-    <section class="component-section">
-        <h2 class="section-title">
-            <i class="fas fa-calendar-check"></i>
-            Leave Balances
-        </h2>
-        <div class="balance-cards-grid">
-            {% for balance in leave_balances %}
-            <div class="balance-card {% if balance.validity_status == 'for_conversion' %}balance-expired{% elif balance.validity_status == 'active' %}balance-active{% else %}balance-inactive{% endif %}">
-                <div class="balance-header">
-                    <h4>{{ balance.leave_type.name }}</h4>
-                    <span class="balance-status {{ balance.validity_status }}">
-                        {% if balance.validity_status == 'for_conversion' %}
-                            For Conversion
-                        {% elif balance.validity_status == 'active' %}
-                            Active
-                        {% else %}
-                            Expired
-                        {% endif %}
-                    </span>
-                </div>
-                <div class="balance-period">
-                    <i class="fas fa-calendar"></i>
-                    {{ balance.valid_from|date:"M d, Y" }} - {{ balance.valid_to|date:"M d, Y" }}
-                </div>
-                <div class="balance-stats">
-                    <div class="balance-stat">
-                        <span class="stat-label">Entitled</span>
-                        <span class="stat-value">{{ balance.entitled }}</span>
-                    </div>
-                    <div class="balance-stat">
-                        <span class="stat-label">Used</span>
-                        <span class="stat-value used">{{ balance.used }}</span>
-                    </div>
-                    <div class="balance-stat">
-                        <span class="stat-label">Remaining</span>
-                        <span class="stat-value remaining">{{ balance.remaining }}</span>
-                    </div>
-                </div>
-                <div class="balance-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {% widthratio balance.used balance.entitled 100 %}%"></div>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="empty-state">
-                <i class="fas fa-calendar-times"></i>
-                <h4>No Leave Balances</h4>
-                <p>No leave balances found for your account.</p>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
-    {% endif %} {% endcomment %}
-
     <!-- Main Content Tabs -->
-    <div class="tabs-horizontal">
-        <div class="tab-list">
-            <button class="tab active" data-target="overview">Overview</button>
-            <button class="tab" data-target="my-requests">My Requests</button>
-            {% if is_approver %}
-            <button class="tab" data-target="approvals">
-                Pending Approvals
-                {% if pending_approvals %}
-                <span class="notification-badge">{{ pending_approvals|length }}</span>
+    <div class="leave-section">
+        <div class="tabs-horizontal" data-tour="tabs-section">
+            <div class="tab-list">
+                <button class="tab active" data-target="overview">Overview</button>
+                <button class="tab" data-target="my-requests">My Requests</button>
+                {% if is_approver %}
+                    <button class="tab" data-target="approvals">
+                        Pending Approvals
+                        {% if pending_approvals %}
+                        <span class="notification-badge">{{ pending_approvals|length }}</span>
+                        {% endif %}
+                    </button>
                 {% endif %}
-            </button>
-            {% endif %}
+            </div>
         </div>
 
-        <div class="tab-panels">
-            <!-- Overview Tab -->
-            <div id="overview" class="tab-panel active">
-                <div class="overview-two-column">
-                    <!-- Left Column: Leave Balances & Activities -->
+        <div id="overview" class="tab-panel active">
+            <!-- Chart and Graph -->
+            <div class="overview-two-column">
+                    <div class="chart-grid">
+                        <div class="chart-card">
+                            <div class="chart-card-header">
+                                <h4>Status Distribution</h4>
+                                <span class="chart-subtitle" id="fiscalYearDuration">Fiscal Year: Loading...</span>
+                            </div>
+                            <div class="chart-container">
+                                <div class="donut-chart-wrapper">
+                                    <div class="chart-legend" id="statusChartLegend">
+                                        <!-- Legend items will be populated by JavaScript -->
+                                    </div>
+                                    <div class="donut-chart-container">
+                                        <canvas id="statusChart"></canvas>
+                                        <div class="donut-center">
+                                            <div class="donut-center-number">0</div>
+                                            <div class="donut-center-label">Total Requests</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-card-header">
+                                <h4>Leave Trend</h4>
+                                <span class="chart-subtitle" id="fiscalYearDuration2">Fiscal Year: Loading...</span>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="leaveTypesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+
+            <!-- Totals, Calendar and Activities -->
+            <div class="overview-two-column">
                     <div class="overview-left-column">
-                        <!-- Leave Balances Section -->
                         <div class="leave-balance-summary">
                             {% if request.user.employment_info.employment_type == 'Regular' and leave_balance_sets %}
                                 {% for set in leave_balance_sets %}
@@ -140,7 +116,6 @@
                                                         <div class="leave-balance-info">
                                                             <span class="leave-balance-title">{{ balance.leave_type.name }}</span>
                                                             <span class="leave-balance-id">({{ balance.leave_type.code }})</span>
-                                                            {% comment %} <span class="leave-balance-status in-progress">In progress</span> {% endcomment %}
                                                         </div>
                                                         <div class="leave-balance-info-row">
                                                             <span class="leave-balance-remaining"><i class="fas fa-gift"></i> {{ balance.entitled|floatformat:2 }}</span>
@@ -168,22 +143,19 @@
                         </div>
                     </div>
 
-                    <!-- Right Column: Calendar -->
                     <div class="overview-right-column">
                         <div class="leave-calendar-container">
                             <!-- Calendar Header -->
                             <div class="calendar-header">
                                 <div class="calendar-view-controls">
-                                    <button class="view-btn" data-view="day">Day</button>
-                                    <button class="view-btn" data-view="week">Week</button>
-                                    <button class="view-btn active" data-view="month">Month</button>
+                                    <button class="btn btn-outline" onclick="goToToday()">Today</button>
                                 </div>
                                 <div class="calendar-date-range">
-                                    <button class="nav-btn" data-nav="prev">
+                                    <button class="btn btn-outline" data-nav="prev" onclick="changeMonth(-1)">
                                         <i class="fas fa-chevron-left"></i>
                                     </button>
-                                    <span class="date-range-text">November 07 - November 13</span>
-                                    <button class="nav-btn" data-nav="next">
+                                    <span class="date-range-text" id="currentMonth">November 2024</span>
+                                    <button class="btn btn-outline" data-nav="next" onclick="changeMonth(1)">
                                         <i class="fas fa-chevron-right"></i>
                                     </button>
                                 </div>
@@ -200,132 +172,20 @@
                                     <div class="weekday">Fri</div>
                                     <div class="weekday">Sat</div>
                                 </div>
-                                <div class="calendar-days">
-                                    <!-- Calendar days will be populated by JavaScript -->
-                                    <div class="calendar-day prev-month">
-                                        <span class="day-number">27</span>
-                                    </div>
-                                    <div class="calendar-day prev-month">
-                                        <span class="day-number">28</span>
-                                    </div>
-                                    <div class="calendar-day prev-month">
-                                        <span class="day-number">29</span>
-                                    </div>
-                                    <div class="calendar-day prev-month">
-                                        <span class="day-number">30</span>
-                                    </div>
-                                    <div class="calendar-day prev-month">
-                                        <span class="day-number">31</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">1</span>
-                                        <div class="leave-event leave-sick">Sick</div>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">2</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">3</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">4</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">5</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">6</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">7</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">8</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">9</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">10</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">11</span>
-                                    </div>
-                                    <div class="calendar-day current-date">
-                                        <span class="day-number">12</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">13</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">14</span>
-                                        <div class="leave-event leave-paid">Paid time off</div>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">15</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">16</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">17</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">18</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">19</span>
-                                        <div class="leave-event leave-paid-alt">Paid time off</div>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">20</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">21</span>
-                                        <div class="leave-event leave-paid-alt">Paid time off</div>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">22</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">23</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">24</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">25</span>
-                                        <div class="leave-event leave-paid">Paid time off</div>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">26</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">27</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">28</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">29</span>
-                                    </div>
-                                    <div class="calendar-day">
-                                        <span class="day-number">30</span>
-                                    </div>
+                                <div class="calendar-days" id="calendar-days">
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="overview-left-column">
-                        <!-- Recent Activities -->
                         <div class="recent-activities">
-                            <h3 class="activities-title">Recent Activities</h3>
+                            <h4>Recent Activities</h4>
                             <div class="activity-list">
                                 {% if recent_leaves %}
                                     {% for leave in recent_leaves %}
-                                    <div class="activity-item">
-                                        <div class="activity-icon status-{{ leave.status }}">
+                                    <div class="activity-item status-{{ leave.status }}">
+                                        <div class="reminder-icon status-{{ leave.status }}">
                                             {% if leave.status == 'approved' %}
                                                 <i class="fas fa-check"></i>
                                             {% elif leave.status == 'disapproved' %}
@@ -349,31 +209,26 @@
                                                 {% endif %}
                                             </div>
                                             <div class="activity-meta">
-                                                {{ leave.leave_type.name }} • {{ leave.duration_display }} • {{ leave.date_prepared|date:"M d, Y" }}
+                                                {{ leave.leave_type.name }} • {{ leave.duration_display }}
                                             </div>
                                         </div>
                                     </div>
                                     {% endfor %}
                                 {% else %}
-                                    <div class="activity-item activity-empty">
-                                        <div class="activity-icon">
-                                            <i class="fas fa-inbox"></i>
-                                        </div>
-                                        <div class="activity-content">
-                                            <div class="activity-title">No recent activities</div>
-                                            <div class="activity-meta">Apply for leave to see activities here</div>
-                                        </div>
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <h4>No recent activities</h4>
+                                        <p>Apply for leave to see activities here</p>
                                     </div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
-                </div>
             </div>
+        </div>
 
-            <!-- My Requests Tab -->
-            <div id="my-requests" class="tab-panel">
-                <div class="table-container">
+        <div id="my-requests" class="tab-panel">
+            <div class="table-container">
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -427,19 +282,18 @@
                             {% endfor %}
                         </tbody>
                     </table>
-                </div>
-                <div class="table-actions">
+            </div>
+            <div class="table-actions">
                     <a href="{% url 'requests_list' %}" class="btn btn-outline">
                         <i class="fas fa-list"></i>
                         View All Requests
                     </a>
-                </div>
             </div>
+        </div>
 
-            <!-- Approvals Tab -->
-            {% if is_approver %}
-            <div id="approvals" class="tab-panel">
-                <div class="card">
+        {% if is_approver %}
+        <div id="approvals" class="tab-panel">
+            <div class="card">
                     <div class="card-header">
                         <h3>
                             <i class="fas fa-tasks"></i>
@@ -497,22 +351,18 @@
                         </div>
                         {% endif %}
                     </div>
-                </div>
             </div>
-            {% endif %}
         </div>
+        {% endif %}
     </div>
 </div>
 
 <!-- Apply Leave Modal -->
-<div id="applyLeaveModal" class="modal">
+<div id="applyLeaveModal" class="modal modal-md">
     <div class="modal-overlay"></div>
-    <div class="modal-content modal-lg">
+    <div class="modal-content">
         <div class="modal-header">
-            <h3>
-                <i class="fas fa-calendar-plus"></i>
-                Apply for Leave
-            </h3>
+            <h3>Apply for Leave</h3>
             <button class="modal-close" data-action="close-modal" data-modal="applyLeaveModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -520,25 +370,6 @@
         <form id="applyLeaveForm" method="post" action="{% url 'apply' %}" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="modal-body">
-                <div class="form-row form-row-2col">
-                    <div class="form-group">
-                        <label for="id_leave_type">Leave Type *</label>
-                        <select name="leave_type" id="id_leave_type" class="form-control" required>
-                            <option value="">Select Leave Type</option>
-                            {% for leave_type in leave_types %}
-                            <option value="{{ leave_type.id }}">{{ leave_type.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% if show_balances %}
-                    <div class="form-group">
-                        <label>Available Balance</label>
-                        <div id="balanceDisplay" class="balance-display">
-                            <span class="balance-text">Select leave type to view balance</span>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
                 <div class="form-row form-row-2col">
                     <div class="form-group">
                         <label for="id_date_from">Date From *</label>
@@ -549,21 +380,48 @@
                         <input type="date" name="date_to" id="id_date_to" class="form-control" required>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Days Requested</label>
-                    <div id="daysRequested" class="days-display">
-                        <span class="days-text">Select dates to calculate</span>
+
+                <!-- Leave Counts Preview -->
+                <div class="form-row days-hidden"> 
+                    <div class="form-group">
+                        <div id="daysRequested" class="days-display">
+                            <div class="days-info">
+                                <span class="days-count" id="daysCount">Select dates to calculate</span>
+                                <small class="days-range" id="daysRange"></small>
+                            </div>
+                            <div class="days-info">
+                                <span class="days-count" id="hrsCount">Hours Count</span>
+                                <small class="days-range" id="hrsRange">7:00 AM to 4:00 PM</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="id_leave_type">Leave Type *</label>
+                        <select name="leave_type" id="id_leave_type" class="form-control" required>
+                            <option value="">Select Leave Type</option>
+                            {% for leave_type in leave_types %}
+                            <option value="{{ leave_type.id }}">{{ leave_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="id_leave_reason">Reason Category *</label>
+                        <select name="leave_reason" id="id_leave_reason" class="form-control" required disabled>
+                            <option value="">Select Leave Reason</option>
+                            {% for leave_reason in leave_reasons %}
+                            <option value="{{ leave_reason.id }}">{{ leave_reason.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="id_reason">Reason for Leave *</label>
                     <textarea name="reason" id="id_reason" class="form-control" rows="4" placeholder="Please provide the reason for your leave request..." required></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="id_attachment">Attachment (Optional)</label>
-                    <input type="file" name="attachment" id="id_attachment" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                    <small class="form-text">Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 5MB)</small>
-                </div>
+                <input type="hidden" name="hrs_requested" id="id_hrs_requested" value="0">
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="applyLeaveModal">Cancel</button>
@@ -628,9 +486,113 @@
     </div>
 </div>
 
-<div class="toast-container" id="toast-container"></div>
+<!-- No Approver Error Modal -->
+<div id="noApproverModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>
+                <i class="fas fa-exclamation-triangle text-warning"></i>
+                Approver Not Assigned
+            </h3>
+            <button class="modal-close" data-action="close-modal" data-modal="noApproverModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-warning">
+                <p><strong>Cannot submit leave request!</strong></p>
+                <p>You don't have an assigned approver yet. Please contact HR or assign an approver in your profile before submitting leave requests.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="noApproverModal">Close</button>
+            <a href="{% url 'user_profile' %}" class="btn btn-primary">
+                <i class="fas fa-user-cog"></i>
+                Assign Approver
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toast-container" style="position: fixed !important; bottom: 20px !important; right: 20px !important; top: auto !important; left: auto !important; z-index: 10000 !important;"></div>
+
 {% endblock content %}
 
 {% block extra_js %}
+<script>
+    window.leaveCalendarData = [
+        {% if recent_leaves %}
+        {% for leave in recent_leaves %}
+        {
+            startDate: '{{ leave.date_from|date:"Y-m-d" }}',
+            endDate: '{{ leave.date_to|date:"Y-m-d" }}',
+            leaveType: '{{ leave.leave_type.name|escapejs }}',
+            reason: '{{ leave.reason|escapejs|truncatechars:50 }}',
+            code: '{{ leave.leave_type.code|escapejs }}',
+            controlNumber: '{{ leave.control_number|escapejs }}',
+            status: '{{ leave.status|escapejs }}'
+        },
+        {% endfor %}
+        {% endif %}
+    ];
+</script>
 <script src="{% static 'js/leave/user_leave.js' %}"></script>
-{% endblock %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const leaveTypeSelect = document.getElementById('id_leave_type');
+        const reasonCategorySelect = document.getElementById('id_leave_reason');
+
+        leaveTypeSelect.addEventListener('change', async function () {
+            const selectedLeaveType = this.value;
+
+            // Disable Reason Category while loading
+            reasonCategorySelect.disabled = true;
+            reasonCategorySelect.innerHTML = '<option value="">Loading...</option>';
+
+            if (selectedLeaveType) {
+                try {
+                    // Fetch reasons for the selected leave type
+                    const response = await fetch(`/leave/api/leave-reasons/${selectedLeaveType}/`);
+                    const reasons = await response.json();
+
+                    // Populate Reason Category dropdown
+                    reasonCategorySelect.innerHTML = '<option value="">Select Leave Reason</option>';
+                    reasons.forEach(reason => {
+                        const option = document.createElement('option');
+                        option.value = reason.id;
+                        option.textContent = reason.reason_text;
+                        reasonCategorySelect.appendChild(option);
+                    });
+
+                    // Enable Reason Category
+                    reasonCategorySelect.disabled = false;
+                } catch (error) {
+                    console.error('Error fetching reasons:', error);
+                    reasonCategorySelect.innerHTML = '<option value="">Error loading reasons</option>';
+                }
+            } else {
+                // Reset Reason Category if no Leave Type is selected
+                reasonCategorySelect.innerHTML = '<option value="">Select Leave Reason</option>';
+            }
+        });
+
+        // Modal close logic
+        const applyLeaveModal = document.getElementById('applyLeaveModal');
+        const modalOverlay = applyLeaveModal.querySelector('.modal-overlay');
+        const closeButtons = applyLeaveModal.querySelectorAll('.modal-close, [data-action="close-modal"]');
+
+        // Prevent overlay click from closing modal
+        modalOverlay.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+
+        // Only close modal on explicit close button click
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                applyLeaveModal.classList.remove('open');
+            });
+        });
+    });
+</script>   
+{% endblock extra_js %}

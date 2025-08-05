@@ -20,9 +20,9 @@ from django.utils import timezone
 from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveReason
 
 class LeaveRequestForm(forms.ModelForm):
-    reason_choice = forms.ModelChoiceField(
+    leave_reason = forms.ModelChoiceField(
         queryset=LeaveReason.objects.none(),
-        required=False,
+        required=False,  # We'll validate this conditionally
         widget=forms.Select(attrs={
             'class': 'form-control',
             'placeholder': 'Select a reason...'
@@ -31,7 +31,7 @@ class LeaveRequestForm(forms.ModelForm):
 
     class Meta:
         model = LeaveRequest
-        fields = ['leave_type', 'date_from', 'date_to', 'reason_choice', 'reason', 'attachment']
+        fields = ['leave_type', 'date_from', 'date_to', 'leave_reason', 'reason', 'hrs_requested']
         widgets = {
             'leave_type': forms.Select(attrs={
                 'class': 'form-control',
@@ -52,10 +52,7 @@ class LeaveRequestForm(forms.ModelForm):
                 'rows': 4,
                 'placeholder': 'Please provide the reason for your leave request...'
             }),
-            'attachment': forms.FileInput(attrs={
-                'class': 'form-control',
-                'accept': '.pdf,.doc,.docx,.jpg,.jpeg,.png'
-            })
+            'hrs_requested': forms.HiddenInput(),
         }
     
     def __init__(self, *args, **kwargs):
@@ -69,32 +66,39 @@ class LeaveRequestForm(forms.ModelForm):
         if 'leave_type' in self.data:
             try:
                 leave_type_id = int(self.data.get('leave_type'))
-                self.fields['reason_choice'].queryset = LeaveReason.objects.filter(leave_type_id=leave_type_id, is_active=True)
+                self.fields['leave_reason'].queryset = LeaveReason.objects.filter(leave_type_id=leave_type_id, is_active=True)
             except (ValueError, TypeError):
-                self.fields['reason_choice'].queryset = LeaveReason.objects.none()
+                self.fields['leave_reason'].queryset = LeaveReason.objects.none()
         elif self.instance.pk and self.instance.leave_type:
-            self.fields['reason_choice'].queryset = LeaveReason.objects.filter(leave_type=self.instance.leave_type, is_active=True)
+            self.fields['leave_reason'].queryset = LeaveReason.objects.filter(leave_type=self.instance.leave_type, is_active=True)
         else:
-            self.fields['reason_choice'].queryset = LeaveReason.objects.none()
+            self.fields['leave_reason'].queryset = LeaveReason.objects.none()
     
     def clean(self):
         cleaned_data = super().clean()
         date_from = cleaned_data.get('date_from')
         date_to = cleaned_data.get('date_to')
         leave_type = cleaned_data.get('leave_type')
+        leave_reason = cleaned_data.get('leave_reason')
+        
+        # Validate leave_reason if there are available reasons for the selected leave_type
+        if leave_type:
+            available_reasons = LeaveReason.objects.filter(leave_type=leave_type, is_active=True)
+            if available_reasons.exists() and not leave_reason:
+                raise ValidationError("Please select a leave reason category.")
         
         if date_from and date_to:
             # Validate date range
             if date_to < date_from:
                 raise ValidationError("End date cannot be before start date.")
             
-            # Validate not in the past
+            # Validate not in the past (allow today)
             today = timezone.now().date()
             if date_from < today:
                 raise ValidationError("Leave cannot be requested for past dates.")
             
-            # Calculate days requested
-            days_requested = (date_to - date_from).days + 1
+            # Calculate working days for validation (same logic as model)
+            days_requested = self.calculate_working_days_for_validation(date_from, date_to)
             
             # Check for overlapping leave requests
             if self.user:
@@ -134,6 +138,41 @@ class LeaveRequestForm(forms.ModelForm):
                         )
         
         return cleaned_data
+    
+    def calculate_working_days_for_validation(self, start_date, end_date):
+        """Calculate working days for validation purposes"""
+        from usercalendar.models import Holiday
+        from .models import SundayException
+        from datetime import timedelta
+        
+        working_days = 0
+        current_date = start_date
+        
+        # Get holidays and Sunday exceptions
+        holidays = set(Holiday.objects.filter(
+            date__range=[start_date, end_date]
+        ).values_list('date', flat=True))
+        
+        sunday_exceptions = set(SundayException.objects.filter(
+            date__range=[start_date, end_date]
+        ).values_list('date', flat=True))
+        
+        while current_date <= end_date:
+            # Check if it's a holiday
+            is_holiday = current_date in holidays
+            
+            # Check if it's Sunday and if it's exempted
+            is_sunday = current_date.weekday() == 6  # Monday=0, Sunday=6
+            is_sunday_exempted = current_date in sunday_exceptions
+            
+            # Count the day if it's not a holiday and either not Sunday or is an exempted Sunday
+            if not is_holiday and (not is_sunday or is_sunday_exempted):
+                working_days += 1
+            
+            # Move to next day
+            current_date += timedelta(days=1)
+        
+        return working_days  # Allow 0 working days
 
 class LeaveApprovalForm(forms.Form):
     ACTION_CHOICES = [

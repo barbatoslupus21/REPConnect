@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import LeaveType, LeaveBalance, LeaveRequest, LeaveApprovalAction, LeaveReason
+from .models import LeaveType, LeaveBalance, LeaveRequest, LeaveApprovalAction, LeaveReason, SundayException
 @admin.register(LeaveReason)
 class LeaveReasonAdmin(admin.ModelAdmin):
     list_display = ['leave_type', 'reason_text', 'is_active', 'created_at']
@@ -25,7 +25,7 @@ class LeaveBalanceAdmin(admin.ModelAdmin):
 
 @admin.register(LeaveRequest)
 class LeaveRequestAdmin(admin.ModelAdmin):
-    list_display = ['control_number', 'employee', 'leave_type', 'date_from', 'date_to', 'days_requested', 'status', 'date_prepared']
+    list_display = ['control_number', 'employee', 'leave_type', 'date_from', 'date_to', 'days_requested', 'current_approver', 'status', 'date_prepared']
     list_filter = ['status', 'leave_type', 'date_prepared', 'date_from']
     search_fields = ['control_number', 'employee__firstname', 'employee__lastname', 'employee__username']
     readonly_fields = ['control_number', 'days_requested', 'date_prepared', 'updated_at']
@@ -33,10 +33,10 @@ class LeaveRequestAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('control_number', 'employee', 'leave_type', 'date_from', 'date_to', 'days_requested')
+            'fields': ('control_number', 'employee', 'leave_type', 'leave_reason', 'date_from', 'date_to', 'days_requested', 'hrs_requested')
         }),
         ('Request Details', {
-            'fields': ('reason', 'attachment', 'status')
+            'fields': ('reason', 'current_approver', 'status')
         }),
         ('Timestamps', {
             'fields': ('date_prepared', 'updated_at'),
@@ -54,8 +54,8 @@ class LeaveApprovalActionAdmin(admin.ModelAdmin):
     list_filter = ['status', 'action', 'action_at', 'created_at']
     search_fields = ['leave_request__control_number', 'approver__firstname', 'approver__lastname']
     readonly_fields = ['created_at', 'action_at']
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('leave_request', 'approver')
-    
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('leave_request', 'actor')
+
+admin.site.register(SundayException)

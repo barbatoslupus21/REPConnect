@@ -8,32 +8,24 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 import json
 from userlogin.models import EmployeeLogin
-from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction
+from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction, LeaveReason
 from .forms import LeaveRequestForm, LeaveApprovalForm, LeaveSearchForm
 
 @login_required
 def leave_dashboard(request):
-    """Main leave dashboard for employees and approvers"""
     user = request.user
-    context = {}
-    
-    # Get user's leave requests
+
     leave_requests = LeaveRequest.objects.filter(employee=user).order_by('-date_prepared')[:5]
-    context['recent_leaves'] = leave_requests
+    leave_balances = LeaveBalance.objects.filter(employee=user).select_related('leave_type').order_by('valid_from', 'leave_type__name')
+    leave_types = LeaveType.objects.filter(is_active=True).order_by('name')
+    leave_reasons = LeaveReason.objects.filter(is_active=True).select_related('leave_type').order_by('leave_type__name', 'reason_text')
 
-    # Get user's leave balances (all periods)
-    leave_balances = LeaveBalance.objects.filter(
-        employee=user
-    ).select_related('leave_type').order_by('valid_from', 'leave_type__name')
-
-    # Group leave balances by (valid_from, valid_to)
     from collections import defaultdict
     balance_sets = defaultdict(list)
     for balance in leave_balances:
         key = (balance.valid_from, balance.valid_to)
         balance_sets[key].append(balance)
 
-    # Convert to list of dicts for template with totals
     grouped_balances = []
     for k, v in balance_sets.items():
         total_entitled = sum(balance.entitled for balance in v)
@@ -49,24 +41,24 @@ def leave_dashboard(request):
             'total_remaining': total_remaining
         })
     
-    # Sort by valid_from descending
     grouped_balances.sort(key=lambda x: x['valid_from'], reverse=True)
-    context['leave_balance_sets'] = grouped_balances
-
-    # Check if user is an approver (using LeaveApprovalAction)
-    approval_actions = LeaveApprovalAction.objects.filter(
-        approver=user,
-        status='routing'
-    ).select_related('leave_request').order_by('-created_at')
+    approval_actions = LeaveApprovalAction.objects.filter(approver=user, status='routing').select_related('leave_request').order_by('-created_at')
     pending_approvals = [action.leave_request for action in approval_actions]
-    context['pending_approvals'] = pending_approvals
-    context['is_approver'] = bool(pending_approvals)
 
-    # Check admin privileges
-    context['is_admin'] = (
-        user.hr_admin or user.hr_manager or 
-        user.is_superuser or user.is_staff
-    )
+    # context['is_admin'] = (
+    #     user.hr_admin or user.hr_manager or 
+    #     user.is_superuser or user.is_staff
+    # )
+
+    context={
+        'leave_types': leave_types,
+        'leave_reasons': leave_reasons,
+        'leave_balance_sets': grouped_balances,
+        'pending_approvals': pending_approvals,
+        'is_approver': bool(pending_approvals),
+        'recent_leaves': leave_requests,
+        'today': timezone.now().date(),
+    }
 
     return render(request, 'leaverequest/user-leave.html', context)
 
@@ -112,35 +104,136 @@ def leave_requests_list(request):
 
 @login_required
 def apply_leave(request):
-    """Apply for leave request"""
     if request.method == 'POST':
         form = LeaveRequestForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             leave_request = form.save(commit=False)
             leave_request.employee = request.user
             
-            # Set up approval flow (simplified - assign to HR manager)
-            hr_managers = EmployeeLogin.objects.filter(hr_manager=True, is_active=True).first()
-            if hr_managers:
-                leave_request.current_approver = hr_managers
-                leave_request.final_approver = hr_managers
+            # Complex Approval Routing Logic
+            approver = None
+            approval_comments = ""
             
+            # Calculate notice period in days
+            notice_days = (leave_request.date_from - timezone.now().date()).days
+            
+            # Rule 1: Urgent leave (< 1 day notice, non-clinic) → IAD Admin
+            if not leave_request.leave_type.go_to_clinic and notice_days < 1:
+                iad_admin = EmployeeLogin.objects.filter(iad_admin=True, is_active=True).first()
+                if iad_admin:
+                    approver = iad_admin
+                    approval_comments = f"Urgent leave request (less than 1 day notice) routed to IAD Admin"
+                else:
+                    # Fallback to HR manager, then HR admin if no IAD admin found
+                    hr_manager = EmployeeLogin.objects.filter(hr_manager=True, is_active=True).first()
+                    if hr_manager:
+                        approver = hr_manager
+                        approval_comments = f"Urgent leave request - IAD Admin not found, routed to HR Manager"
+                    else:
+                        hr_admin = EmployeeLogin.objects.filter(hr_admin=True, is_active=True).first()
+                        approver = hr_admin
+                        approval_comments = f"Urgent leave request - IAD Admin not found, routed to HR Admin"
+            
+            # Rule 2: Regular leave (≥ 1 day notice, non-clinic) → Employee's approver
+            elif not leave_request.leave_type.go_to_clinic and notice_days >= 1:
+                try:
+                    employment_info = request.user.employment_info
+                    if employment_info.approver and employment_info.approver.is_active:
+                        approver = employment_info.approver
+                        approval_comments = f"Regular leave request routed to employee's approver: {approver.firstname} {approver.lastname}"
+                    else:
+                        # No approver assigned - need modal intervention
+                        error_msg = 'You do not have an assigned approver. Please assign an approver before submitting leave requests.'
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({'success': False, 'message': error_msg})
+                        messages.error(request, error_msg)
+                        return redirect('user_leave')
+                except:
+                    # Employee has no employment_info - need modal intervention
+                    error_msg = 'Your employment information is incomplete. Please contact HR to complete your profile before submitting leave requests.'
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'message': error_msg})
+                    messages.error(request, error_msg)
+                    return redirect('user_leave')
+            
+            # Rule 3: Clinic leave (go_to_clinic = True) → Clinic Admin
+            elif leave_request.leave_type.go_to_clinic:
+                clinic_admin = EmployeeLogin.objects.filter(clinic_admin=True, is_active=True).first()
+                if clinic_admin:
+                    approver = clinic_admin
+                    approval_comments = f"Clinic-required leave request routed to Clinic Admin"
+                else:
+                    # Fallback to HR manager, then HR admin if no clinic admin found
+                    hr_manager = EmployeeLogin.objects.filter(hr_manager=True, is_active=True).first()
+                    if hr_manager:
+                        approver = hr_manager
+                        approval_comments = f"Clinic-required leave request - Clinic Admin not found, routed to HR Manager"
+                    else:
+                        hr_admin = EmployeeLogin.objects.filter(hr_admin=True, is_active=True).first()
+                        approver = hr_admin
+                        approval_comments = f"Clinic-required leave request - Clinic Admin not found, routed to HR Admin"
+            
+            # Final fallback to HR manager or HR admin if no approver found
+            if not approver:
+                hr_manager = EmployeeLogin.objects.filter(hr_manager=True, is_active=True).first()
+                if hr_manager:
+                    approver = hr_manager
+                    approval_comments = f"Leave request routed to HR Manager (fallback)"
+                else:
+                    hr_admin = EmployeeLogin.objects.filter(hr_admin=True, is_active=True).first()
+                    approver = hr_admin
+                    approval_comments = f"Leave request routed to HR Admin (fallback)"
+            
+            # If still no approver found, show error
+            if not approver:
+                messages.error(request, 'No available approver found. Please contact HR administration.')
+                return redirect('user_leave')
+            
+            # Set the current approver for routing
+            leave_request.current_approver = approver
             leave_request.save()
             
-            # Create approval flow entry
-            if hr_managers:
-                LeaveApprovalAction.objects.create(
-                    leave_request=leave_request,
-                    approver=hr_managers,
-                    sequence=1,
-                    status='routing',
-                    action='submitted',
-                    comments=f"Leave request submitted for {leave_request.leave_type.name}",
-                    action_at=timezone.now()
-                )
+            # Create approval action record
+            LeaveApprovalAction.objects.create(
+                leave_request=leave_request,
+                approver=approver,
+                sequence=1,
+                status='routing',
+                action='submitted',
+                comments=approval_comments,
+                action_at=timezone.now()
+            )
             
             messages.success(request, f'Leave request {leave_request.control_number} submitted successfully!')
-            return redirect('leave:dashboard')
+            
+            # Handle AJAX requests
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Leave request {leave_request.control_number} submitted successfully!',
+                    'control_number': leave_request.control_number
+                })
+            
+            return redirect('user_leave')
+        else:
+            # Form has errors
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Create a more detailed error message
+                error_messages = []
+                for field, errors in form.errors.items():
+                    if field == '__all__':
+                        error_messages.extend(errors)
+                    else:
+                        field_name = form.fields[field].label or field.replace('_', ' ').title()
+                        for error in errors:
+                            error_messages.append(f"{field_name}: {error}")
+                
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Please correct the following errors:',
+                    'errors': form.errors,
+                    'error_list': error_messages
+                })
     else:
         form = LeaveRequestForm(user=request.user)
     
@@ -149,7 +242,7 @@ def apply_leave(request):
         'page_title': 'Apply for Leave'
     }
     
-    return render(request, 'leaverequest/apply.html', context)
+    return redirect('user_leave')
 
 @login_required
 def leave_detail(request, control_number):
@@ -162,8 +255,8 @@ def leave_detail(request, control_number):
         not (request.user.hr_admin or request.user.hr_manager or 
              request.user.is_superuser or request.user.is_staff)):
         messages.error(request, 'You do not have permission to view this leave request.')
-        return redirect('leave:dashboard')
-    
+        return redirect('user_leave')
+
     # Get timeline
     timeline = leave_request.timeline.all().order_by('timestamp')
     
@@ -363,17 +456,13 @@ def process_approval(request, control_number):
 
 @login_required
 def admin_dashboard(request):
-    """Admin dashboard for leave management"""
-    # Check admin permissions
     if not (request.user.hr_admin or request.user.hr_manager or 
             request.user.is_superuser or request.user.is_staff):
         messages.error(request, 'You do not have permission to access this page.')
-        return redirect('leave:dashboard')
+        return redirect('admin_leave')
     
-    # Get all leave requests
     leave_requests = LeaveRequest.objects.all().select_related('employee', 'leave_type')
     
-    # Apply search filters
     search_form = LeaveSearchForm(request.GET)
     if search_form.is_valid():
         if search_form.cleaned_data['search']:
@@ -396,13 +485,11 @@ def admin_dashboard(request):
         
         if search_form.cleaned_data['date_to']:
             leave_requests = leave_requests.filter(date_to__lte=search_form.cleaned_data['date_to'])
-    
-    # Pagination
+
     paginator = Paginator(leave_requests.order_by('-date_prepared'), 15)
     page = request.GET.get('page')
     leave_requests = paginator.get_page(page)
     
-    # Statistics
     stats = {
         'total_requests': LeaveRequest.objects.count(),
         'pending_requests': LeaveRequest.objects.filter(status='routing').count(),
@@ -452,3 +539,170 @@ def get_leave_balance(request):
         return JsonResponse({'remaining': None, 'message': 'No active balance found'})
     
     return JsonResponse({'error': 'Invalid request method'})
+
+@login_required
+def leave_chart_data(request):
+    """AJAX endpoint to get chart data for leave analytics"""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Invalid request method'})
+    
+    try:
+        from datetime import datetime, timedelta
+        from django.db.models import Count, Q
+        from collections import defaultdict
+        import calendar
+        
+        now = timezone.now()
+        current_date = now.date()
+        
+        # Calculate fiscal year (May to April)
+        if current_date.month >= 5:  # May onwards = current fiscal year
+            fiscal_start = datetime(current_date.year, 5, 1).date()
+            fiscal_end = datetime(current_date.year + 1, 4, 30).date()
+            fiscal_year = f"{current_date.year}-{current_date.year + 1}"
+        else:  # January to April = previous fiscal year
+            fiscal_start = datetime(current_date.year - 1, 5, 1).date()
+            fiscal_end = datetime(current_date.year, 4, 30).date()
+            fiscal_year = f"{current_date.year - 1}-{current_date.year}"
+        
+        # Status distribution data (for pie chart)
+        leave_requests = LeaveRequest.objects.filter(
+            date_prepared__date__gte=fiscal_start,
+            date_prepared__date__lte=fiscal_end
+        )
+        
+        status_counts = leave_requests.aggregate(
+            approved=Count('id', filter=Q(status='approved')),
+            routing=Count('id', filter=Q(status='routing')),
+            disapproved=Count('id', filter=Q(status='disapproved')),
+            cancelled=Count('id', filter=Q(status='cancelled'))
+        )
+        
+        total_requests = sum(status_counts.values())
+        
+        # Calculate percentages (keep for reference but use actual counts for chart)
+        status_percentages = {}
+        if total_requests > 0:
+            for status, count in status_counts.items():
+                status_percentages[status] = round((count / total_requests) * 100, 1)
+        else:
+            status_percentages = {'approved': 0, 'routing': 0, 'disapproved': 0, 'cancelled': 0}
+        
+        # Leave types over time (for line chart)
+        leave_types = LeaveType.objects.filter(is_active=True)
+        
+        # Generate monthly data for fiscal year
+        monthly_data = defaultdict(lambda: defaultdict(int))
+        
+        # Get all months in fiscal year
+        months = []
+        current_month = fiscal_start.replace(day=1)
+        while current_month <= fiscal_end:
+            months.append(current_month)
+            if current_month.month == 12:
+                current_month = current_month.replace(year=current_month.year + 1, month=1)
+            else:
+                current_month = current_month.replace(month=current_month.month + 1)
+        
+        # Count leave requests by type and month
+        for leave_request in leave_requests.filter(status='approved'):
+            month_key = leave_request.date_prepared.date().replace(day=1)
+            if month_key in months:
+                monthly_data[month_key][leave_request.leave_type.name] += 1
+        
+        # Prepare line chart data
+        line_chart_labels = [month.strftime('%b') for month in months]
+        line_chart_datasets = []
+        
+        colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6']
+        
+        for i, leave_type in enumerate(leave_types):
+            data = [monthly_data[month].get(leave_type.name, 0) for month in months]
+            color = colors[i % len(colors)]
+            
+            line_chart_datasets.append({
+                'label': leave_type.name,
+                'data': data,
+                'borderColor': color,
+                'backgroundColor': f"{color}20",
+                'tension': 0.4,
+                'fill': True,
+                'pointRadius': 4,
+                'pointHoverRadius': 6,
+                'pointBackgroundColor': color,
+                'pointBorderColor': '#ffffff',
+                'pointBorderWidth': 2
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'fiscal_year': fiscal_year,
+            'status_chart': {
+                'labels': ['Approved', 'Routing', 'Disapproved', 'Cancelled'],
+                'data': [
+                    status_counts['approved'],
+                    status_counts['routing'], 
+                    status_counts['disapproved'],
+                    status_counts['cancelled']
+                ],
+                'backgroundColor': ['#10b981', '#f59e0b', '#ef4444', '#6b7280'],
+                'total_requests': total_requests
+            },
+            'line_chart': {
+                'labels': line_chart_labels,
+                'datasets': line_chart_datasets
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)})
+
+def leave_reasons_api(request, leave_type_id):
+    reasons = LeaveReason.objects.filter(leave_type_id=leave_type_id, is_active=True)
+    data = [
+        {
+            'id': reason.id,
+            'reason_text': reason.reason_text
+        }
+        for reason in reasons
+    ]
+    return JsonResponse(data, safe=False)
+
+@login_required
+def holidays_and_exceptions_api(request):
+    """API endpoint to get holidays and Sunday exceptions for leave calculation"""
+    from usercalendar.models import Holiday
+    from .models import SundayException
+    
+    # Get holidays
+    holidays = Holiday.objects.all().values('date', 'name', 'holiday_type')
+    holidays_list = [{'date': holiday['date'].strftime('%Y-%m-%d'), 'name': holiday['name'], 'type': holiday['holiday_type']} for holiday in holidays]
+    
+    # Get Sunday exceptions (Sundays that should be counted as working days)
+    sunday_exceptions = SundayException.objects.all().values('date', 'description')
+    exceptions_list = [{'date': exception['date'].strftime('%Y-%m-%d'), 'description': exception['description']} for exception in sunday_exceptions]
+    
+    return JsonResponse({
+        'holidays': holidays_list,
+        'sunday_exceptions': exceptions_list
+    })
+
+@login_required
+def check_approver_api(request):
+    """API endpoint to check if user has an assigned approver"""
+    try:
+        employment_info = request.user.employment_info
+        has_approver = employment_info.approver is not None and employment_info.approver.is_active
+        
+        return JsonResponse({
+            'has_approver': has_approver,
+            'approver_name': f"{employment_info.approver.firstname} {employment_info.approver.lastname}" if has_approver else None
+        })
+    except:
+        return JsonResponse({
+            'has_approver': False,
+            'approver_name': None,
+            'error': 'Employment information not found'
+        })

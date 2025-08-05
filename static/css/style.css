@@ -2530,6 +2530,7 @@ select.form-input {
     transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
+
 .persistent-toast {
     display: flex;
     align-items: center;
@@ -4777,11 +4778,24 @@ textarea:required:invalid {
 
 
 /* Toast notification color variants */
-.toast.toast-error, .persistent-toast.toast-error {
-  background-color: var(--error-color) !important;
-  color: var(--text-inverse) !important;
-  border-color: var(--error-color) !important;
+
+/* Slide-down animation for custom dropdowns */
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scaleY(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
 }
+
+.dropdown-animated {
+  animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top center;
+}
+
 .toast.toast-success, .persistent-toast.toast-success {
   background-color: var(--success-color) !important;
   color: var(--text-inverse) !important;
@@ -4796,6 +4810,11 @@ textarea:required:invalid {
   background-color: var(--warning-color) !important;
   color: var(--text-inverse) !important;
   border-color: var(--warning-color) !important;
+}
+.toast.toast-error, .persistent-toast.toast-error {
+  background-color: var(--error-color) !important;
+  color: var(--text-inverse) !important;
+  border-color: var(--error-color) !important;
 }
 .toast.toast-success .spinner-border,
 .toast.toast-error .spinner-border,
