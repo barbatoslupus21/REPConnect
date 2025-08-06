@@ -140,11 +140,11 @@
 
         <div class="dropdown-menu" id="dropdown-menu">
             <div class="dropdown-header">
-            <img src="{{request.user.avatar.url}}" alt="User Avatar" class="avatar" />
-            <div class="dropdown-user-details">
-                <span class="user-name">{{request.user.username}}</span>
-                <span class="user-email">{{request.user.email}}</span>
-            </div>
+                <img src="{{request.user.avatar.url}}" alt="User Avatar" class="avatar" />
+                <div class="dropdown-user-details">
+                    <span class="user-name">{{request.user.username}}</span>
+                    <span class="user-email">{{request.user.email}}</span>
+                </div>
             </div>
             <ul>
             {% if not request.user.wire_admin and not request.user.clinic_admin and not request.user.iad_admin and not request.user.accounting_admin and not request.user.hr_admin and not request.user.hr_manager and not request.user.mis_admin %}

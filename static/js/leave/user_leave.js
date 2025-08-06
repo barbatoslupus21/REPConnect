@@ -299,8 +299,15 @@ class LeaveUserInterface {
             tab.addEventListener('click', () => {
                 const target = tab.getAttribute('data-target');
                 this.switchTab(target);
+                // Update URL hash when a tab is clicked
+                window.location.hash = target;
             });
         });
+        // Activate tab based on URL hash on page load
+        const initialHash = window.location.hash.substring(1);
+        if (initialHash) {
+            this.switchTab(initialHash);
+        }
     }
 
     switchTab(targetId) {
@@ -1000,12 +1007,95 @@ class LeaveUserInterface {
             const response = await fetch(`/leave/detail/${controlNumber}/`);
             if (!response.ok) throw new Error('Failed to fetch details');
             
-            const html = await response.text();
-            document.getElementById('leaveDetailsContent').innerHTML = html;
-            this.openModal('leaveDetailsModal');
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById('leaveDetailsContent').innerHTML = data.html;
+                this.initializeEditMode();
+                this.openModal('leaveDetailsModal');
+            } else {
+                this.showToast(data.message || 'Error loading leave details', 'error');
+            }
         } catch (error) {
             console.error('Error loading leave details:', error);
             this.showToast('Error loading leave details', 'error');
+        }
+    }
+
+    initializeEditMode() {
+        const viewMode = document.getElementById('detailViewMode');
+        const editMode = document.getElementById('detailEditMode');
+        const editBtn = document.getElementById('editLeaveBtn');
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        const editForm = document.getElementById('editLeaveForm');
+        const FADE_DURATION = 300;
+        
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                // Fade out view mode
+                viewMode.classList.add('fade-out');
+                setTimeout(() => {
+                    viewMode.style.display = 'none';
+                    viewMode.classList.remove('fade-out');
+                    // Hide edit button
+                    editBtn.style.display = 'none';
+                    // Show edit mode
+                    editMode.style.display = 'block';
+                    editMode.classList.add('fade-in');
+                    setTimeout(() => editMode.classList.remove('fade-in'), FADE_DURATION);
+                }, FADE_DURATION);
+            });
+        }
+        
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                // Fade out edit mode
+                editMode.classList.add('fade-out');
+                setTimeout(() => {
+                    editMode.style.display = 'none';
+                    editMode.classList.remove('fade-out');
+                    // Show edit button again
+                    if (editBtn) editBtn.style.display = 'inline-block';
+                    // Show view mode
+                    viewMode.style.display = 'block';
+                    viewMode.classList.add('fade-in');
+                    setTimeout(() => viewMode.classList.remove('fade-in'), FADE_DURATION);
+                }, FADE_DURATION);
+            });
+        }
+        
+        if (editForm) {
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.saveLeaveEdit(editForm);
+            });
+        }
+    }
+
+    async saveLeaveEdit(form) {
+        const controlNumber = form.getAttribute('data-control-number');
+        const formData = new FormData(form);
+        
+        try {
+            const response = await fetch(`/leave/edit/${controlNumber}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': this.getCookie('csrftoken'),
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showToast('Leave request updated successfully', 'success');
+                this.closeModal('leaveDetailsModal');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                this.showToast(data.message || 'Error updating leave request', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating leave:', error);
+            this.showToast('Error updating leave request', 'error');
         }
     }
 
@@ -1015,31 +1105,38 @@ class LeaveUserInterface {
         
         if (!controlNumber) return;
 
-        if (!confirm('Are you sure you want to cancel this leave request?')) {
+        // Show cancellation confirmation modal
+        const cancelModal = document.getElementById('cancelConfirmModal');
+        if (!cancelModal) {
+            console.error('Cancel confirmation modal not found');
             return;
         }
-
-        try {
-            const response = await fetch(`/leave/cancel/${controlNumber}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': this.getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
+        const confirmBtn = document.getElementById('confirmCancelBtn');
+        // Attach handler for confirmation
+        confirmBtn.onclick = async () => {
+            this.closeModal('cancelConfirmModal');
+            try {
+                const response = await fetch(`/leave/cancel/${controlNumber}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': this.getCookie('csrftoken'),
+                        'Content-Type': 'application/json',
+                    }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    this.showToast(data.message, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    this.showToast(data.message, 'error');
                 }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showToast(data.message, 'success');
-                setTimeout(() => window.location.reload(), 1500);
-            } else {
-                this.showToast(data.message, 'error');
+            } catch (error) {
+                console.error('Error cancelling leave:', error);
+                this.showToast('Error cancelling leave request', 'error');
             }
-        } catch (error) {
-            console.error('Error cancelling leave:', error);
-            this.showToast('Error cancelling leave request', 'error');
-        }
+        };
+        this.openModal('cancelConfirmModal');
+        return;
     }
 
     // Approval Functions
@@ -1948,6 +2045,20 @@ style.textContent = `
             min-width: auto !important;
         }
     }
+
+    /* Fade animations for edit/view mode */
+    .fade-in {
+        animation: fadeIn 0.3s ease-in-out forwards;
+    }
+
+    .fade-out {
+        animation: fadeOut 0.3s ease-in-out forwards;
+    }
+
+    @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+    }
 `;
 document.head.appendChild(style);
 
@@ -1996,4 +2107,40 @@ document.addEventListener('DOMContentLoaded', () => {
         attributes: true,
         attributeFilter: ['data-theme']
     });
+    // Setup leave type -> reason cascading
+    const leaveTypeSelect = document.getElementById('id_leave_type');
+    const reasonCategorySelect = document.getElementById('id_leave_reason');
+    if (leaveTypeSelect && reasonCategorySelect) {
+        leaveTypeSelect.addEventListener('change', async function () {
+            const selected = this.value;
+            reasonCategorySelect.disabled = true;
+            reasonCategorySelect.innerHTML = '<option value="">Loading...</option>';
+            if (selected) {
+                try {
+                    const response = await fetch(`/leave/api/leave-reasons/${selected}/`);
+                    const reasons = await response.json();
+                    reasonCategorySelect.innerHTML = '<option value="">Select Leave Reason</option>';
+                    reasons.forEach(r => {
+                        const opt = document.createElement('option');
+                        opt.value = r.id;
+                        opt.textContent = r.reason_text;
+                        reasonCategorySelect.appendChild(opt);
+                    });
+                    reasonCategorySelect.disabled = false;
+                } catch {
+                    reasonCategorySelect.innerHTML = '<option value="">Error loading reasons</option>';
+                }
+            } else {
+                reasonCategorySelect.innerHTML = '<option value="">Select Leave Reason</option>';
+            }
+        });
+    }
+    // Modal close logic
+    const applyModal = document.getElementById('applyLeaveModal');
+    if (applyModal) {
+        const overlay = applyModal.querySelector('.modal-overlay');
+        const closeBtns = applyModal.querySelectorAll('.modal-close, [data-action="close-modal"]');
+        overlay.addEventListener('click', e => e.stopPropagation());
+        closeBtns.forEach(btn => btn.addEventListener('click', () => applyModal.classList.remove('open')));
+    }
 });

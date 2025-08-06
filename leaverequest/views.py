@@ -15,7 +15,7 @@ from .forms import LeaveRequestForm, LeaveApprovalForm, LeaveSearchForm
 def leave_dashboard(request):
     user = request.user
 
-    leave_requests = LeaveRequest.objects.filter(employee=user).order_by('-date_prepared')[:5]
+    recent_leaves = LeaveRequest.objects.filter(employee=user).order_by('-date_prepared')[:4]
     leave_balances = LeaveBalance.objects.filter(employee=user).select_related('leave_type').order_by('valid_from', 'leave_type__name')
     leave_types = LeaveType.objects.filter(is_active=True).order_by('name')
     leave_reasons = LeaveReason.objects.filter(is_active=True).select_related('leave_type').order_by('leave_type__name', 'reason_text')
@@ -45,10 +45,10 @@ def leave_dashboard(request):
     approval_actions = LeaveApprovalAction.objects.filter(approver=user, status='routing').select_related('leave_request').order_by('-created_at')
     pending_approvals = [action.leave_request for action in approval_actions]
 
-    # context['is_admin'] = (
-    #     user.hr_admin or user.hr_manager or 
-    #     user.is_superuser or user.is_staff
-    # )
+    all_requests = LeaveRequest.objects.filter(employee=user).order_by('-date_prepared')
+    paginator = Paginator(all_requests, 10)
+    page = request.GET.get('page')
+    my_requests_page_obj = paginator.get_page(page)
 
     context={
         'leave_types': leave_types,
@@ -56,7 +56,8 @@ def leave_dashboard(request):
         'leave_balance_sets': grouped_balances,
         'pending_approvals': pending_approvals,
         'is_approver': bool(pending_approvals),
-        'recent_leaves': leave_requests,
+        'recent_leaves': recent_leaves,
+        'my_requests_page_obj': my_requests_page_obj,
         'today': timezone.now().date(),
     }
 
@@ -110,11 +111,9 @@ def apply_leave(request):
             leave_request = form.save(commit=False)
             leave_request.employee = request.user
             
-            # Complex Approval Routing Logic
             approver = None
             approval_comments = ""
             
-            # Calculate notice period in days
             notice_days = (leave_request.date_from - timezone.now().date()).days
             
             # Rule 1: Urgent leave (< 1 day notice, non-clinic) → IAD Admin
@@ -122,17 +121,13 @@ def apply_leave(request):
                 iad_admin = EmployeeLogin.objects.filter(iad_admin=True, is_active=True).first()
                 if iad_admin:
                     approver = iad_admin
-                    approval_comments = f"Urgent leave request (less than 1 day notice) routed to IAD Admin"
                 else:
-                    # Fallback to HR manager, then HR admin if no IAD admin found
                     hr_manager = EmployeeLogin.objects.filter(hr_manager=True, is_active=True).first()
                     if hr_manager:
                         approver = hr_manager
-                        approval_comments = f"Urgent leave request - IAD Admin not found, routed to HR Manager"
                     else:
                         hr_admin = EmployeeLogin.objects.filter(hr_admin=True, is_active=True).first()
                         approver = hr_admin
-                        approval_comments = f"Urgent leave request - IAD Admin not found, routed to HR Admin"
             
             # Rule 2: Regular leave (≥ 1 day notice, non-clinic) → Employee's approver
             elif not leave_request.leave_type.go_to_clinic and notice_days >= 1:
@@ -140,16 +135,13 @@ def apply_leave(request):
                     employment_info = request.user.employment_info
                     if employment_info.approver and employment_info.approver.is_active:
                         approver = employment_info.approver
-                        approval_comments = f"Regular leave request routed to employee's approver: {approver.firstname} {approver.lastname}"
                     else:
-                        # No approver assigned - need modal intervention
                         error_msg = 'You do not have an assigned approver. Please assign an approver before submitting leave requests.'
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                             return JsonResponse({'success': False, 'message': error_msg})
                         messages.error(request, error_msg)
                         return redirect('user_leave')
                 except:
-                    # Employee has no employment_info - need modal intervention
                     error_msg = 'Your employment information is incomplete. Please contact HR to complete your profile before submitting leave requests.'
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         return JsonResponse({'success': False, 'message': error_msg})
@@ -161,39 +153,31 @@ def apply_leave(request):
                 clinic_admin = EmployeeLogin.objects.filter(clinic_admin=True, is_active=True).first()
                 if clinic_admin:
                     approver = clinic_admin
-                    approval_comments = f"Clinic-required leave request routed to Clinic Admin"
                 else:
-                    # Fallback to HR manager, then HR admin if no clinic admin found
                     hr_manager = EmployeeLogin.objects.filter(hr_manager=True, is_active=True).first()
                     if hr_manager:
                         approver = hr_manager
-                        approval_comments = f"Clinic-required leave request - Clinic Admin not found, routed to HR Manager"
                     else:
                         hr_admin = EmployeeLogin.objects.filter(hr_admin=True, is_active=True).first()
                         approver = hr_admin
-                        approval_comments = f"Clinic-required leave request - Clinic Admin not found, routed to HR Admin"
             
             # Final fallback to HR manager or HR admin if no approver found
             if not approver:
                 hr_manager = EmployeeLogin.objects.filter(hr_manager=True, is_active=True).first()
                 if hr_manager:
                     approver = hr_manager
-                    approval_comments = f"Leave request routed to HR Manager (fallback)"
                 else:
                     hr_admin = EmployeeLogin.objects.filter(hr_admin=True, is_active=True).first()
                     approver = hr_admin
-                    approval_comments = f"Leave request routed to HR Admin (fallback)"
             
             # If still no approver found, show error
             if not approver:
-                messages.error(request, 'No available approver found. Please contact HR administration.')
+                messages.error(request, 'No available approver found. Please assign your supervisor as approver.')
                 return redirect('user_leave')
             
-            # Set the current approver for routing
             leave_request.current_approver = approver
             leave_request.save()
             
-            # Create approval action record
             LeaveApprovalAction.objects.create(
                 leave_request=leave_request,
                 approver=approver,
@@ -206,7 +190,6 @@ def apply_leave(request):
             
             messages.success(request, f'Leave request {leave_request.control_number} submitted successfully!')
             
-            # Handle AJAX requests
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': True,
@@ -216,9 +199,7 @@ def apply_leave(request):
             
             return redirect('user_leave')
         else:
-            # Form has errors
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                # Create a more detailed error message
                 error_messages = []
                 for field, errors in form.errors.items():
                     if field == '__all__':
@@ -246,7 +227,6 @@ def apply_leave(request):
 
 @login_required
 def leave_detail(request, control_number):
-    """View leave request details"""
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
     
     # Check permissions
@@ -254,19 +234,17 @@ def leave_detail(request, control_number):
         leave_request.current_approver != request.user and
         not (request.user.hr_admin or request.user.hr_manager or 
              request.user.is_superuser or request.user.is_staff)):
-        messages.error(request, 'You do not have permission to view this leave request.')
-        return redirect('user_leave')
+        return JsonResponse({'success': False, 'message': 'You do not have permission to view this leave request.'})
 
-    # Get timeline
-    timeline = leave_request.timeline.all().order_by('timestamp')
+    approval_actions = leave_request.approval_actions.all().order_by('action_at')
     
-    # Get approval flow
-    approval_flow = leave_request.approval_flow.all().order_by('sequence')
+    from .models import LeaveReason
+    leave_reasons = LeaveReason.objects.filter(leave_type=leave_request.leave_type, is_active=True)
     
     context = {
         'leave_request': leave_request,
-        'timeline': timeline,
-        'approval_flow': approval_flow,
+        'approval_actions': approval_actions,
+        'leave_reasons': leave_reasons,
         'can_edit': (leave_request.employee == request.user and 
                     leave_request.status == 'routing'),
         'can_cancel': (leave_request.employee == request.user and 
@@ -275,47 +253,57 @@ def leave_detail(request, control_number):
                        leave_request.status == 'routing')
     }
     
-    return render(request, 'leaverequest/detail.html', context)
+    return JsonResponse({
+        'success': True,
+        'html': render(request, 'leaverequest/detail_content.html', context).content.decode('utf-8')
+    })
 
 @login_required
+@login_required
 def edit_leave(request, control_number):
-    """Edit leave request (only if routing status)"""
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
-    
-    # Check permissions
-    if (leave_request.employee != request.user or 
-        leave_request.status != 'routing'):
-        messages.error(request, 'You cannot edit this leave request.')
-        return redirect('leave:detail', control_number=control_number)
-    
-    if request.method == 'POST':
-        form = LeaveRequestForm(request.POST, request.FILES, 
-                               instance=leave_request, user=request.user)
-        if form.is_valid():
-            form.save()
-            
-            LeaveApprovalAction.objects.create(
-                leave_request=leave_request,
-                approver=request.user,
-                sequence=1,
-                status=leave_request.status,
-                action='submitted',
-                comments="Leave request updated",
-                action_at=timezone.now()
-            )
-            
-            messages.success(request, 'Leave request updated successfully!')
-            return redirect('leave:detail', control_number=control_number)
-    else:
-        form = LeaveRequestForm(instance=leave_request, user=request.user)
-    
-    context = {
-        'form': form,
-        'leave_request': leave_request,
-        'page_title': f'Edit Leave Request - {control_number}'
-    }
-    
-    return render(request, 'leaverequest/edit.html', context)
+
+    if leave_request.employee != request.user or leave_request.status != 'routing':
+        return JsonResponse({'success': False, 'message': 'You cannot edit this leave request.'})
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method.'})
+
+    from datetime import datetime
+    date_from_str = request.POST.get('date_from')
+    date_to_str = request.POST.get('date_to')
+    try:
+        date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+        date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid date format.'})
+    reason_text = request.POST.get('reason', '').strip()
+    leave_reason_id = request.POST.get('leave_reason')
+
+    if not (date_from and date_to and leave_reason_id and reason_text):
+        return JsonResponse({'success': False, 'message': 'All fields are required.'})
+
+    from .models import LeaveReason
+    try:
+        leave_request.date_from = date_from
+        leave_request.date_to = date_to
+        leave_request.reason = reason_text
+        leave_request.leave_reason = LeaveReason.objects.get(pk=leave_reason_id)
+        leave_request.save()
+
+        LeaveApprovalAction.objects.create(
+            leave_request=leave_request,
+            approver=request.user,
+            sequence=leave_request.approval_actions.count() + 1,
+            status='approved',
+            action='approved',
+            comments='Updated my leave request',
+            action_at=timezone.now()
+        )
+        return JsonResponse({'success': True, 'message': 'Leave request updated successfully!'})
+    except LeaveReason.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Invalid leave reason selected.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 @login_required
 @require_POST

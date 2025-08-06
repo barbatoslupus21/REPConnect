@@ -51,7 +51,6 @@
                             <div class="chart-container">
                                 <div class="donut-chart-wrapper">
                                     <div class="chart-legend" id="statusChartLegend">
-                                        <!-- Legend items will be populated by JavaScript -->
                                     </div>
                                     <div class="donut-chart-container">
                                         <canvas id="statusChart"></canvas>
@@ -228,43 +227,42 @@
         </div>
 
         <div id="my-requests" class="tab-panel">
-            <div class="table-container">
-                    <table class="data-table">
-                        <thead>
+            <div class="leave-table-container">
+                <table class="data-table">
+                    <thead>
                             <tr>
                                 <th>Control Number</th>
                                 <th>Date Prepared</th>
                                 <th>Leave Type</th>
+                                <th>Leave Reason</th>
                                 <th>Duration</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th style="text-align: center;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="myRequestsTable">
-                            {% for leave in recent_leaves %}
+                            {% for leave in my_requests_page_obj %}
                             <tr>
                                 <td>
                                     <span class="control-number">{{ leave.control_number }}</span>
                                 </td>
                                 <td>{{ leave.date_prepared|date:"M d, Y" }}</td>
                                 <td>{{ leave.leave_type.name }}</td>
+                                <td>{{ leave.leave_reason.reason_text }}</td>
                                 <td>{{ leave.duration_display }}</td>
-                                <td>
+                                <td class="center-align">
                                     <span class="status-badge status-{{ leave.status }}">
                                         {{ leave.get_status_display }}
                                     </span>
                                 </td>
                                 <td>
-                                    <div class="action-buttons">
-                                        <button class="btn btn-sm btn-outline" data-action="view-details" data-control-number="{{ leave.control_number }}" title="View Details">
+                                    <div class="center-align">
+                                        <button class="btn btn-icon " data-action="view-details" data-control-number="{{ leave.control_number }}" title="View Details">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                         {% if leave.status == 'routing' %}
-                                        <a href="{% url 'edit' leave.control_number %}" class="btn btn-sm btn-accent" title="Edit">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <button class="btn btn-sm btn-error" data-action="cancel-leave" data-control-number="{{ leave.control_number }}" title="Cancel">
-                                            <i class="fas fa-times"></i>
+                                        <button class="btn btn-icon btn-error" data-action="cancel-leave" data-control-number="{{ leave.control_number }}" title="Cancel">
+                                            <i class="fa fa-times-circle"></i>
                                         </button>
                                         {% endif %}
                                     </div>
@@ -272,7 +270,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center">
+                                <td colspan="7" class="text-center">
                                     <div class="empty-state">
                                         <i class="fas fa-calendar-alt"></i>
                                         <p>No leave requests found.</p>
@@ -283,11 +281,39 @@
                         </tbody>
                     </table>
             </div>
-            <div class="table-actions">
-                    <a href="{% url 'requests_list' %}" class="btn btn-outline">
-                        <i class="fas fa-list"></i>
-                        View All Requests
-                    </a>
+            <div class="pagination" id="paginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="startRecord">{{ my_requests_page_obj.start_index }}</span> to <span id="endRecord">{{ my_requests_page_obj.end_index }}</span> of <span id="totalRecords">{{ my_requests_page_obj.paginator.count }}</span> entries
+                </div>
+                <div class="pagination-controls" id="paginationControls">
+                    {% if my_requests_page_obj.has_previous %}
+                        <a class="pagination-btn" id="prevPage" href="?page={{ my_requests_page_obj.previous_page_number }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="prevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="pageNumbers">
+                        {% for num in my_requests_page_obj.paginator.page_range %}
+                            {% if my_requests_page_obj.number == num %}
+                                <span class="pagination-btn active">{{ num }}</span>
+                            {% elif num > my_requests_page_obj.number|add:'-3' and num < my_requests_page_obj.number|add:'3' %}
+                                <a class="pagination-btn" href="?page={{ num }}">{{ num }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if my_requests_page_obj.has_next %}
+                        <a class="pagination-btn" id="nextPage" href="?page={{ my_requests_page_obj.next_page_number }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="nextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
@@ -435,14 +461,11 @@
 </div>
 
 <!-- Leave Details Modal -->
-<div id="leaveDetailsModal" class="modal">
+<div id="leaveDetailsModal" class="modal modal-lg">
     <div class="modal-overlay"></div>
-    <div class="modal-content modal-lg">
+    <div class="modal-content">
         <div class="modal-header">
-            <h3>
-                <i class="fas fa-file-alt"></i>
-                Leave Request Details
-            </h3>
+            <h3>Leave Request Details</h3>
             <button class="modal-close" data-action="close-modal" data-modal="leaveDetailsModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -515,6 +538,26 @@
     </div>
 </div>
 
+<!-- Cancel Confirmation Modal -->
+<div id="cancelConfirmModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirm Cancellation</h3>
+            <button class="modal-close" data-action="close-modal" data-modal="cancelConfirmModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to cancel this leave request?</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="cancelConfirmModal">No</button>
+            <button type="button" class="btn btn-error" id="confirmCancelBtn">Yes, Cancel</button>
+        </div>
+    </div>
+</div>
+
 <div class="toast-container" id="toast-container" style="position: fixed !important; bottom: 20px !important; right: 20px !important; top: auto !important; left: auto !important; z-index: 10000 !important;"></div>
 
 {% endblock content %}
@@ -538,61 +581,4 @@
     ];
 </script>
 <script src="{% static 'js/leave/user_leave.js' %}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const leaveTypeSelect = document.getElementById('id_leave_type');
-        const reasonCategorySelect = document.getElementById('id_leave_reason');
-
-        leaveTypeSelect.addEventListener('change', async function () {
-            const selectedLeaveType = this.value;
-
-            // Disable Reason Category while loading
-            reasonCategorySelect.disabled = true;
-            reasonCategorySelect.innerHTML = '<option value="">Loading...</option>';
-
-            if (selectedLeaveType) {
-                try {
-                    // Fetch reasons for the selected leave type
-                    const response = await fetch(`/leave/api/leave-reasons/${selectedLeaveType}/`);
-                    const reasons = await response.json();
-
-                    // Populate Reason Category dropdown
-                    reasonCategorySelect.innerHTML = '<option value="">Select Leave Reason</option>';
-                    reasons.forEach(reason => {
-                        const option = document.createElement('option');
-                        option.value = reason.id;
-                        option.textContent = reason.reason_text;
-                        reasonCategorySelect.appendChild(option);
-                    });
-
-                    // Enable Reason Category
-                    reasonCategorySelect.disabled = false;
-                } catch (error) {
-                    console.error('Error fetching reasons:', error);
-                    reasonCategorySelect.innerHTML = '<option value="">Error loading reasons</option>';
-                }
-            } else {
-                // Reset Reason Category if no Leave Type is selected
-                reasonCategorySelect.innerHTML = '<option value="">Select Leave Reason</option>';
-            }
-        });
-
-        // Modal close logic
-        const applyLeaveModal = document.getElementById('applyLeaveModal');
-        const modalOverlay = applyLeaveModal.querySelector('.modal-overlay');
-        const closeButtons = applyLeaveModal.querySelectorAll('.modal-close, [data-action="close-modal"]');
-
-        // Prevent overlay click from closing modal
-        modalOverlay.addEventListener('click', function (e) {
-            e.stopPropagation();
-        });
-
-        // Only close modal on explicit close button click
-        closeButtons.forEach(btn => {
-            btn.addEventListener('click', function () {
-                applyLeaveModal.classList.remove('open');
-            });
-        });
-    });
-</script>   
 {% endblock extra_js %}
