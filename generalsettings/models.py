@@ -29,7 +29,7 @@ class Position(models.Model):
     level_choice=[
         ('1', 'level-1'),
         ('2', 'level-2'),
-        ('3', 'level-3'),
+        ('3', 'level-3'),   
     ]
     position = models.CharField(max_length=200, null=True, unique=True)
     level = models.CharField(max_length=1, choices=level_choice, default='1')

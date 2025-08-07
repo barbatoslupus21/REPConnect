@@ -22,6 +22,8 @@ urlpatterns = [
     # AJAX endpoints
     path('ajax/balance/', views.get_leave_balance, name='get_leave_balance'),
     path('ajax/chart-data/', views.leave_chart_data, name='leave_chart_data'),
+    path('ajax/approval-chart-data/', views.approval_chart_data, name='approval_chart_data'),
+    path('ajax/search-approvals/', views.search_approvals_ajax, name='search_approvals_ajax'),
 
     # API endpoints
     path('api/leave-reasons/<int:leave_type_id>/', views.leave_reasons_api, name='leave_reasons_api'),

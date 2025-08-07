@@ -22,6 +22,7 @@ class LeaveUserInterface {
         this.initializeCalendar();
         this.initializeCharts();
         this.initializeHoursEditor();
+        this.initializeSearch();
     }
 
     async loadHolidaysAndExceptions() {
@@ -626,6 +627,253 @@ class LeaveUserInterface {
         return Math.max(0, (toMinutes - fromMinutes) / 60);
     }
 
+    initializeSearch() {
+        const searchInput = document.getElementById('searchInput');
+        if (!searchInput) return;
+
+        let searchTimeout;
+        
+        // Auto-search on input with debouncing
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            
+            searchTimeout = setTimeout(() => {
+                const searchTerm = e.target.value.trim();
+                this.performAjaxSearch(searchTerm, 1); // Always start from page 1 when searching
+            }, 500); // 500ms delay for debouncing
+        });
+
+        // Setup pagination click handlers
+        this.setupAjaxPaginationHandlers();
+        
+        // Update search clear button based on initial value
+        this.updateSearchClearButton(searchInput.value.trim());
+    }
+
+    setupAjaxPaginationHandlers() {
+        // Handle pagination clicks with event delegation
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#approvalsPaginationControls a.pagination-btn')) {
+                e.preventDefault();
+                const link = e.target.closest('a.pagination-btn');
+                const url = new URL(link.href);
+                const page = url.searchParams.get('approvals_page') || 1;
+                const search = url.searchParams.get('search') || '';
+                
+                this.performAjaxSearch(search, page);
+            }
+        });
+    }
+
+    async performAjaxSearch(searchTerm, page = 1) {
+        try {
+            // Show loading state
+            this.showTableLoading();
+            
+            // Update search input and clear button
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = searchTerm;
+            }
+            this.updateSearchClearButton(searchTerm);
+            
+            // Make AJAX request
+            const params = new URLSearchParams();
+            if (searchTerm) params.append('search', searchTerm);
+            params.append('page', page);
+            
+            const response = await fetch(`/leave/ajax/search-approvals/?${params.toString()}`);
+            const data = await response.json();
+            
+            // Update table content
+            this.updateApprovalsTable(data.approvals, data.search_query);
+            this.updateApprovalsPagination(data.pagination, data.search_query);
+            
+        } catch (error) {
+            console.error('Error performing search:', error);
+            this.showTableError();
+        }
+    }
+
+    showTableLoading() {
+        const tableBody = document.getElementById('approvalsTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="loading-state">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading...</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    showTableError() {
+        const tableBody = document.getElementById('approvalsTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h5>Error Loading Data</h5>
+                            <p>Please try again later.</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    updateSearchClearButton(searchTerm) {
+        const clearBtn = document.querySelector('.search-clear');
+        const searchBox = document.querySelector('.search-box');
+        
+        if (searchTerm && searchTerm.length > 0) {
+            if (!clearBtn && searchBox) {
+                const newClearBtn = document.createElement('span');
+                newClearBtn.className = 'search-clear';
+                newClearBtn.innerHTML = '<i class="fas fa-times"></i>';
+                newClearBtn.onclick = () => this.clearAjaxSearch();
+                searchBox.appendChild(newClearBtn);
+            }
+        } else {
+            if (clearBtn) {
+                clearBtn.remove();
+            }
+        }
+    }
+
+    clearAjaxSearch() {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = '';
+            this.performAjaxSearch('', 1);
+        }
+    }
+
+    updateApprovalsTable(approvals, searchQuery) {
+        const tableBody = document.getElementById('approvalsTableBody');
+        if (!tableBody) return;
+        
+        if (approvals.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="empty-state">
+                            <i class="fas fa-search"></i>
+                            <h5>No leave requests found</h5>
+                            ${searchQuery ? `<p>No results found for "${searchQuery}"</p>` : '<p>No pending approvals at this time.</p>'}
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const rowsHtml = approvals.map(approval => `
+            <tr>
+                <td>
+                    <span class="control-number">${approval.control_number}</span>
+                </td>
+                <td>
+                    <div class="employee-info">
+                        <span class="employee-name">${approval.employee_name}</span>
+                        <small class="employee-id">${approval.employee_id}</small>
+                    </div>
+                </td>
+                <td>${approval.leave_type}</td>
+                <td>${approval.leave_reason}</td>
+                <td>${approval.duration_display}</td>
+                <td class="center-align">
+                    <span class="status-badge status-${approval.status}">
+                        ${approval.status_display}
+                    </span>
+                </td>
+                <td>${approval.date_prepared}</td>
+                <td>
+                    <div class="center-align">
+                        ${approval.is_routing ? 
+                            `<button class="btn btn-sm btn-primary" data-action="open-approval" data-control-number="${approval.control_number}" title="Review & Approve">
+                                <i class="fas fa-check"></i>
+                                Review
+                            </button>` :
+                            `<button class="btn btn-icon" data-action="view-details" data-control-number="${approval.control_number}" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>`
+                        }
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+        
+        tableBody.innerHTML = rowsHtml;
+    }
+
+    updateApprovalsPagination(pagination, searchQuery) {
+        // Update pagination info
+        const startRecord = document.getElementById('approvalsStartRecord');
+        const endRecord = document.getElementById('approvalsEndRecord');
+        const totalRecords = document.getElementById('approvalsTotalRecords');
+        
+        if (startRecord) startRecord.textContent = pagination.start_index || 0;
+        if (endRecord) endRecord.textContent = pagination.end_index || 0;
+        if (totalRecords) totalRecords.textContent = pagination.count || 0;
+        
+        // Update pagination controls
+        const paginationControls = document.getElementById('approvalsPaginationControls');
+        if (!paginationControls) return;
+        
+        const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+        
+        let paginationHtml = '';
+        
+        // Previous button
+        if (pagination.has_previous) {
+            paginationHtml += `<a class="pagination-btn" href="?approvals_page=${pagination.previous_page_number}${searchParam}#approvals">
+                <i class="fas fa-chevron-left"></i>
+            </a>`;
+        } else {
+            paginationHtml += `<span class="pagination-btn" disabled>
+                <i class="fas fa-chevron-left"></i>
+            </span>`;
+        }
+        
+        // Page numbers container
+        paginationHtml += '<div id="approvalsPageNumbers">';
+        
+        if (pagination.page_range && pagination.page_range.length > 0) {
+            const currentPage = pagination.number;
+            for (const num of pagination.page_range) {
+                if (num === currentPage) {
+                    paginationHtml += `<span class="pagination-btn active">${num}</span>`;
+                } else if (num > currentPage - 3 && num < currentPage + 3) {
+                    paginationHtml += `<a class="pagination-btn" href="?approvals_page=${num}${searchParam}#approvals">${num}</a>`;
+                }
+            }
+        } else {
+            paginationHtml += '<span class="pagination-btn active">1</span>';
+        }
+        
+        paginationHtml += '</div>';
+        
+        // Next button
+        if (pagination.has_next) {
+            paginationHtml += `<a class="pagination-btn" href="?approvals_page=${pagination.next_page_number}${searchParam}#approvals">
+                <i class="fas fa-chevron-right"></i>
+            </a>`;
+        } else {
+            paginationHtml += `<span class="pagination-btn" disabled>
+                <i class="fas fa-chevron-right"></i>
+            </span>`;
+        }
+        
+        paginationControls.innerHTML = paginationHtml;
+    }
+
     initializeHoursEditor() {
         const hrsCountElement = document.getElementById('hrsCount');
         if (!hrsCountElement) return;
@@ -1145,14 +1393,36 @@ class LeaveUserInterface {
                             element.closest('[data-control-number]')?.getAttribute('data-control-number');
         
         if (!controlNumber) return;
+        // Check if current user has an assigned approver for routing further approvals
+        try {
+            const authResp = await fetch('/leave/api/check-approver/');
+            const authData = await authResp.json();
+            if (!authData.has_approver) {
+                // Show no approver error modal and prevent review
+                this.openModal('noApproverModal');
+                return;
+            }
+        } catch (err) {
+            console.error('Error checking approver before review:', err);
+            this.showToast('Error checking approver. Please try again.', 'error');
+            return;
+        }
 
         try {
-            const response = await fetch(`/leave/detail/${controlNumber}/`);
-            if (!response.ok) throw new Error('Failed to fetch details');
-            
-            const html = await response.text();
+            const response = await fetch(`/leave/detail/${controlNumber}/`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.message || 'Failed to fetch details');
+            // If user has no assigned approver in their profile, show error modal
+            if (!data.has_approver) {
+                this.openModal('noApproverModal');
+                return;
+            }
+
+            // Use the detail_content.html markup for approval modal (user is authorized)
             const approvalContent = `
-                ${html}
+                ${data.html}
                 <div class="approval-form">
                     <div class="form-group">
                         <label for="approvalComments">Comments (Optional)</label>
@@ -1160,13 +1430,12 @@ class LeaveUserInterface {
                     </div>
                 </div>
             `;
-            
             document.getElementById('approvalContent').innerHTML = approvalContent;
             document.getElementById('approvalModal').setAttribute('data-control-number', controlNumber);
             this.openModal('approvalModal');
         } catch (error) {
             console.error('Error loading approval details:', error);
-            this.showToast('Error loading request details', 'error');
+            this.showToast(error.message || 'Error loading leave details', 'error');
         }
     }
 
@@ -1654,11 +1923,16 @@ class LeaveUserInterface {
     initializeCharts() {
         this.statusChart = null;
         this.leaveTypesChart = null;
+        this.approvalDistributionChart = null;
+        this.approvalRequestChart = null;
+        this.currentApprovalPeriod = 'month';
         this.loadChartData();
+        this.initializeApprovalCharts();
         
         // Auto-refresh charts every minute
         setInterval(() => {
             this.loadChartData();
+            this.loadApprovalChartData();
         }, 60000);
     }
 
@@ -1913,7 +2187,7 @@ class LeaveUserInterface {
                             color: gridColor,
                             drawBorder: false
                         }
-                    },
+                                       },
                     y: {
                         beginAtZero: true,
                         ticks: {
@@ -1965,10 +2239,415 @@ class LeaveUserInterface {
     updateChartsForTheme() {
         if (this.statusChart) this.statusChart.destroy();
         if (this.leaveTypesChart) this.leaveTypesChart.destroy();
+        if (this.approvalDistributionChart) this.approvalDistributionChart.destroy();
+        if (this.approvalRequestChart) this.approvalRequestChart.destroy();
         
         setTimeout(() => {
             this.loadChartData();
+            this.loadApprovalChartData();
         }, 100);
+    }
+
+    // Approval Charts Management
+    initializeApprovalCharts() {
+        this.setupApprovalChartFilters();
+        this.setupApprovalTrendFilters();
+        this.loadApprovalChartData();
+        
+        // Handle window resize for slider positioning
+        window.addEventListener('resize', () => {
+            this.repositionSliders();
+        });
+    }
+
+    repositionSliders() {
+        // Reposition approval chart filter slider
+        const approvalActiveBtn = document.querySelector('#approval-chart-filters .filter-btn.active');
+        const approvalSlider = document.querySelector('#approval-chart-filters .filter-slider');
+        if (approvalActiveBtn && approvalSlider) {
+            this.updateSliderPosition(approvalActiveBtn, approvalSlider);
+        }
+        
+        // Reposition trend chart filter slider
+        const trendActiveBtn = document.querySelector('#approval-trend-filters .filter-btn.active');
+        const trendSlider = document.querySelector('#approval-trend-filters .filter-slider');
+        if (trendActiveBtn && trendSlider) {
+            this.updateSliderPosition(trendActiveBtn, trendSlider);
+        }
+    }
+
+    setupApprovalChartFilters() {
+        const filterButtons = document.querySelectorAll('#approval-chart-filters .filter-btn');
+        const slider = document.querySelector('#approval-chart-filters .filter-slider');
+        
+        if (!filterButtons.length) return;
+
+        // Set initial active filter and slider position
+        const activeBtn = document.querySelector('#approval-chart-filters .filter-btn.active');
+        if (activeBtn && slider) {
+            // Delay to ensure proper rendering
+            setTimeout(() => {
+                this.updateSliderPosition(activeBtn, slider);
+            }, 100);
+        }
+
+        // Setup filter button handlers
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const period = btn.getAttribute('data-period');
+                if (period && period !== this.currentApprovalPeriod) {
+                    this.currentApprovalPeriod = period;
+                    
+                    // Update active state
+                    filterButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    // Move slider
+                    if (slider) {
+                        this.updateSliderPosition(btn, slider);
+                    }
+                    
+                    // Reload chart data with new period
+                    this.loadApprovalChartData();
+                }
+            });
+        });
+    }
+
+    updateSliderPosition(activeBtn, slider) {
+        const container = activeBtn.parentElement;
+        const containerRect = container.getBoundingClientRect();
+        const btnRect = activeBtn.getBoundingClientRect();
+        
+        const left = btnRect.left - containerRect.left;
+        const width = btnRect.width;
+        
+        slider.style.left = `${left}px`;
+        slider.style.width = `${width}px`;
+    }
+
+    setupApprovalTrendFilters() {
+        const filterButtons = document.querySelectorAll('#approval-trend-filters .filter-btn');
+        const filterContainer = document.getElementById('approval-trend-filters');
+        if (!filterButtons.length || !filterContainer) return;
+
+        // Helper to update slider class
+        function updateSliderClass() {
+            const activeIdx = Array.from(filterButtons).findIndex(btn => btn.classList.contains('active'));
+            filterContainer.classList.remove('slide-0', 'slide-1', 'slide-2', 'has-active');
+            if (activeIdx >= 0) {
+                filterContainer.classList.add('has-active', `slide-${activeIdx}`);
+            }
+        }
+
+        // Set initial slider
+        setTimeout(updateSliderClass, 100);
+
+        filterButtons.forEach((btn, idx) => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const period = btn.getAttribute('data-period');
+                if (period && period !== this.currentApprovalPeriod) {
+                    this.currentApprovalPeriod = period;
+                    filterButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateSliderClass();
+                    this.loadApprovalChartData();
+                }
+            });
+        });
+    }
+
+    async loadApprovalChartData() {
+        try {
+            const url = `/leave/ajax/approval-chart-data/?period=${this.currentApprovalPeriod}`;
+            console.log('Fetching approval chart data from', url);
+            const response = await fetch(url, { credentials: 'same-origin' });
+            console.log('Approval chart HTTP status:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`);
+            }
+            const data = await response.json();
+            console.log('Approval chart data response:', data);
+            if (data.success) {
+                this.createApprovalDistributionChart(data.status_chart);
+                this.createApprovalRequestChart(data.line_chart);
+                this.updateApprovalPeriodLabels(data.period_label);
+            } else {
+                console.error('Approval chart data error:', data.error);
+                this.showApprovalChartError();
+            }
+        } catch (error) {
+            console.error('Error loading approval chart data:', error);
+            this.showApprovalChartError();
+        }
+    }
+
+    updateApprovalPeriodLabels(periodLabel) {
+        // Update period labels if needed
+        const periodElements = document.querySelectorAll('.chart-subtitle');
+        periodElements.forEach(el => {
+            if (el.textContent.includes('This Month') || el.textContent.includes('This Quarter') || el.textContent.includes('This Year')) {
+                el.textContent = periodLabel;
+            }
+        });
+    }
+
+    createApprovalDistributionChart(data) {
+        const ctx = document.getElementById('LeaveDistributionChart');
+        if (!ctx) return;
+
+        // Destroy existing chart
+        if (this.approvalDistributionChart) {
+            this.approvalDistributionChart.destroy();
+        }
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#f8fafc' : '#0f172a';
+        
+        // Update center text for approval chart (sum of all types)
+        const centerNumber = document.querySelector('#LeaveDistributionChart').closest('.donut-chart-wrapper').querySelector('.donut-center-number');
+        const centerLabel = document.querySelector('#LeaveDistributionChart').closest('.donut-chart-wrapper').querySelector('.donut-center-label');
+        const totalActions = data.data.reduce((sum, v) => sum + v, 0);
+        if (centerNumber) {
+            centerNumber.textContent = totalActions.toLocaleString();
+        }
+        if (centerLabel) {
+            centerLabel.textContent = 'Total Requests';
+        }
+
+        // Create custom legend for approval actions
+        this.createApprovalCustomLegend(data);
+
+        // Handle case where all data is zero
+        const chartData = data.data.slice();
+        const hasData = chartData.some(value => value > 0);
+        
+        if (!hasData) {
+            chartData.fill(1);
+        }
+
+        this.approvalDistributionChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: chartData,
+                    backgroundColor: data.backgroundColor,
+                    borderWidth: 2,
+                    borderColor: isDark ? '#1e293b' : '#ffffff',
+                    hoverBorderWidth: 3,
+                    hoverOffset: hasData ? 4 : 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: hasData,
+                        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        borderColor: isDark ? '#334155' : '#e2e8f0',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const percentage = ((context.parsed / data.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
+                },
+                onHover: (event, elements) => {
+                    ctx.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+                }
+            }
+        });
+    }
+
+    createApprovalCustomLegend(data) {
+        const legendContainer = document.querySelector('#approvalDistributionLegend');
+        if (!legendContainer) return;
+
+        const total = data.data.reduce((sum, value) => sum + value, 0);
+        
+        let legendHTML = '';
+        data.labels.forEach((label, index) => {
+            const value = data.data[index];
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+            const color = data.backgroundColor[index];
+            
+            // Add class for zero values to style them differently
+            const itemClass = value === 0 ? 'legend-item legend-item-zero' : 'legend-item';
+            
+            legendHTML += `
+                <div class="${itemClass}" data-index="${index}">
+                    <div style="display: flex; align-items: center;">
+                        <div class="legend-color" style="background-color: ${color};"></div>
+                        <span class="legend-label">${label}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span class="legend-value">${value}</span>
+                        <span class="legend-percentage">(${percentage}%)</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        legendContainer.innerHTML = legendHTML;
+
+        // Add click handlers to legend items
+        legendContainer.querySelectorAll('.legend-item').forEach((item, index) => {
+            const dataIndex = parseInt(item.getAttribute('data-index'));
+            
+            item.addEventListener('click', () => {
+                if (this.approvalDistributionChart) {
+                    const meta = this.approvalDistributionChart.getDatasetMeta(0);
+                    const element = meta.data[dataIndex];
+                    if (element) {
+                        element.hidden = !element.hidden;
+                        this.approvalDistributionChart.update();
+                        
+                        // Update legend item appearance
+                        item.style.opacity = element.hidden ? '0.5' : '1';
+                    }
+                }
+            });
+            
+            item.addEventListener('mouseenter', () => {
+                if (this.approvalDistributionChart) {
+                    this.approvalDistributionChart.setActiveElements([{
+                        datasetIndex: 0,
+                        index: dataIndex
+                    }]);
+                    this.approvalDistributionChart.update('none');
+                }
+            });
+            
+            item.addEventListener('mouseleave', () => {
+                if (this.approvalDistributionChart) {
+                    this.approvalDistributionChart.setActiveElements([]);
+                    this.approvalDistributionChart.update('none');
+                }
+            });
+        });
+    }
+
+    createApprovalRequestChart(data) {
+        const ctx = document.getElementById('leaveRequestChart');
+        if (!ctx) return;
+
+        // Destroy existing chart
+        if (this.approvalRequestChart) {
+            this.approvalRequestChart.destroy();
+        }
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#f8fafc' : '#0f172a';
+        const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+        this.approvalRequestChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: data.datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: textColor,
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                family: 'Poppins',
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        borderColor: isDark ? '#334155' : '#e2e8f0',
+                        borderWidth: 1,
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: textColor,
+                            font: {
+                                family: 'Poppins',
+                                size: 11
+                            }
+                        },
+                        grid: {
+                            color: gridColor,
+                            drawBorder: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: textColor,
+                            font: {
+                                family: 'Poppins',
+                                size: 11
+                            },
+                            stepSize: 1,
+                            callback: function(value) {
+                                return Number.isInteger(value) ? value : '';
+                            }
+                        },
+                        grid: {
+                            color: gridColor,
+                            drawBorder: false
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+
+    showApprovalChartError() {
+        const containers = ['LeaveDistributionChart', 'leaveRequestChart'];
+        containers.forEach(containerId => {
+            const container = document.getElementById(containerId);
+            if (container) {
+                const parent = container.parentElement;
+                parent.innerHTML = `
+                    <div class="chart-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Failed to load approval chart data</span>
+                    </div>
+                `;
+            }
+        });
     }
 }
 
@@ -2144,3 +2823,26 @@ document.addEventListener('DOMContentLoaded', () => {
         closeBtns.forEach(btn => btn.addEventListener('click', () => applyModal.classList.remove('open')));
     }
 });
+
+// Global function for clearing search (called from template)
+function clearSearch() {
+    const leaveInterface = window.leaveUserInterface;
+    if (leaveInterface && typeof leaveInterface.clearAjaxSearch === 'function') {
+        leaveInterface.clearAjaxSearch();
+    } else {
+        // Fallback to page reload method
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = '';
+            
+            // Get current URL and remove search parameter
+            const url = new URL(window.location);
+            url.searchParams.delete('search');
+            url.searchParams.delete('approvals_page');
+            url.hash = 'approvals';
+            
+            // Reload page without search
+            window.location.href = url.toString();
+        }
+    }
+}

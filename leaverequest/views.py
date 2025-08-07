@@ -7,9 +7,15 @@ from django.db.models import Q
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 import json
+from django.db.models import F
 from userlogin.models import EmployeeLogin
 from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction, LeaveReason
 from .forms import LeaveRequestForm, LeaveApprovalForm, LeaveSearchForm
+from django.db.models import Case, When, IntegerField, Max
+from datetime import datetime, timedelta
+from django.db.models import Count, Q
+from collections import defaultdict
+import calendar
 
 @login_required
 def leave_dashboard(request):
@@ -42,22 +48,52 @@ def leave_dashboard(request):
         })
     
     grouped_balances.sort(key=lambda x: x['valid_from'], reverse=True)
-    approval_actions = LeaveApprovalAction.objects.filter(approver=user, status='routing').select_related('leave_request').order_by('-created_at')
-    pending_approvals = [action.leave_request for action in approval_actions]
+    
+    # Handle pending approvals with pagination and search
+    for_leave_approval = (
+        LeaveApprovalAction.objects
+        .filter(approver=user)
+        .annotate(routing_priority=Case(When(status='routing', then=0), default=1, output_field=IntegerField()))
+        .exclude(Q(status__iexact='cancelled') | Q(comments='Updated my leave request'))
+        .select_related('leave_request__employee', 'leave_request__leave_type', 'leave_request__leave_reason')
+        .order_by('routing_priority', '-created_at')
+    )
 
+    # Search functionality for approvals
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        for_leave_approval = for_leave_approval.filter(
+            Q(leave_request__control_number__icontains=search_query) |
+            Q(leave_request__employee__firstname__icontains=search_query) |
+            Q(leave_request__employee__lastname__icontains=search_query) |
+            Q(leave_request__employee__idnumber__icontains=search_query) |
+            Q(leave_request__leave_type__name__icontains=search_query) |
+            Q(leave_request__leave_reason__reason_text__icontains=search_query)
+        )
+
+    # Pagination for pending approvals
+    approvals_page = request.GET.get('approvals_page', 1)
+    approvals_paginator = Paginator(for_leave_approval, 10)
+    pending_approvals_page_obj = approvals_paginator.get_page(approvals_page)
+
+    pending_routing_count = LeaveApprovalAction.objects.filter(approver=user, status='routing').count()
+
+    # Pagination for my requests
     all_requests = LeaveRequest.objects.filter(employee=user).order_by('-date_prepared')
-    paginator = Paginator(all_requests, 10)
-    page = request.GET.get('page')
-    my_requests_page_obj = paginator.get_page(page)
+    requests_page = request.GET.get('page', 1)
+    requests_paginator = Paginator(all_requests, 10)
+    my_requests_page_obj = requests_paginator.get_page(requests_page)
 
     context={
         'leave_types': leave_types,
         'leave_reasons': leave_reasons,
         'leave_balance_sets': grouped_balances,
-        'pending_approvals': pending_approvals,
-        'is_approver': bool(pending_approvals),
+        'pending_approvals': pending_approvals_page_obj,
+        'pending_routing_count': pending_routing_count,
+        'is_approver': for_leave_approval.exists(),
         'recent_leaves': recent_leaves,
         'my_requests_page_obj': my_requests_page_obj,
+        'search_query': search_query,
         'today': timezone.now().date(),
     }
 
@@ -230,11 +266,11 @@ def leave_detail(request, control_number):
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
     
     # Check permissions
-    if (leave_request.employee != request.user and 
-        leave_request.current_approver != request.user and
-        not (request.user.hr_admin or request.user.hr_manager or 
-             request.user.is_superuser or request.user.is_staff)):
-        return JsonResponse({'success': False, 'message': 'You do not have permission to view this leave request.'})
+    # if (leave_request.employee != request.user and 
+    #     leave_request.current_approver != request.user and
+    #     not (request.user.hr_admin or request.user.hr_manager or 
+    #          request.user.is_superuser or request.user.is_staff)):
+    #     return JsonResponse({'success': False, 'message': 'You do not have permission to view this leave request.'})
 
     approval_actions = leave_request.approval_actions.all().order_by('action_at')
     
@@ -253,9 +289,15 @@ def leave_detail(request, control_number):
                        leave_request.status == 'routing')
     }
     
+    # Return detail content and approval permission flag
+    # Indicate if the leave requestor has an assigned approver in their profile
+    has_approver = bool(getattr(leave_request.employee, 'employment_info', None) and 
+                        leave_request.employee.employment_info.approver)
     return JsonResponse({
         'success': True,
-        'html': render(request, 'leaverequest/detail_content.html', context).content.decode('utf-8')
+        'html': render(request, 'leaverequest/detail_content.html', context).content.decode('utf-8'),
+        'can_approve': context.get('can_approve', False),
+        'has_approver': has_approver
     })
 
 @login_required
@@ -308,10 +350,8 @@ def edit_leave(request, control_number):
 @login_required
 @require_POST
 def cancel_leave(request, control_number):
-    """Cancel leave request"""
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
     
-    # Check permissions
     if (leave_request.employee != request.user or 
         leave_request.status not in ['routing']):
         return JsonResponse({'success': False, 'message': 'Cannot cancel this leave request.'})
@@ -320,7 +360,9 @@ def cancel_leave(request, control_number):
     leave_request.cancelled_at = timezone.now()
     leave_request.current_approver = None
     leave_request.save()
-    
+
+    LeaveApprovalAction.objects.filter(leave_request=leave_request).delete()
+
     LeaveApprovalAction.objects.create(
         leave_request=leave_request,
         approver=request.user,
@@ -363,82 +405,126 @@ def approver_dashboard(request):
     
     return render(request, 'leaverequest/approver_dashboard.html', context)
 
+def get_next_approver(leave_request, current_approver):
+    try:
+        # Rule 1: If current approver is Clinic Admin → next is IAD Admin
+        if current_approver.clinic_admin:
+            iad_admin = EmployeeLogin.objects.filter(iad_admin=True, active=True).first()
+            return iad_admin
+        
+        # Rule 2: If current approver is IAD Admin → next is requestor's direct supervisor
+        if current_approver.iad_admin:
+            if (hasattr(leave_request.employee, 'employment_info') and 
+                leave_request.employee.employment_info.approver):
+                return leave_request.employee.employment_info.approver
+        
+        # Get position levels for rules 4 & 5
+        requestor_level = None
+        current_approver_level = None
+        
+        if (hasattr(leave_request.employee, 'employment_info') and 
+            leave_request.employee.employment_info.position):
+            requestor_level = int(leave_request.employee.employment_info.position.level)
+        
+        if (hasattr(current_approver, 'employment_info') and 
+            current_approver.employment_info.position):
+            current_approver_level = int(current_approver.employment_info.position.level)
+        
+        # Rule 4: If requestor's level ≠ 2 or 3, and current approver level = 2 → HR Admin
+        if (requestor_level and requestor_level not in [2, 3] and 
+            current_approver_level == 2):
+            hr_admin = EmployeeLogin.objects.filter(hr_admin=True, active=True).first()
+            return hr_admin
+        
+        # Rule 5: If requestor's level = 2, and current approver level = 3 → HR Admin  
+        if (requestor_level == 2 and current_approver_level == 3):
+            hr_admin = EmployeeLogin.objects.filter(hr_admin=True, active=True).first()
+            return hr_admin
+        
+        # Rule 3: For other cases → current user's direct supervisor
+        if (hasattr(current_approver, 'employment_info') and 
+            current_approver.employment_info.approver):
+            return current_approver.employment_info.approver
+        
+        # No next approver found
+        return None
+        
+    except Exception as e:
+        print(f"Error determining next approver: {e}")
+        return None
+
 @login_required
 @require_POST
 def process_approval(request, control_number):
-    """Process leave approval/disapproval"""
-    leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
-    
-    # Check permissions
-    if (leave_request.current_approver != request.user or 
-        leave_request.status != 'routing'):
-        return JsonResponse({'success': False, 'message': 'You cannot process this request.'})
-    
+    approval_action = get_object_or_404(LeaveApprovalAction, leave_request__control_number=control_number, approver=request.user)
+    leave_request_obj = approval_action.leave_request
+
+    last_sequence = LeaveApprovalAction.objects.filter(
+        leave_request__control_number=control_number
+    ).aggregate(Max('sequence'))['sequence__max'] or 0
+    next_sequence = last_sequence + 1
+
     try:
         data = json.loads(request.body)
         action = data.get('action')
         comments = data.get('comments', '')
-        
+        next_approver = get_next_approver(leave_request_obj, request.user)
+
         if action == 'approve':
-            leave_request.status = 'approved'
-            leave_request.approved_at = timezone.now()
-            leave_request.current_approver = None
-            
-            # Update leave balance if applicable
-            if (hasattr(leave_request.employee, 'employment_info') and 
-                getattr(leave_request.employee.employment_info, 'employment_status', None) == 'Regular'):
-                
-                today = timezone.now().date()
-                balance = LeaveBalance.objects.filter(
-                    employee=leave_request.employee,
-                    leave_type=leave_request.leave_type,
-                    valid_from__lte=today,
-                    valid_to__gte=today,
-                    validity_status='active'
-                ).first()
-                
-                if balance:
-                    balance.used += leave_request.days_requested
-                    balance.save()
-            
-            # Add approval action entry
-            LeaveApprovalAction.objects.create(
-                leave_request=leave_request,
-                approver=request.user,
-                sequence=1,
-                status='approved',
-                action='approved',
-                comments=comments or "Leave request approved",
-                action_at=timezone.now()
-            )
-            
-            message = 'Leave request approved successfully!'
-            
+            approval_action.status = 'approved'
+            approval_action.action = 'approved'
+            approval_action.action_at = timezone.now()
+            approval_action.comments = comments
+            approval_action.save()
+
+            if next_approver:
+                leave_request_obj.current_approver = next_approver
+                message = 'Leave request approved!'
+
+                LeaveApprovalAction.objects.create(
+                    leave_request=leave_request_obj,
+                    approver=next_approver,
+                    sequence=next_sequence,
+                    status='routing',
+                    action='submitted',
+                    comments='',
+                    action_at=timezone.now()
+                )
+            else:
+                leave_request_obj.current_approver = None
+                leave_request_obj.status = 'approved'
+                message = 'Leave request fully approved!'
+
         elif action == 'disapprove':
-            leave_request.status = 'disapproved'
-            leave_request.disapproved_at = timezone.now()
-            leave_request.current_approver = None
-            
-            # Add approval action entry
-            LeaveApprovalAction.objects.create(
-                leave_request=leave_request,
-                approver=request.user,
-                sequence=1,
-                status='disapproved',
-                action='disapproved',
-                comments=comments or "Leave request disapproved",
-                action_at=timezone.now()
-            )
-            
-            message = 'Leave request disapproved.'
-        
+            approval_action.status = 'disapproved'
+            approval_action.action = 'disapproved'
+            approval_action.action_at = timezone.now()
+            approval_action.comments = comments
+            approval_action.save()
+
+            if next_approver:
+                leave_request_obj.current_approver = next_approver
+                leave_request_obj.status = 'disapproved'
+                message = 'Leave request disapproved.'
+
+                LeaveApprovalAction.objects.create(
+                    leave_request=leave_request_obj,
+                    approver=next_approver,
+                    sequence=next_sequence,
+                    status='routing',
+                    action='routing',
+                    comments='',
+                    action_at=timezone.now()
+                )
+
         else:
             return JsonResponse({'success': False, 'message': 'Invalid action.'})
-        
-        leave_request.save()
-        
+
+        leave_request_obj.updated_at = timezone.now()
+        leave_request_obj.save()
+
         return JsonResponse({'success': True, 'message': message})
-        
+
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
@@ -530,7 +616,6 @@ def get_leave_balance(request):
 
 @login_required
 def leave_chart_data(request):
-    """AJAX endpoint to get chart data for leave analytics"""
     if request.method != 'GET':
         return JsonResponse({'error': 'Invalid request method'})
     
@@ -555,6 +640,7 @@ def leave_chart_data(request):
         
         # Status distribution data (for pie chart)
         leave_requests = LeaveRequest.objects.filter(
+            employee=request.user,
             date_prepared__date__gte=fiscal_start,
             date_prepared__date__lte=fiscal_end
         )
@@ -568,7 +654,6 @@ def leave_chart_data(request):
         
         total_requests = sum(status_counts.values())
         
-        # Calculate percentages (keep for reference but use actual counts for chart)
         status_percentages = {}
         if total_requests > 0:
             for status, count in status_counts.items():
@@ -576,13 +661,8 @@ def leave_chart_data(request):
         else:
             status_percentages = {'approved': 0, 'routing': 0, 'disapproved': 0, 'cancelled': 0}
         
-        # Leave types over time (for line chart)
         leave_types = LeaveType.objects.filter(is_active=True)
-        
-        # Generate monthly data for fiscal year
         monthly_data = defaultdict(lambda: defaultdict(int))
-        
-        # Get all months in fiscal year
         months = []
         current_month = fiscal_start.replace(day=1)
         while current_month <= fiscal_end:
@@ -592,13 +672,11 @@ def leave_chart_data(request):
             else:
                 current_month = current_month.replace(month=current_month.month + 1)
         
-        # Count leave requests by type and month
         for leave_request in leave_requests.filter(status='approved'):
             month_key = leave_request.date_prepared.date().replace(day=1)
             if month_key in months:
                 monthly_data[month_key][leave_request.leave_type.name] += 1
         
-        # Prepare line chart data
         line_chart_labels = [month.strftime('%b') for month in months]
         line_chart_datasets = []
         
@@ -647,6 +725,137 @@ def leave_chart_data(request):
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)})
 
+@login_required
+def approval_chart_data(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Invalid request method'})
+    
+    try:        
+        now = timezone.now()
+        current_date = now.date()
+        period = request.GET.get('period', 'month')
+        
+        if period == 'month':
+            start_date = current_date.replace(day=1)
+            if current_date.month == 12:
+                end_date = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(days=1)
+            else:
+                end_date = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
+            period_label = f"{current_date.strftime('%B %Y')}"
+        elif period == 'quarter':
+            quarter = ((current_date.month - 1) // 3) + 1
+            start_month = (quarter - 1) * 3 + 1
+            start_date = current_date.replace(month=start_month, day=1)
+            end_month = quarter * 3
+            if end_month == 12:
+                end_date = current_date.replace(month=12, day=31)
+            else:
+                end_date = current_date.replace(month=end_month + 1, day=1) - timedelta(days=1)
+            period_label = f"Q{quarter} {current_date.year}"
+        else:  # year
+            start_date = current_date.replace(month=1, day=1)
+            end_date = current_date.replace(month=12, day=31)
+            period_label = f"{current_date.year}"
+        
+        approval_actions = LeaveApprovalAction.objects.filter(
+            approver=request.user,
+            action_at__date__gte=start_date,
+            action_at__date__lte=end_date
+        ).select_related('leave_request__leave_type').exclude(status='cancelled')
+        
+        leave_types_all = LeaveType.objects.filter(is_active=True).order_by('created_at')
+        labels = []
+        type_data = []
+        colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#f472b6', '#facc15']
+        background_colors = []
+        for idx, lt in enumerate(leave_types_all):
+            labels.append(lt.name)
+            cnt = approval_actions.filter(leave_request__leave_type=lt).count()
+            type_data.append(cnt)
+            background_colors.append(colors[idx % len(colors)])
+        
+        leave_types = LeaveType.objects.filter(is_active=True)
+        
+        time_data = defaultdict(lambda: defaultdict(int))
+        time_labels = []
+        
+        if period == 'month':
+            current_day = start_date
+            while current_day <= end_date:
+                time_labels.append(current_day.day)
+                current_day += timedelta(days=1)
+            
+            for action in approval_actions:
+                day_key = action.action_at.date().day
+                leave_type_name = action.leave_request.leave_type.name
+                time_data[day_key][leave_type_name] += 1
+                
+        elif period == 'quarter':
+            current_month = start_date.replace(day=1)
+            while current_month <= end_date:
+                time_labels.append(current_month.strftime('%b'))
+                month_key = current_month.month
+                for action in approval_actions.filter(action_at__month=month_key):
+                    leave_type_name = action.leave_request.leave_type.name
+                    time_data[month_key][leave_type_name] += 1
+                if current_month.month == 12:
+                    current_month = current_month.replace(year=current_month.year + 1, month=1)
+                else:
+                    current_month = current_month.replace(month=current_month.month + 1)
+        else:
+            for month in range(1, 13):
+                time_labels.append(calendar.month_abbr[month])
+                for action in approval_actions.filter(action_at__month=month):
+                    leave_type_name = action.leave_request.leave_type.name
+                    time_data[month][leave_type_name] += 1
+        
+        line_chart_datasets = []
+        colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6']
+        
+        for i, leave_type in enumerate(leave_types):
+            if period == 'month':
+                data = [time_data[day].get(leave_type.name, 0) for day in range(1, len(time_labels) + 1)]
+            elif period == 'quarter':
+                quarter_start = ((current_date.month - 1) // 3) * 3 + 1
+                data = [time_data[month].get(leave_type.name, 0) for month in range(quarter_start, quarter_start + 3)]
+            else:
+                data = [time_data[month].get(leave_type.name, 0) for month in range(1, 13)]
+            
+            color = colors[i % len(colors)]
+            
+            line_chart_datasets.append({
+                'label': leave_type.name,
+                'data': data,
+                'borderColor': color,
+                'backgroundColor': f"{color}20",
+                'tension': 0.4,
+                'fill': True,
+                'pointRadius': 4,
+                'pointHoverRadius': 6,
+                'pointBackgroundColor': color,
+                'pointBorderColor': '#ffffff',
+                'pointBorderWidth': 2
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'period_label': period_label,
+            'status_chart': {
+                'labels': labels,
+                'data': type_data,
+                'backgroundColor': background_colors
+            },
+            'line_chart': {
+                'labels': time_labels,
+                'datasets': line_chart_datasets
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)})
+
 def leave_reasons_api(request, leave_type_id):
     reasons = LeaveReason.objects.filter(leave_type_id=leave_type_id, is_active=True)
     data = [
@@ -660,15 +869,12 @@ def leave_reasons_api(request, leave_type_id):
 
 @login_required
 def holidays_and_exceptions_api(request):
-    """API endpoint to get holidays and Sunday exceptions for leave calculation"""
     from usercalendar.models import Holiday
     from .models import SundayException
     
-    # Get holidays
     holidays = Holiday.objects.all().values('date', 'name', 'holiday_type')
     holidays_list = [{'date': holiday['date'].strftime('%Y-%m-%d'), 'name': holiday['name'], 'type': holiday['holiday_type']} for holiday in holidays]
     
-    # Get Sunday exceptions (Sundays that should be counted as working days)
     sunday_exceptions = SundayException.objects.all().values('date', 'description')
     exceptions_list = [{'date': exception['date'].strftime('%Y-%m-%d'), 'description': exception['description']} for exception in sunday_exceptions]
     
@@ -679,7 +885,6 @@ def holidays_and_exceptions_api(request):
 
 @login_required
 def check_approver_api(request):
-    """API endpoint to check if user has an assigned approver"""
     try:
         employment_info = request.user.employment_info
         has_approver = employment_info.approver is not None and employment_info.approver.is_active
@@ -694,3 +899,68 @@ def check_approver_api(request):
             'approver_name': None,
             'error': 'Employment information not found'
         })
+
+@login_required
+def search_approvals_ajax(request):
+    """AJAX endpoint for searching approvals"""
+    user = request.user
+    search_query = request.GET.get('search', '').strip()
+    page = request.GET.get('page', 1)
+    
+    # Get pending approvals with search
+    for_leave_approval = (
+        LeaveApprovalAction.objects
+        .filter(approver=user)
+        .annotate(routing_priority=Case(When(status='routing', then=0), default=1, output_field=IntegerField()))
+        .exclude(Q(status__iexact='cancelled') | Q(comments='Updated my leave request'))
+        .select_related('leave_request__employee', 'leave_request__leave_type', 'leave_request__leave_reason')
+        .order_by('routing_priority', '-created_at')
+    )
+
+    # Apply search filter
+    if search_query:
+        for_leave_approval = for_leave_approval.filter(
+            Q(leave_request__control_number__icontains=search_query) |
+            Q(leave_request__employee__firstname__icontains=search_query) |
+            Q(leave_request__employee__lastname__icontains=search_query) |
+            Q(leave_request__employee__idnumber__icontains=search_query) |
+            Q(leave_request__leave_type__name__icontains=search_query) |
+            Q(leave_request__leave_reason__reason_text__icontains=search_query)
+        )
+
+    # Pagination
+    paginator = Paginator(for_leave_approval, 10)
+    pending_approvals_page_obj = paginator.get_page(page)
+    
+    # Prepare data for JSON response
+    approvals_data = []
+    for approval in pending_approvals_page_obj:
+        approvals_data.append({
+            'control_number': approval.leave_request.control_number,
+            'employee_name': approval.leave_request.employee.full_name,
+            'employee_id': approval.leave_request.employee.idnumber,
+            'leave_type': approval.leave_request.leave_type.name,
+            'leave_reason': approval.leave_request.leave_reason.reason_text if approval.leave_request.leave_reason else '',
+            'duration_display': approval.leave_request.duration_display,
+            'status': approval.status,
+            'status_display': 'Waiting for your approval' if approval.status == 'routing' else approval.get_status_display(),
+            'date_prepared': approval.leave_request.date_prepared.strftime('%b %d, %Y'),
+            'is_routing': approval.status == 'routing'
+        })
+    
+    return JsonResponse({
+        'approvals': approvals_data,
+        'pagination': {
+            'has_previous': pending_approvals_page_obj.has_previous(),
+            'has_next': pending_approvals_page_obj.has_next(),
+            'previous_page_number': pending_approvals_page_obj.previous_page_number() if pending_approvals_page_obj.has_previous() else None,
+            'next_page_number': pending_approvals_page_obj.next_page_number() if pending_approvals_page_obj.has_next() else None,
+            'number': pending_approvals_page_obj.number,
+            'num_pages': pending_approvals_page_obj.paginator.num_pages,
+            'start_index': pending_approvals_page_obj.start_index(),
+            'end_index': pending_approvals_page_obj.end_index(),
+            'count': pending_approvals_page_obj.paginator.count,
+            'page_range': list(pending_approvals_page_obj.paginator.page_range)
+        },
+        'search_query': search_query
+    })

@@ -30,9 +30,9 @@
                 <button class="tab" data-target="my-requests">My Requests</button>
                 {% if is_approver %}
                     <button class="tab" data-target="approvals">
-                        Pending Approvals
-                        {% if pending_approvals %}
-                        <span class="notification-badge">{{ pending_approvals|length }}</span>
+                        My Approvals
+                        {% if pending_routing_count %}
+                            <span class="notification-badge">{{ pending_routing_count }}</span>
                         {% endif %}
                     </button>
                 {% endif %}
@@ -77,8 +77,8 @@
             <!-- Totals, Calendar and Activities -->
             <div class="overview-two-column">
                     <div class="overview-left-column">
-                        <div class="leave-balance-summary">
-                            {% if request.user.employment_info.employment_type == 'Regular' and leave_balance_sets %}
+                        {% if request.user.employment_info.employment_type == 'Regular' and leave_balance_sets %}
+                        <div class="leave-balance-summary">                   
                                 {% for set in leave_balance_sets %}
                                     <div class="balance-set-card">
                                         <div class="balance-set-card-header">
@@ -128,18 +128,19 @@
                                         </div>
                                     </div>
                                 {% endfor %}
-                            {% else %}
-                                <div class="balance-summary-card balance-default">
-                                    <div class="balance-icon">
-                                        <i class="fas fa-calendar-times"></i>
-                                    </div>
-                                    <div class="balance-info">
-                                        <div class="balance-count">0 days per year</div>
-                                        <div class="balance-status-text">In the contract</div>
-                                    </div>
-                                </div>
-                            {% endif %}
                         </div>
+                        {% else %}
+                        <div class="recent-activities">
+                            <h4>Leave Balances</h4>
+                            <div class="activity-list">
+                                <div class="empty-state">
+                                    <i class="fas fa-calendar-times"></i>
+                                    <h4>No leave balances</h4>
+                                    <p>Leave balances data not available yet.</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
 
                     <div class="overview-right-column">
@@ -227,30 +228,31 @@
         </div>
 
         <div id="my-requests" class="tab-panel">
+            {% if my_requests_page_obj %}
             <div class="leave-table-container">
                 <table class="data-table">
                     <thead>
                             <tr>
-                                <th>Control Number</th>
-                                <th>Date Prepared</th>
+                                <th class="leave-hide-column">Control Number</th>
+                                <th class="leave-hide-column">Date Prepared</th>
                                 <th>Leave Type</th>
-                                <th>Leave Reason</th>
+                                <th class="leave-hide-column">Leave Reason</th>
                                 <th>Duration</th>
-                                <th>Status</th>
+                                <th class="leave-hide-column">Status</th>
                                 <th style="text-align: center;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="myRequestsTable">
                             {% for leave in my_requests_page_obj %}
                             <tr>
-                                <td>
+                                <td class="leave-hide-column">
                                     <span class="control-number">{{ leave.control_number }}</span>
                                 </td>
-                                <td>{{ leave.date_prepared|date:"M d, Y" }}</td>
+                                <td class="leave-hide-column">{{ leave.date_prepared|date:"M d, Y" }}</td>
                                 <td>{{ leave.leave_type.name }}</td>
-                                <td>{{ leave.leave_reason.reason_text }}</td>
+                                <td class="leave-hide-column">{{ leave.leave_reason.reason_text }}</td>
                                 <td>{{ leave.duration_display }}</td>
-                                <td class="center-align">
+                                <td class="center-align leave-hide-column">
                                     <span class="status-badge status-{{ leave.status }}">
                                         {{ leave.get_status_display }}
                                     </span>
@@ -315,69 +317,187 @@
                     {% endif %}
                 </div>
             </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa fa-folder-open"></i>
+                <h5>No filed leave requests</h5>
+                <p>You don't have a filed leave at the moment.</p>
+            </div>
+            {% endif %}
         </div>
 
         {% if is_approver %}
         <div id="approvals" class="tab-panel">
-            <div class="card">
-                    <div class="card-header">
-                        <h3>
-                            <i class="fas fa-tasks"></i>
-                            Pending Approvals
-                        </h3>
-                        <span class="approval-count">{{ pending_approvals|length }} pending</span>
+            {% if pending_approvals %}
+            <div class="overview-two-column">
+                    <div class="chart-grid">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h4>Leave Request Distribution</h4>
+                            </div>
+                            <div class="chart-container">
+                                <div class="donut-chart-wrapper">
+                                    <div class="chart-legend" id="approvalDistributionLegend">
+                                    </div>
+                                    <div class="donut-chart-container">
+                                        <canvas id="LeaveDistributionChart"></canvas>
+                                        <div class="donut-center">
+                                            <div class="donut-center-number">0</div>
+                                            <div class="donut-center-label">Total Requests</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h4>Leave Request Trend</h4>
+                                <div class="chart-controls">
+                                    <div class="chart-filters" id="approval-trend-filters">
+                                        <button class="filter-btn active" data-period="month">This Month</button>
+                                        <button class="filter-btn" data-period="quarter">This Quarter</button>
+                                        <button class="filter-btn" data-period="year">This Year</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="leaveRequestChart"></canvas>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        {% if pending_approvals %}
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
+            </div>
+
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
+                    <form class="search-box">
+                        <input type="text" class="search-input" id="searchInput" placeholder="Search leave requests..." name="search" value="{{ search_query }}" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        {% if search_query %}
+                        <span class="search-clear" onclick="clearSearch()">
+                            <i class="fas fa-times"></i>
+                        </span>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <div class="leave-table-container" id="approvalsTableContainer">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="leave-hide-column">Control Number</th>
+                                <th>Employee</th>
+                                <th>Leave Type</th>
+                                <th class="leave-hide-column">Leave Reason</th>
+                                <th class="leave-hide-column">Duration</th>
+                                <th>Status</th>
+                                <th class="leave-hide-column">Date Submitted</th>
+                                <th style="text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="approvalsTableBody">
+                            {% if pending_approvals %}
+                                {% for approval in pending_approvals %}
                                     <tr>
-                                        <th>Control Number</th>
-                                        <th>Employee</th>
-                                        <th>Leave Type</th>
-                                        <th>Duration</th>
-                                        <th>Date Submitted</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for approval in pending_approvals %}
-                                    <tr>
-                                        <td>
-                                            <span class="control-number">{{ approval.control_number }}</span>
+                                        <td class="leave-hide-column">
+                                            <span class="control-number">{{ approval.leave_request.control_number }}</span>
                                         </td>
                                         <td>
                                             <div class="employee-info">
-                                                <span class="employee-name">{{ approval.employee.full_name }}</span>
-                                                <small class="employee-id">{{ approval.employee.idnumber }}</small>
+                                                <span class="employee-name">{{ approval.leave_request.employee.full_name }}</span>
+                                                <small class="employee-id">{{ approval.leave_request.employee.idnumber }}</small>
                                             </div>
                                         </td>
-                                        <td>{{ approval.leave_type.name }}</td>
-                                        <td>{{ approval.duration_display }}</td>
-                                        <td>{{ approval.date_prepared|date:"M d, Y" }}</td>
+                                        <td>{{ approval.leave_request.leave_type.name }}</td>
+                                        <td class="leave-hide-column">{{ approval.leave_request.leave_reason.reason_text }}</td>
+                                        <td class="leave-hide-column">{{ approval.leave_request.duration_display }}</td>
+                                        <td class="center-align">
+                                            <span class="status-badge status-{{ approval.status }}">
+                                                {% if approval.status == 'routing' %}Waiting for your approval{% else %}{{ approval.get_status_display }}{% endif %}
+                                            </span>
+                                        </td>
+                                        <td class="leave-hide-column">{{ approval.leave_request.date_prepared|date:"M d, Y" }}</td>
                                         <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-primary" data-action="open-approval" data-control-number="{{ approval.control_number }}" title="Review & Approve">
-                                                    <i class="fas fa-check"></i>
-                                                    Review
-                                                </button>
+                                            <div class="center-align">
+                                                {% if approval.status != 'routing' %}
+                                                    <button class="btn btn-icon " data-action="view-details" data-control-number="{{ approval.leave_request.control_number }}" title="View Details">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-sm btn-primary" data-action="open-approval" data-control-number="{{ approval.leave_request.control_number }}" title="Review & Approve">
+                                                        <i class="fas fa-check"></i>
+                                                        Review
+                                                    </button>
+                                                {% endif %}
                                             </div>
                                         </td>
                                     </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="empty-state">
+                                            <i class="fas fa-search"></i>
+                                            <h5>No leave requests found</h5>
+                                            {% if search_query %}
+                                                <p>No results found for "{{ search_query }}"</p>
+                                            {% else %}
+                                                <p>No pending approvals at this time.</p>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="approvalsPaginationContainer">
+                <div class="pagination-info">
+                    <span id="approvalsStartRecord">{{ pending_approvals.start_index|default:0 }}</span> to <span id="approvalsEndRecord">{{ pending_approvals.end_index|default:0 }}</span> of <span id="approvalsTotalRecords">{{ pending_approvals.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="approvalsPaginationControls">
+                    {% if pending_approvals.has_previous %}
+                        <a class="pagination-btn" id="approvalsPrevPage" href="?approvals_page={{ pending_approvals.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}#approvals">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="approvalsPrevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="approvalsPageNumbers">
+                        {% if pending_approvals.paginator.page_range %}
+                            {% for num in pending_approvals.paginator.page_range %}
+                                {% if pending_approvals.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > pending_approvals.number|add:'-3' and num < pending_approvals.number|add:'3' %}
+                                    <a class="pagination-btn" href="?approvals_page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}#approvals">{{ num }}</a>
+                                {% endif %}
+                            {% endfor %}
                         {% else %}
-                        <div class="empty-state">
-                            <i class="fas fa-check-circle"></i>
-                            <h5>No Pending Approvals</h5>
-                            <p>All leave requests have been processed.</p>
-                        </div>
+                            <span class="pagination-btn active">1</span>
                         {% endif %}
                     </div>
+                    {% if pending_approvals.has_next %}
+                        <a class="pagination-btn" id="approvalsNextPage" href="?approvals_page={{ pending_approvals.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}#approvals">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="approvalsNextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
             </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa fa-folder-open"></i>
+                <h5>No leave requests</h5>
+                <p>No pending approvals at this time.</p>
+            </div>
+            {% endif %}
         </div>
         {% endif %}
     </div>
@@ -480,14 +600,11 @@
 </div>
 
 <!-- Approval Modal -->
-<div id="approvalModal" class="modal">
+<div id="approvalModal" class="modal modal-lg">
     <div class="modal-overlay"></div>
-    <div class="modal-content modal-lg">
+    <div class="modal-content">
         <div class="modal-header">
-            <h3>
-                <i class="fas fa-gavel"></i>
-                Review Leave Request
-            </h3>
+            <h4>Review Leave Request</h4>
             <button class="modal-close" data-action="close-modal" data-modal="approvalModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -514,18 +631,18 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h3>
-                <i class="fas fa-exclamation-triangle text-warning"></i>
-                Approver Not Assigned
-            </h3>
+            <h4>Approver Not Assigned</h4>
             <button class="modal-close" data-action="close-modal" data-modal="noApproverModal">
                 <i class="fas fa-times"></i>
             </button>
         </div>
         <div class="modal-body">
             <div class="alert alert-warning">
-                <p><strong>Cannot submit leave request!</strong></p>
-                <p>You don't have an assigned approver yet. Please contact HR or assign an approver in your profile before submitting leave requests.</p>
+                <p><strong>Action Required:</strong> You cannot proceed with this request.</p>
+                <p>
+                    It looks like you don't have an assigned approver yet. To continue, please assign an approver in your profile.
+                    Click the <strong>"Assign Approver"</strong> button below to update your profile.
+                </p>
             </div>
         </div>
         <div class="modal-footer">

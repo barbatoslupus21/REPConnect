@@ -794,7 +794,7 @@ input:checked + .slider:before {
     height: 30px;
     padding: 0 var(--space-xs);
     /* border: 1px solid var(--border-color); */
-    background: var(--surface);
+    background: none;
     color: var(--text-secondary);
     border-radius: 50%;
     font-size: var(--font-size-sm);
@@ -1923,9 +1923,9 @@ small {
 .search-input {
     width: 100%;
     font-size: 0.95rem;
-    padding: var(--space-sm) var(--space-sm) var(--space-sm) calc(var(--space-sm) * 4);
+    padding: 0.8rem var(--space-sm) 0.8rem calc(var(--space-sm) * 5);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--surface);
     color: var(--text-primary);
     transition: all var(--transition-normal);
@@ -3267,10 +3267,7 @@ select.form-input {
         min-width: 24px;
         height: 24px;
     }
-    .page-header {
-        flex-direction: column;
-        align-items: flex-end;
-    }
+
     .page-header-content {
         text-align: right;
         width: 100%;
@@ -3279,7 +3276,7 @@ select.form-input {
         margin-top: 0.75rem;
         width: 100%;
         display: flex;
-        justify-content: flex-end;
+        justify-content: end !important;
     }
     .filter-popover .filter-condition-group label {
         font-size: 0.9em;
@@ -3421,8 +3418,21 @@ select.form-input {
     }
 
     .employee-info-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
     }
+
+    .info-label {
+        font-size: var(--font-size-xs);
+    }
+
+    .info-value {
+        font-size: var(--font-size-sm);
+    }
+
+    .status-badge {
+        font-size: var(--font-size-xs);
+    }
+
     select,
     select option {
         font-size: 0.9rem;
@@ -3446,12 +3456,7 @@ select.form-input {
     #pageNumbers, #pageNumbers .pagination-btn, .pagination-btn i {
         font-size: 0.75rem;
     }
-    .page-header {
-        flex-direction: column;
-        align-items: center;
-        gap: 0;
-        justify-content: center;
-    }
+    
     .page-header-content {
         text-align: left;
         width: 100%;
@@ -3460,7 +3465,7 @@ select.form-input {
         margin-top: 0.75rem;
         width: 100%;
         display: flex;
-        justify-content: flex-end;
+        justify-content: end !important;
     }
     .filter-popover .filter-condition-group label {
         font-size: 0.85em;
@@ -3619,6 +3624,22 @@ select.form-input {
         width: 40px;
         height: 40px;
         font-size: 1rem;
+    }
+
+    .employee-info-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .info-label {
+        font-size: var(--font-size-xs);
+    }
+
+    .info-value {
+        font-size: var(--font-size-sm);
+    }
+
+    .status-badge {
+        font-size: var(--font-size-xs);
     }
 }
 
@@ -4086,11 +4107,7 @@ select.form-input {
 }
 
 @media (max-width: 992px) {
-    .page-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0;
-    }
+    
     .page-header-content {
         text-align: left;
         width: 100%;
@@ -4098,17 +4115,13 @@ select.form-input {
     .page-actions {
         width: 100%;
         display: flex;
-        justify-content: flex-end;
+        justify-content: end !important;
         margin-top: 0;
     }
 }
 
 @media (max-width: 768px) {
-    .page-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0;
-    }
+    
     .page-header-content {
         text-align: left;
         width: 100%;
@@ -4116,7 +4129,7 @@ select.form-input {
     .page-actions {
         width: 100%;
         display: flex;
-        justify-content: flex-end;
+        justify-content: end !important;
         margin-top: 0;
     }
 }

@@ -7,7 +7,7 @@
         <div class="detail-header">
             <h4>Basic Information</h4>
 
-            {% if can_edit %}
+            {% if can_edit or request.user != leave_request.employee %}
             <button type="button" class="btn btn-icon" id="editLeaveBtn">
                     <i class="fas fa-edit"></i>
             </button>
@@ -90,7 +90,7 @@
                     </div>
                 </div>
                 
-                <div class="form-actions">
+                <div class="edit-form-actions">
                     <button type="button" class="btn btn-outline" id="cancelEditBtn">
                         <i class="fas fa-times"></i> Cancel
                     </button>
