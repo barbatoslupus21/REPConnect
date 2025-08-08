@@ -15,6 +15,7 @@ from django.db.models import Case, When, IntegerField, Max
 from datetime import datetime, timedelta
 from django.db.models import Count, Q
 from collections import defaultdict
+from generalsettings.models import Department, Line, Position
 import calendar
 
 @login_required
@@ -535,34 +536,115 @@ def admin_dashboard(request):
         messages.error(request, 'You do not have permission to access this page.')
         return redirect('admin_leave')
     
-    leave_requests = LeaveRequest.objects.all().select_related('employee', 'leave_type')
+    # Get all leave requests with related data
+    leave_requests = LeaveRequest.objects.all().select_related(
+        'employee', 'leave_type', 'leave_reason', 'employee__employment_info__department'
+    ).prefetch_related('approval_actions')
     
-    search_form = LeaveSearchForm(request.GET)
-    if search_form.is_valid():
-        if search_form.cleaned_data['search']:
-            search_term = search_form.cleaned_data['search']
-            leave_requests = leave_requests.filter(
-                Q(control_number__icontains=search_term) |
-                Q(employee__firstname__icontains=search_term) |
-                Q(employee__lastname__icontains=search_term) |
-                Q(employee__username__icontains=search_term)
-            )
-        
-        if search_form.cleaned_data['status']:
-            leave_requests = leave_requests.filter(status=search_form.cleaned_data['status'])
-        
-        if search_form.cleaned_data['leave_type']:
-            leave_requests = leave_requests.filter(leave_type=search_form.cleaned_data['leave_type'])
-        
-        if search_form.cleaned_data['date_from']:
-            leave_requests = leave_requests.filter(date_from__gte=search_form.cleaned_data['date_from'])
-        
-        if search_form.cleaned_data['date_to']:
-            leave_requests = leave_requests.filter(date_to__lte=search_form.cleaned_data['date_to'])
+    # Handle search (applied across all records, not just current page)
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        leave_requests = leave_requests.filter(
+            Q(control_number__icontains=search_query) |
+            Q(employee__firstname__icontains=search_query) |
+            Q(employee__lastname__icontains=search_query) |
+            Q(employee__username__icontains=search_query) |
+            Q(employee__idnumber__icontains=search_query)
+        )
+    
+    # Handle filters (only applied when explicitly submitted via modal)
+    filter_status = request.GET.get('status', '')
+    filter_leave_type = request.GET.get('leave_type', '')
+    filter_department = request.GET.get('department', '')
+    filter_date_from = request.GET.get('date_from', '')
+    filter_date_to = request.GET.get('date_to', '')
+    
+    # Apply filters if they exist
+    if filter_status:
+        leave_requests = leave_requests.filter(status=filter_status)
+    
+    if filter_leave_type:
+        leave_requests = leave_requests.filter(leave_type_id=filter_leave_type)
+    
+    if filter_department:
+        leave_requests = leave_requests.filter(
+            employee__employment_info__department__department_name=filter_department
+        )
+    
+    if filter_date_from:
+        leave_requests = leave_requests.filter(date_from__gte=filter_date_from)
+    
+    if filter_date_to:
+        leave_requests = leave_requests.filter(date_to__lte=filter_date_to)
 
-    paginator = Paginator(leave_requests.order_by('-date_prepared'), 15)
+    
+    # Custom ordering: Put hr_admin routing requests at the top
+    leave_requests = leave_requests.annotate(
+        priority_order=Case(
+            When(
+                Q(status='routing') & 
+                Q(approval_actions__approver__hr_admin=True) &
+                Q(approval_actions__action_at__isnull=True),
+                then=0
+            ),
+            default=1,
+            output_field=IntegerField()
+        )
+    ).order_by('priority_order', '-date_prepared').distinct()
+
+    # --- Dashboard stats: current month vs previous month ---
+    today = timezone.now().date()
+    # Current month range
+    current_start = today.replace(day=1)
+    if today.month == 12:
+        next_month_first = today.replace(year=today.year + 1, month=1, day=1)
+    else:
+        next_month_first = today.replace(month=today.month + 1, day=1)
+    current_end = next_month_first - timedelta(days=1)
+    # Previous month range
+    if current_start.month == 1:
+        prev_start = current_start.replace(year=current_start.year - 1, month=12, day=1)
+    else:
+        prev_start = current_start.replace(month=current_start.month - 1, day=1)
+    prev_end = current_start - timedelta(days=1)
+
+    def count_in_range(qs, start, end, status=None):
+        base = LeaveRequest.objects.filter(date_prepared__date__gte=start, date_prepared__date__lte=end)
+        if status:
+            base = base.filter(status=status)
+        return base.count()
+
+    def pct_change(curr, prev):
+        if prev == 0:
+            if curr == 0:
+                return 0.0
+            return 100.0
+        return round(((curr - prev) / prev) * 100.0, 1)
+
+    total_curr = count_in_range(LeaveRequest.objects.all(), current_start, current_end)
+    total_prev = count_in_range(LeaveRequest.objects.all(), prev_start, prev_end)
+    total_pct = pct_change(total_curr, total_prev)
+
+    routing_curr = count_in_range(LeaveRequest.objects.all(), current_start, current_end, status='routing')
+    routing_prev = count_in_range(LeaveRequest.objects.all(), prev_start, prev_end, status='routing')
+    routing_pct = pct_change(routing_curr, routing_prev)
+
+    approved_curr = count_in_range(LeaveRequest.objects.all(), current_start, current_end, status='approved')
+    approved_prev = count_in_range(LeaveRequest.objects.all(), prev_start, prev_end, status='approved')
+    approved_pct = pct_change(approved_curr, approved_prev)
+
+    disapproved_curr = count_in_range(LeaveRequest.objects.all(), current_start, current_end, status='disapproved')
+    disapproved_prev = count_in_range(LeaveRequest.objects.all(), prev_start, prev_end, status='disapproved')
+    disapproved_pct = pct_change(disapproved_curr, disapproved_prev)
+
+    # Pagination for table
+    paginator = Paginator(leave_requests, 15)
     page = request.GET.get('page')
-    leave_requests = paginator.get_page(page)
+    leave_requests_page = paginator.get_page(page)
+    
+    # Data for filters
+    leave_types = LeaveType.objects.filter(is_active=True).order_by('name')
+    departments = Department.objects.all().order_by('department_name')
     
     stats = {
         'total_requests': LeaveRequest.objects.count(),
@@ -571,14 +653,195 @@ def admin_dashboard(request):
         'disapproved_requests': LeaveRequest.objects.filter(status='disapproved').count(),
     }
     
+    # Handle AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        table_html = render_to_string('leaverequest/partials/leave_table.html', {
+            'leave_requests': leave_requests_page,
+            'user': request.user
+        }, request=request)
+        return JsonResponse({
+            'success': True,
+            'html': table_html,
+            'has_next': leave_requests_page.has_next(),
+            'has_previous': leave_requests_page.has_previous(),
+            'page_number': leave_requests_page.number,
+            'total_pages': paginator.num_pages
+        })
+    
     context = {
-        'leave_requests': leave_requests,
-        'search_form': search_form,
+        'leave_requests': leave_requests_page,
         'stats': stats,
-        'page_title': 'Leave Management - Admin'
+        'page_title': 'Leave Management - Admin',
+        # Cards: current month numbers and percent change vs prev. month
+        'total_requests': total_curr,
+        'total_percent': total_pct,
+        'total_positive': total_pct >= 0,
+        'routing_requests': routing_curr,
+        'routing_percent': routing_pct,
+        'routing_positive': routing_pct >= 0,
+        'approved_requests': approved_curr,
+        'approved_percent': approved_pct,
+        'approved_positive': approved_pct >= 0,
+        'disapproved_requests': disapproved_curr,
+        'disapproved_percent': disapproved_pct,
+        'disapproved_positive': disapproved_pct >= 0,
+        # Filters
+        'leave_types': leave_types,
+        'departments': departments,
+        # Search and filter values to maintain state
+        'search': search_query,
+        'filter_status': filter_status,
+        'filter_leave_type': filter_leave_type,
+        'filter_department': filter_department,
+        'filter_date_from': filter_date_from,
+        'filter_date_to': filter_date_to,
+        'departments': departments,
+        # Search and filter values to maintain state
+        'search': search_query,
+        'filter_status': filter_status,
+        'filter_leave_type': filter_leave_type,
+        'filter_department': filter_department,
+        'filter_date_from': filter_date_from,
+        'filter_date_to': filter_date_to,
     }
     
     return render(request, 'leaverequest/admin-leave.html', context)
+
+@login_required
+def admin_chart_data(request):
+    """AJAX endpoint to get chart data for admin dashboard"""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Invalid request method'})
+    
+    # Only staff and superuser can access chart data
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Permission denied'})
+    
+    try:
+        import calendar
+        from datetime import datetime, timedelta
+        from django.db.models import Count, Q
+        from collections import defaultdict
+        
+        now = timezone.now()
+        current_date = now.date()
+        period = request.GET.get('period', 'month')
+        
+        # Determine date range based on period
+        if period == 'month':
+            start_date = current_date.replace(day=1)
+            if current_date.month == 12:
+                end_date = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(days=1)
+            else:
+                end_date = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
+            period_label = f"{current_date.strftime('%B %Y')}"
+        elif period == 'quarter':
+            quarter = ((current_date.month - 1) // 3) + 1
+            start_month = (quarter - 1) * 3 + 1
+            start_date = current_date.replace(month=start_month, day=1)
+            end_month = quarter * 3
+            if end_month == 12:
+                end_date = current_date.replace(month=12, day=31)
+            else:
+                end_date = current_date.replace(month=end_month + 1, day=1) - timedelta(days=1)
+            period_label = f"Q{quarter} {current_date.year}"
+        else:  # year
+            start_date = current_date.replace(month=1, day=1)
+            end_date = current_date.replace(month=12, day=31)
+            period_label = f"{current_date.year}"
+        
+        # Get all leave requests in the period
+        leave_requests = LeaveRequest.objects.filter(
+            date_prepared__date__gte=start_date,
+            date_prepared__date__lte=end_date
+        ).select_related('leave_type')
+        
+        # Prepare time series data
+        time_data = defaultdict(lambda: defaultdict(int))
+        time_labels = []
+        
+        if period == 'month':
+            # Group by days
+            current_day = start_date
+            while current_day <= end_date:
+                time_labels.append(current_day.day)
+                current_day += timedelta(days=1)
+            
+            for request in leave_requests:
+                day_key = request.date_prepared.date().day
+                status = request.status
+                time_data[day_key][status] += 1
+                
+        elif period == 'quarter':
+            # Group by months
+            current_month = start_date.replace(day=1)
+            while current_month <= end_date:
+                time_labels.append(current_month.strftime('%b'))
+                month_key = current_month.month
+                for request in leave_requests.filter(date_prepared__month=month_key):
+                    status = request.status
+                    time_data[month_key][status] += 1
+                if current_month.month == 12:
+                    current_month = current_month.replace(year=current_month.year + 1, month=1)
+                else:
+                    current_month = current_month.replace(month=current_month.month + 1)
+        else:
+            # Group by months for the year
+            for month in range(1, 13):
+                time_labels.append(calendar.month_abbr[month])
+                for request in leave_requests.filter(date_prepared__month=month):
+                    status = request.status
+                    time_data[month][status] += 1
+        
+        # Prepare datasets
+        statuses = ['routing', 'approved', 'disapproved', 'cancelled']
+        status_colors = {
+            'routing': '#f59e0b',
+            'approved': '#10b981', 
+            'disapproved': '#ef4444',
+            'cancelled': '#6b7280'
+        }
+        
+        datasets = []
+        for status in statuses:
+            if period == 'month':
+                data = [time_data[day].get(status, 0) for day in range(1, len(time_labels) + 1)]
+            elif period == 'quarter':
+                quarter_start = ((current_date.month - 1) // 3) * 3 + 1
+                data = [time_data[month].get(status, 0) for month in range(quarter_start, quarter_start + 3)]
+            else:
+                data = [time_data[month].get(status, 0) for month in range(1, 13)]
+            
+            color = status_colors[status]
+            
+            datasets.append({
+                'label': status.title(),
+                'data': data,
+                'borderColor': color,
+                'backgroundColor': f"{color}40",  # 25% opacity
+                'tension': 0.4,
+                'fill': False,
+                'pointRadius': 4,
+                'pointHoverRadius': 6,
+                'pointBackgroundColor': color,
+                'pointBorderColor': '#ffffff',
+                'pointBorderWidth': 2
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'period_label': period_label,
+            'chart_data': {
+                'labels': time_labels,
+                'datasets': datasets
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)})
 
 @login_required
 def get_leave_balance(request):
@@ -964,3 +1227,131 @@ def search_approvals_ajax(request):
         },
         'search_query': search_query
     })
+
+@login_required
+def admin_leave_detail(request, control_number):
+    """AJAX endpoint for loading leave details in modal"""
+    if not (request.user.hr_admin or request.user.hr_manager or 
+            request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    try:
+        leave_request = get_object_or_404(
+            LeaveRequest.objects.select_related(
+                'employee', 'leave_type', 'leave_reason', 
+                'employee__employment_info__department'
+            ).prefetch_related('approval_actions__approver'),
+            control_number=control_number
+        )
+        
+        # Check if current user can approve this request
+        hr_approval_action = leave_request.approval_actions.filter(
+            approver__hr_admin=True,
+            action_at__isnull=True
+        ).first()
+        
+        can_approve = (
+            hr_approval_action and 
+            hr_approval_action.approver == request.user and 
+            leave_request.status == 'routing'
+        )
+        
+        from django.template.loader import render_to_string
+        content = render_to_string('leaverequest/detail_content.html', {
+            'leave_request': leave_request,
+            'can_approve': can_approve,
+            'is_admin_view': True
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'content': content,
+            'can_approve': can_approve
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required  
+@require_POST
+def admin_approve_leave(request, control_number):
+    """AJAX endpoint for approving leave requests"""
+    if not (request.user.hr_admin or request.user.hr_manager or 
+            request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    try:
+        leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
+        
+        # Find the approval action for current user
+        approval_action = leave_request.approval_actions.filter(
+            approver=request.user,
+            action_at__isnull=True
+        ).first()
+        
+        if not approval_action:
+            return JsonResponse({'error': 'No pending approval found for this user'}, status=400)
+        
+        # Get comments from request
+        comments = request.POST.get('comments', '').strip()
+        
+        # Update the approval action
+        approval_action.action = 'approved'
+        approval_action.status = 'approved'
+        approval_action.comments = comments
+        approval_action.action_at = timezone.now()
+        approval_action.save()
+        
+        # Update the leave request status
+        leave_request.status = 'approved'
+        leave_request.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Leave request approved successfully'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_POST  
+def admin_disapprove_leave(request, control_number):
+    """AJAX endpoint for disapproving leave requests"""
+    if not (request.user.hr_admin or request.user.hr_manager or 
+            request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    try:
+        leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
+        
+        # Find the approval action for current user
+        approval_action = leave_request.approval_actions.filter(
+            approver=request.user,
+            action_at__isnull=True
+        ).first()
+        
+        if not approval_action:
+            return JsonResponse({'error': 'No pending approval found for this user'}, status=400)
+        
+        # Get comments from request
+        comments = request.POST.get('comments', '').strip()
+        
+        # Update the approval action
+        approval_action.action = 'disapproved'
+        approval_action.status = 'disapproved'
+        approval_action.comments = comments
+        approval_action.action_at = timezone.now()
+        approval_action.save()
+        
+        # Update the leave request status
+        leave_request.status = 'disapproved'
+        leave_request.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Leave request disapproved successfully'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

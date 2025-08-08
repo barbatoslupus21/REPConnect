@@ -2814,7 +2814,7 @@ select.form-input {
     background: none;
     border: none;
     box-shadow: none;
-    margin-bottom: var(--space-md);
+    margin-top: var(--space-md);
     padding: 0;
 }
 
@@ -2996,8 +2996,8 @@ select.form-input {
 .modern-stat-card {
     position: relative;
     background: #fff;
-    border-radius: 1.1em;
-    box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.066);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
     padding: 1.2rem 1.1rem 1.1rem 1.1rem;
     min-height: 120px;
     display: flex;
@@ -3029,22 +3029,6 @@ select.form-input {
 
 .modern-stat-icon i {
     font-size: 1.3em;
-}
-
-.modern-stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-    opacity: 0;
-    transition: opacity var(--transition-normal);
-}
-
-.modern-stat-card:hover::before {
-    opacity: 1;
 }
 
 .modern-stat-header {

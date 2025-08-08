@@ -147,7 +147,7 @@
                 </div>
             </div>
             <ul>
-            {% if not request.user.wire_admin and not request.user.clinic_admin and not request.user.iad_admin and not request.user.accounting_admin and not request.user.hr_admin and not request.user.hr_manager and not request.user.mis_admin %}
+            {% if not request.user.wire_admin and not request.user.accounting_admin and not request.user.hr_admin and not request.user.hr_manager and not request.user.mis_admin %}
                 <li>
                     <a href="{% url "user_profile" %}">
                         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px">

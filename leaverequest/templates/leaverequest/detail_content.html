@@ -25,6 +25,14 @@
                     <div class="info-value">{{ leave_request.date_prepared|date:"M d, Y" }}</div>
                 </div>
                 <div>
+                    <div class="info-label">Requested By:</div>
+                    <div class="info-value">{{ leave_request.employee.firstname }} {{ leave_request.employee.lastname }}</div>
+                </div>
+                <div>
+                    <div class="info-label">Department/Line:</div>
+                    <div class="info-value">{{ leave_request.employee.employment_info.department.department_name }}{% if leave_request.employee.employment_info.line.line_name %} ( {{ leave_request.employee.employment_info.line.line_name }} ){% endif %}</div>
+                </div>
+                <div>
                     <div class="info-label">Date From:</div>
                     <div class="info-value">{{ leave_request.date_from|date:"M d, Y" }}</div>
                 </div>

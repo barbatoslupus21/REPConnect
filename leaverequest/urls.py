@@ -18,11 +18,15 @@ urlpatterns = [
     
     # Admin views
     path('admin/', views.admin_dashboard, name='admin_leave'),
+    path('admin/detail/<str:control_number>/', views.admin_leave_detail, name='admin_leave_detail'),
+    path('admin/approve/<str:control_number>/', views.admin_approve_leave, name='admin_approve_leave'),
+    path('admin/disapprove/<str:control_number>/', views.admin_disapprove_leave, name='admin_disapprove_leave'),
     
     # AJAX endpoints
     path('ajax/balance/', views.get_leave_balance, name='get_leave_balance'),
     path('ajax/chart-data/', views.leave_chart_data, name='leave_chart_data'),
     path('ajax/approval-chart-data/', views.approval_chart_data, name='approval_chart_data'),
+    path('ajax/admin-chart-data/', views.admin_chart_data, name='admin_chart_data'),
     path('ajax/search-approvals/', views.search_approvals_ajax, name='search_approvals_ajax'),
 
     # API endpoints
