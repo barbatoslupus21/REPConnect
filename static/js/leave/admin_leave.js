@@ -280,6 +280,9 @@ class LeaveAdminInterface {
             case 'close-modal':
                 this.closeModal(actionEl.getAttribute('data-modal'));
                 break;
+            case 'process-approval':
+                this.handleProcessApproval(actionEl);
+                break;
         }
     }
 
@@ -471,15 +474,13 @@ class LeaveAdminInterface {
 
     // Search and Filtering
     initializeSearch() {
-        const searchInput = document.getElementById('search');
-        if (searchInput) {
-            searchInput.addEventListener('input', this.debounce((e) => {
-                this.performLiveSearch(e.target.value);
-            }, 300));
-        }
+        // AJAX search removed. The table will refresh via full page reloads (form submit).
+        // No JS needed for search input.
     }
 
     performLiveSearch(query) {
+        // This method is now deprecated in favor of server-side search
+        // Keeping it for backwards compatibility but not used
         const tableRows = document.querySelectorAll('#leaveRequestsTable tbody tr');
         
         tableRows.forEach(row => {
@@ -565,20 +566,16 @@ class LeaveAdminInterface {
         if (!controlNumber) return;
 
         try {
-            const response = await fetch(`/leave/admin/detail/${controlNumber}/`);
+            const response = await fetch(`/leave/admin/approval-detail/${controlNumber}/`);
             if (!response.ok) throw new Error('Failed to fetch details');
             
             const data = await response.json();
             if (data.success) {
-                document.getElementById('approvalContent').innerHTML = data.content;
+                const approvalContent = document.getElementById('approvalContent');
+                approvalContent.innerHTML = data.content;
+                approvalContent.setAttribute('data-control-number', controlNumber);
                 
-                // Show or hide approval actions based on can_approve
-                const approvalActions = document.getElementById('approvalActions');
-                if (approvalActions) {
-                    approvalActions.style.display = data.can_approve ? 'block' : 'none';
-                }
-                
-                // Set up approval buttons
+                // Set up approval buttons if user can approve
                 if (data.can_approve) {
                     this.setupApprovalButtons(controlNumber);
                 }
@@ -593,40 +590,83 @@ class LeaveAdminInterface {
         }
     }
 
-    setupApprovalButtons(controlNumber) {
-        const approveBtn = document.getElementById('approveBtn');
-        const disapproveBtn = document.getElementById('disapproveBtn');
+    handleProcessApproval(actionEl) {
+        console.log('handleProcessApproval called', actionEl); // Debug log
+        
+        const approvalAction = actionEl.getAttribute('data-approval-action');
         const commentsField = document.getElementById('approvalComments');
-
-        if (approveBtn) {
-            approveBtn.onclick = () => this.processApproval(controlNumber, 'approve', commentsField?.value || '');
+        const comments = commentsField ? commentsField.value.trim() : '';
+        
+        console.log('Approval action:', approvalAction, 'Comments:', comments); // Debug log
+        
+        // Get control number from the modal content or from a data attribute
+        const modalContent = document.getElementById('approvalContent');
+        const controlNumber = modalContent ? modalContent.getAttribute('data-control-number') : null;
+        
+        console.log('Control number found:', controlNumber); // Debug log
+        
+        if (!controlNumber) {
+            console.error('No control number found for approval processing');
+            this.showMessage('Error: Unable to identify leave request', 'error');
+            return;
         }
 
-        if (disapproveBtn) {
-            disapproveBtn.onclick = () => this.processApproval(controlNumber, 'disapprove', commentsField?.value || '');
+        if (approvalAction === 'approved') {
+            this.processApproval(controlNumber, 'approve', comments);
+        } else if (approvalAction === 'disapproved') {
+            this.processApproval(controlNumber, 'disapprove', comments);
         }
     }
 
-    async processApproval(controlNumber, action, comments) {
-        try {
-            const formData = new FormData();
-            formData.append('comments', comments);
-            formData.append('csrfmiddlewaretoken', this.getCSRFToken());
+    setupApprovalButtons(controlNumber) {
+        // Store control number for the event delegation handler
+        const approvalContent = document.getElementById('approvalContent');
+        if (approvalContent) {
+            approvalContent.setAttribute('data-control-number', controlNumber);
+        }
+        
+        // No need to set onclick handlers - event delegation will handle it
+        console.log('Approval buttons set up for control number:', controlNumber);
+    }
 
-            const endpoint = action === 'approve' ? 'approve' : 'disapprove';
-            const response = await fetch(`/leave/admin/${endpoint}/${controlNumber}/`, {
+    async processApproval(controlNumber, action, comments) {
+        console.log(`Processing approval: ${action} for ${controlNumber} with comments: "${comments}"`); // Debug log
+        
+        try {
+            const url = `/leave/admin/process-approval/${controlNumber}/`;
+            console.log('Making request to:', url); // Debug log
+            
+            const response = await fetch(url, {
                 method: 'POST',
-                body: formData,
                 headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken(),
                     'X-Requested-With': 'XMLHttpRequest'
-                }
+                },
+                body: JSON.stringify({
+                    action: action,
+                    comments: comments
+                })
             });
 
+            console.log('Response received:', response.status, response.statusText); // Debug log
+            
             const data = await response.json();
+            console.log('Response data:', data); // Debug log
+            
             if (data.success) {
-                this.showMessage(data.message, 'success');
+                // Close modal first
                 this.closeModal('approvalModal');
-                this.refreshTable(); // Refresh the table to show updated status
+                
+                // Show success toast after a brief delay to ensure modal is closed
+                setTimeout(() => {
+                    this.showMessage(data.message, 'success');
+                }, 200);
+                
+                // Refresh the table to show updated status
+                setTimeout(() => {
+                    this.refreshTable();
+                }, 300);
             } else {
                 throw new Error(data.error || 'Failed to process approval');
             }
@@ -658,39 +698,8 @@ class LeaveAdminInterface {
     }
 
     refreshTable() {
-        // Get current search and filter parameters
-        const searchInput = document.getElementById('searchInput');
-        const params = new URLSearchParams();
-        
-        if (searchInput && searchInput.value.trim()) {
-            params.append('search', searchInput.value.trim());
-        }
-
-        // Get filter values if they exist
-        const filterForm = document.getElementById('searchFilterForm');
-        if (filterForm) {
-            const formData = new FormData(filterForm);
-            for (const [key, value] of formData.entries()) {
-                if (value && key !== 'search') {
-                    params.append(key, value);
-                }
-            }
-        }
-
-        fetch(window.location.pathname + '?' + params.toString(), {
-            method: 'GET',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success && data.html) {
-                const tableContainer = document.querySelector('#leave-requests .leave-table-container');
-                if (tableContainer) {
-                    tableContainer.innerHTML = data.html;
-                }
-            }
-        })
-        .catch(err => console.error('Error refreshing table:', err));
+        // AJAX table refresh removed. Use full page reloads for table updates.
+        window.location.reload();
     }
 
     async viewTimeline(element) {
@@ -986,18 +995,10 @@ class LeaveAdminInterface {
 
     // Table Management
     async refreshTable() {
-        this.showToast('Refreshing table...', 'info');
-        
-        try {
-            // For now, just reload the page
-            // In a more advanced implementation, this could be an AJAX refresh
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        } catch (error) {
-            console.error('Error refreshing table:', error);
-            this.showToast('Error refreshing table', 'error');
-        }
+        // Removed the 'Refreshing table...' toast as requested
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
     }
 
     // Modal Management
@@ -1296,63 +1297,70 @@ class LeaveAdminInterface {
 
     // Message display helper
     showMessage(message, type = 'info') {
-        // Create toast notification
+        // Get or create toast container
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'toast-container';
+            document.body.appendChild(toastContainer);
+        }
+
+        // Create toast notification with proper styling
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        toast.innerHTML = `
-            <div class="toast-content">
-                <span class="toast-message">${message}</span>
-                <button class="toast-close" onclick="this.parentElement.parentElement.remove()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
         
-        // Add to body
-        document.body.appendChild(toast);
+        // Create toast content with close button
+        const toastContent = document.createElement('div');
+        toastContent.className = 'toast-content';
+        toastContent.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 12px;';
+        
+        const messageSpan = document.createElement('span');
+        messageSpan.className = 'toast-message';
+        messageSpan.textContent = message;
+        messageSpan.style.cssText = 'flex: 1;';
+        
+        const closeButton = document.createElement('button');
+        closeButton.className = 'toast-close';
+        closeButton.style.cssText = 'background: none; border: none; color: inherit; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center;';
+        closeButton.innerHTML = '<i class="fas fa-times"></i>';
+        closeButton.onclick = () => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.parentElement.removeChild(toast);
+                }
+            }, 300);
+        };
+        
+        toastContent.appendChild(messageSpan);
+        toastContent.appendChild(closeButton);
+        toast.appendChild(toastContent);
+        
+        // Add to container
+        toastContainer.appendChild(toast);
         
         // Auto remove after 5 seconds
         setTimeout(() => {
             if (toast.parentElement) {
-                toast.parentElement.removeChild(toast);
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.parentElement.removeChild(toast);
+                    }
+                }, 300);
             }
         }, 5000);
         
-        // Add some basic styles if not already present
-        if (!document.querySelector('#toast-styles')) {
-            const style = document.createElement('style');
-            style.id = 'toast-styles';
-            style.textContent = `
-                .toast {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    z-index: 10000;
-                    max-width: 300px;
-                    padding: 12px 16px;
-                    border-radius: 6px;
-                    color: white;
-                    animation: toastSlideIn 0.3s ease-out;
-                }
-                .toast-success { background-color: #10b981; }
-                .toast-error { background-color: #ef4444; }
-                .toast-info { background-color: #3b82f6; }
-                .toast-content {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 10px;
-                }
-                .toast-close {
-                    background: none;
-                    border: none;
-                    color: white;
-                    cursor: pointer;
-                    font-size: 12px;
-                }
-            `;
-            document.head.appendChild(style);
-        }
+        // Add hover effect to close button
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        });
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.backgroundColor = 'transparent';
+        });
     }
 }
 
@@ -1634,6 +1642,19 @@ function initializeAdminChart() {
         return;
     }
     
+    // Destroy any existing chart instances on this canvas
+    if (adminLeaveChart) {
+        adminLeaveChart.destroy();
+        adminLeaveChart = null;
+    }
+    if (typeof approvalChart !== 'undefined' && approvalChart) {
+        approvalChart.destroy();
+        approvalChart = null;
+    }
+    
+    // Also check if Chart.js has any chart instances on this canvas
+    Chart.getChart(ctx)?.destroy();
+    
     // Show loading state
     showChartLoading(true);
     
@@ -1678,7 +1699,7 @@ function loadChartData(period, chartType) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                updateChart(data.chart_data, data.period_label, chartType);
+                updateChart(data.chart_data, data.period_label, chartType, period);
                 updateChartTitle(data.period_label);
             } else {
                 console.error('Chart data error:', data.error);
@@ -1694,13 +1715,21 @@ function loadChartData(period, chartType) {
         });
 }
 
-function updateChart(chartData, periodLabel, chartType) {
+function updateChart(chartData, periodLabel, chartType, period) {
     const ctx = document.getElementById('adminLeaveChart');
     
-    // Destroy existing chart
+    // Destroy all existing chart instances that might be using this canvas
     if (adminLeaveChart) {
         adminLeaveChart.destroy();
+        adminLeaveChart = null;
     }
+    if (typeof approvalChart !== 'undefined' && approvalChart) {
+        approvalChart.destroy();
+        approvalChart = null;
+    }
+    
+    // Also check if Chart.js has any chart instances on this canvas
+    Chart.getChart(ctx)?.destroy();
     
     // Configure chart options based on type
     const chartConfig = {
@@ -1911,7 +1940,20 @@ function loadApprovalChartData(period, chartType) {
 function updateApprovalChart(chartData, chartType, period) {
     const ctx = document.getElementById('adminLeaveChart');
     if (!ctx) return;
-    if (approvalChart) approvalChart.destroy();
+    
+    // Destroy both chart instances that might be using this canvas
+    if (approvalChart) {
+        approvalChart.destroy();
+        approvalChart = null;
+    }
+    if (adminLeaveChart) {
+        adminLeaveChart.destroy();
+        adminLeaveChart = null;
+    }
+    
+    // Also check if Chart.js has any chart instances on this canvas
+    Chart.getChart(ctx)?.destroy();
+    
     // For bar chart, ensure each dataset uses its own strong color (not lighter)
     if (chartType === 'bar' && chartData.datasets && chartData.datasets.length > 0) {
         chartData.datasets.forEach(ds => {

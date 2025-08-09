@@ -89,77 +89,6 @@
         </div>
     </div>
 
-    <!-- Search and Filter Controls -->
-    {% comment %} <section class="component-section">
-        <div class="card">
-            <div class="card-header">
-                <h3>
-                    <i class="fas fa-search"></i>
-                    Search & Filter
-                </h3>
-                <button class="btn btn-outline btn-sm" data-action="reset-filters">
-                    <i class="fas fa-undo"></i>
-                    Reset
-                </button>
-            </div>
-            <div class="card-body">
-                <form id="searchFilterForm" method="get">
-                    <div class="form-row form-row-4col">
-                        <div class="form-group">
-                            <label for="search">Search</label>
-                            <input type="text" id="search" name="search" class="form-control" placeholder="Control number, employee name..." value="{{ search_form.search.value|default:'' }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="status">Status</label>
-                            <select id="status" name="status" class="form-control">
-                                <option value="">All Status</option>
-                                <option value="routing" {% if search_form.status.value == 'routing' %}selected{% endif %}>Routing</option>
-                                <option value="approved" {% if search_form.status.value == 'approved' %}selected{% endif %}>Approved</option>
-                                <option value="disapproved" {% if search_form.status.value == 'disapproved' %}selected{% endif %}>Disapproved</option>
-                                <option value="cancelled" {% if search_form.status.value == 'cancelled' %}selected{% endif %}>Cancelled</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="leave_type">Leave Type</label>
-                            <select id="leave_type" name="leave_type" class="form-control">
-                                <option value="">All Leave Types</option>
-                                {% for leave_type in leave_types %}
-                                <option value="{{ leave_type.id }}" {% if search_form.leave_type.value == leave_type.id|stringformat:"s" %}selected{% endif %}>{{ leave_type.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-search"></i>
-                                Search
-                            </button>
-                        </div>
-                    </div>
-                    <div class="form-row form-row-3col">
-                        <div class="form-group">
-                            <label for="date_from">Date From</label>
-                            <input type="date" id="date_from" name="date_from" class="form-control" value="{{ search_form.date_from.value|default:'' }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="date_to">Date To</label>
-                            <input type="date" id="date_to" name="date_to" class="form-control" value="{{ search_form.date_to.value|default:'' }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="department">Department</label>
-                            <select id="department" name="department" class="form-control">
-                                <option value="">All Departments</option>
-                                {% for dept in departments %}
-                                <option value="{{ dept }}">{{ dept }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </section> {% endcomment %}
-
     <!-- Leave Requests Overview Chart -->
     <div class="overview-two-column">
         <div class="chart-card">
@@ -200,7 +129,6 @@
         </div>    
 
         <div id="leave-requests" class="tab-panel active">
-
             <div class="table-actions table-actions-bar">
                 <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
                     <form class="search-box" method="get" action="" id="liveSearchForm">
@@ -225,11 +153,118 @@
                 </div>
             </div>
 
-            {% include 'leaverequest/partials/leave_table.html' %}
+            <div class="leave-table-container" style="margin-top: 8px !important;">
+                <table class="data-table" id="leaveRequestsTable">
+                    <thead>
+                        <tr>
+                            <th>Control Number</th>
+                            <th>Employee Name</th>
+                            <th>Department</th>
+                            <th>Leave Type</th>
+                            <th>Leave Reason</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Date Prepared</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for leave in leave_requests %}
+                            <tr data-leave-id="{{ leave.id }}">
+                                <td>
+                                    <span class="control-number">{{ leave.control_number }}</span>
+                                </td>
+                                <td>
+                                    <div class="employee-info">
+                                        <span class="employee-name">{{ leave.employee.full_name }}</span>
+                                        <small class="employee-id">{{ leave.employee.idnumber }}</small>
+                                    </div>
+                                </td>
+                                <td>{{ leave.employee.employment_info.department.department_name|default:"N/A" }}</td>
+                                <td>{{ leave.leave_type.name }}</td>
+                                <td>{{ leave.leave_reason.reason_text|default:"N/A" }}</td>
+                                <td>{{ leave.duration_display }}</td>
+                                <td>
+                                    <span class="status-badge status-{{ leave.status }}">
+                                        {{ leave.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ leave.date_prepared|date:"M d, Y" }}</td>
+                                <td>
+                                    <div class="center-align">
+                                        {% with last_action=leave.approval_actions.last %}
+                                            {% if last_action and last_action.approver == request.user and last_action.status == 'routing' %}
+                                                <button class="btn btn-sm btn-primary" data-action="open-approval" data-control-number="{{ leave.control_number }}" title="Review & Approve">
+                                                    <i class="fas fa-check"></i> Review
+                                                </button>
+                                            {% else %}
+                                                <button class="btn btn-icon" data-action="view-details" data-control-number="{{ leave.control_number }}" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            {% endif %}
+                                        {% endwith %}
+
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center">
+                                    <div class="empty-state">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <h5>No Leave Requests Found</h5>
+                                        <p>No leave requests match your current filters.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination" id="leaveRequestsPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="leaveRequestsStartRecord">{{ leave_requests.start_index|default:0 }}</span> to <span id="leaveRequestsEndRecord">{{ leave_requests.end_index|default:0 }}</span> of <span id="leaveRequestsTotalRecords">{{ leave_requests.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="leaveRequestsPaginationControls">
+                    {% if leave_requests.has_previous %}
+                        <a class="pagination-btn" id="leaveRequestsPrevPage" href="?page={{ leave_requests.previous_page_number }}{% if search %}&search={{ search }}{% endif %}#leave-requests">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="leaveRequestsPrevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="leaveRequestsPageNumbers">
+                        {% if leave_requests.paginator.page_range %}
+                            {% for num in leave_requests.paginator.page_range %}
+                                {% if leave_requests.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > leave_requests.number|add:'-3' and num < leave_requests.number|add:'3' %}
+                                    <a class="pagination-btn" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}#leave-requests">{{ num }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if leave_requests.has_next %}
+                        <a class="pagination-btn" id="leaveRequestsNextPage" href="?page={{ leave_requests.next_page_number }}{% if search %}&search={{ search }}{% endif %}#leave-requests">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="leaveRequestsNextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
         </div>
 
         <div id="leave-balances" class="tab-panel">
-            <div class="table-actions table-actions-bar">
+            {% comment %} <div class="table-actions table-actions-bar">
                 <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
                     <form class="search-box" method="get" action="">
                         <input type="text" class="search-input" id="searchInput" placeholder="Search..." name="search" value="{{ search }}" />
@@ -341,47 +376,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-
-            <!-- Leave Balances Pagination -->
-            <div class="pagination" id="leaveBalancesPaginationContainer">
-                <div class="pagination-info">
-                    <span id="leaveBalancesStartRecord">{{ leave_requests.start_index|default:0 }}</span> to <span id="leaveBalancesEndRecord">{{ leave_requests.end_index|default:0 }}</span> of <span id="leaveBalancesTotalRecords">{{ leave_requests.paginator.count|default:0 }}</span> entries
-                </div>
-                <div class="pagination-controls" id="leaveBalancesPaginationControls">
-                    {% if leave_requests.has_previous %}
-                        <a class="pagination-btn" id="leaveBalancesPrevPage" href="?page={{ leave_requests.previous_page_number }}{% if search %}&search={{ search }}{% endif %}#leave-balances">
-                            <i class="fas fa-chevron-left"></i>
-                        </a>
-                    {% else %}
-                        <span class="pagination-btn" id="leaveBalancesPrevPage" disabled>
-                            <i class="fas fa-chevron-left"></i>
-                        </span>
-                    {% endif %}
-                    <div id="leaveBalancesPageNumbers">
-                        {% if leave_requests.paginator.page_range %}
-                            {% for num in leave_requests.paginator.page_range %}
-                                {% if leave_requests.number == num %}
-                                    <span class="pagination-btn active">{{ num }}</span>
-                                {% elif num > leave_requests.number|add:'-3' and num < leave_requests.number|add:'3' %}
-                                    <a class="pagination-btn" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}#leave-balances">{{ num }}</a>
-                                {% endif %}
-                            {% endfor %}
-                        {% else %}
-                            <span class="pagination-btn active">1</span>
-                        {% endif %}
-                    </div>
-                    {% if leave_requests.has_next %}
-                        <a class="pagination-btn" id="leaveBalancesNextPage" href="?page={{ leave_requests.next_page_number }}{% if search %}&search={{ search }}{% endif %}#leave-balances">
-                            <i class="fas fa-chevron-right"></i>
-                        </a>
-                    {% else %}
-                        <span class="pagination-btn" id="leaveBalancesNextPage" disabled>
-                            <i class="fas fa-chevron-right"></i>
-                        </span>
-                    {% endif %}
-                </div>
-            </div>
+            </div> {% endcomment %}
 
         </div>  
 
@@ -481,7 +476,6 @@
     </div>
 </div>
 
-
 <!-- Approval Modal -->
 <div id="approvalModal" class="modal modal-lg">
     <div class="modal-overlay"></div>
@@ -494,19 +488,20 @@
         </div>
         <div class="modal-body" id="approvalContent">
             <!-- Content loaded via AJAX -->
+             
         </div>
-        <div class="modal-footer" id="approvalActions" style="display: none;">
+        <div class="modal-footer" style="flex-direction: column; align-items: stretch;">
             <div class="form-group" style="margin-bottom: 15px; text-align: left; width: 100%;">
                 <label for="approvalComments">Comments (Optional)</label>
-                <textarea id="approvalComments" class="form-control" rows="3" placeholder="Add comments for this decision..."></textarea>
+                <textarea id="approvalComments" class="form-control" rows="2" placeholder="Add comments for this decision..."></textarea>
             </div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end; width: 100%;">
+            <div style="display: flex; gap: 8px; justify-content: flex-end; width: 100%;">
                 <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="approvalModal">Cancel</button>
-                <button type="button" class="btn btn-error" id="disapproveBtn">
+                <button type="button" class="btn btn-error" data-action="process-approval" data-approval-action="disapproved">
                     <i class="fas fa-times"></i>
                     Disapprove
                 </button>
-                <button type="button" class="btn btn-success" id="approveBtn">
+                <button type="button" class="btn btn-success" data-action="process-approval" data-approval-action="approved">
                     <i class="fas fa-check"></i>
                     Approve
                 </button>
@@ -577,36 +572,6 @@
     </div>
 </div>
 
-<!-- Bulk Action Confirmation Modal -->
-<div id="bulkConfirmModal" class="modal modal-sm">
-    <div class="modal-overlay"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>
-                <i class="fas fa-exclamation-triangle"></i>
-                Confirm Bulk Action
-            </h3>
-            <button class="modal-close" data-action="close-modal" data-modal="bulkConfirmModal">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <p id="bulkConfirmMessage">Are you sure you want to perform this action on selected items?</p>
-            <div class="form-group">
-                <label for="bulkComments">Comments (Optional)</label>
-                <textarea id="bulkComments" class="form-control" rows="3" placeholder="Add comments for this bulk action..."></textarea>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="bulkConfirmModal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="confirmBulkAction">
-                <i class="fas fa-check"></i>
-                Confirm
-            </button>
-        </div>
-    </div>
-</div>
-
 <!-- Export Options Modal -->
 <div id="exportModal" class="modal modal-md">
     <div class="modal-overlay"></div>
@@ -671,7 +636,8 @@
     </div>
 </div>
 
-{% comment %} <div class="toast-container" id="toast-container"></div> {% endcomment %}
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
 {% endblock content %}
 
 {% block extra_js %}

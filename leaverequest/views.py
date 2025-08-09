@@ -3,20 +3,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, F, Exists, OuterRef, Subquery, Count, Q
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 import json
-from django.db.models import F
 from userlogin.models import EmployeeLogin
 from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction, LeaveReason
 from .forms import LeaveRequestForm, LeaveApprovalForm, LeaveSearchForm
 from django.db.models import Case, When, IntegerField, Max
 from datetime import datetime, timedelta
-from django.db.models import Count, Q
 from collections import defaultdict
 from generalsettings.models import Department, Line, Position
 import calendar
+from decimal import Decimal
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 
 @login_required
 def leave_dashboard(request):
@@ -577,20 +579,13 @@ def admin_dashboard(request):
     if filter_date_to:
         leave_requests = leave_requests.filter(date_to__lte=filter_date_to)
 
-    
-    # Custom ordering: Put hr_admin routing requests at the top
+    approver_exists = LeaveApprovalAction.objects.filter(
+        leave_request=OuterRef('pk'),
+        approver=request.user, status='routing'
+    )
     leave_requests = leave_requests.annotate(
-        priority_order=Case(
-            When(
-                Q(status='routing') & 
-                Q(approval_actions__approver__hr_admin=True) &
-                Q(approval_actions__action_at__isnull=True),
-                then=0
-            ),
-            default=1,
-            output_field=IntegerField()
-        )
-    ).order_by('priority_order', '-date_prepared').distinct()
+        user_is_approver=Exists(approver_exists)
+    ).order_by('-user_is_approver', '-date_prepared')
 
     # --- Dashboard stats: current month vs previous month ---
     today = timezone.now().date()
@@ -1256,13 +1251,14 @@ def admin_leave_detail(request, control_number):
             leave_request.status == 'routing'
         )
         
+        approval_actions = leave_request.approval_actions.all().order_by('action_at')
         from django.template.loader import render_to_string
         content = render_to_string('leaverequest/detail_content.html', {
             'leave_request': leave_request,
             'can_approve': can_approve,
-            'is_admin_view': True
+            'is_admin_view': True,
+            'approval_actions': approval_actions
         }, request=request)
-        
         return JsonResponse({
             'success': True,
             'content': content,
@@ -1351,6 +1347,269 @@ def admin_disapprove_leave(request, control_number):
         return JsonResponse({
             'success': True,
             'message': 'Leave request disapproved successfully'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def hr_admin_process_approval(request, control_number):
+    if not (request.user.hr_admin or request.user.hr_manager or 
+            request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        action = data.get('action')
+        comments = data.get('comments', '').strip()
+        
+        if action not in ['approve', 'disapprove']:
+            return JsonResponse({'error': 'Invalid action'}, status=400)
+        
+        leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
+
+        approval_action = leave_request.approval_actions.filter(
+            approver=request.user,
+        ).last()
+        
+        if not approval_action:
+            return JsonResponse({'error': 'No pending approval found for this user'}, status=400)
+        
+        approval_action.action = action
+        approval_action.status = action
+        approval_action.action_at = timezone.now()
+        
+        if action == 'approve':
+            updated_comments = process_leave_approval_with_balance_check(leave_request, comments)
+            approval_action.comments = updated_comments
+        else:
+            approval_action.comments = comments
+            
+        approval_action.save()
+        
+        leave_request.status = action
+        leave_request.save()
+        
+        send_leave_decision_email(leave_request, action == 'approve', approval_action.comments)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Leave request {action} successfully'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def process_leave_approval_with_balance_check(leave_request, original_comments):
+    employee = leave_request.employee
+    
+    employment_type = getattr(employee.employment_info, 'employment_type', '').lower()
+    
+    if employment_type in ['probationary', 'ojt']:
+        additional_comment = f"Leave approved without balance deduction (Employee type: {employment_type.title()})."
+        if original_comments:
+            return f"{original_comments}\n\n{additional_comment}"
+        else:
+            return additional_comment
+    
+    leave_type = leave_request.leave_type
+    request_start = leave_request.date_from
+    request_end = leave_request.date_to
+    
+    balances = LeaveBalance.objects.filter(
+        employee=employee,
+        leave_type=leave_type,
+        valid_from__lte=request_end,
+        valid_to__gte=request_start,
+        validity_status='active'
+    ).order_by('valid_from')
+    
+    total_remaining = sum(balance.remaining for balance in balances)
+    
+    if total_remaining == 0:
+        additional_comment = f"You currently have no remaining leave balance for this leave type ({leave_type.name})."
+        if original_comments:
+            return f"{original_comments}\n\n{additional_comment}"
+        else:
+            return additional_comment
+    
+    try:
+        deduct_leave_balance(leave_request)
+        return original_comments
+    except Exception as e:
+        error_comment = f"Leave approved but balance deduction failed: {str(e)}"
+        if original_comments:
+            return f"{original_comments}\n\n{error_comment}"
+        else:
+            return error_comment
+
+
+def deduct_leave_balance(leave_request):
+    
+    employee = leave_request.employee
+    leave_type = leave_request.leave_type
+    request_start = leave_request.date_from
+    request_end = leave_request.date_to
+    total_days = leave_request.days_requested
+    
+    balances = LeaveBalance.objects.filter(
+        employee=employee,
+        leave_type=leave_type,
+        valid_from__lte=request_end,
+        valid_to__gte=request_start,
+        validity_status='active'
+    ).order_by('valid_from')
+    
+    if not balances.exists():
+        raise Exception(f"No valid leave balance found for {employee.full_name} - {leave_type.name}")
+    
+    remaining_days = Decimal(str(total_days))
+    
+    for balance in balances:
+        if remaining_days <= 0:
+            break
+        
+        overlap_start = max(request_start, balance.valid_from)
+        overlap_end = min(request_end, balance.valid_to)
+        
+        if overlap_start <= overlap_end:
+            overlap_days = leave_request.calculate_working_days(overlap_start, overlap_end)
+            
+            days_to_deduct = min(remaining_days, Decimal(str(overlap_days)))
+            
+            if balance.remaining < days_to_deduct:
+                raise Exception(f"Insufficient leave balance. Available: {balance.remaining} days, Required: {days_to_deduct} days")
+            
+            balance.used += days_to_deduct
+            balance.remaining = balance.entitled - balance.used
+            balance.save()
+            
+            remaining_days -= days_to_deduct
+    
+    if remaining_days > 0:
+        raise Exception(f"Could not fully deduct leave days. {remaining_days} days remaining.")
+
+
+def send_leave_decision_email(leave_request, is_approved, comments):
+    try:
+        employee = leave_request.employee
+        subject = f"Leave Request {leave_request.control_number} - {'Approved' if is_approved else 'Disapproved'}"
+        
+        context = {
+            'employee_name': employee.full_name,
+            'control_number': leave_request.control_number,
+            'leave_type': leave_request.leave_type.name,
+            'date_from': leave_request.date_from,
+            'date_to': leave_request.date_to,
+            'days_requested': leave_request.days_requested,
+            'reason': leave_request.reason,
+            'is_approved': is_approved,
+            'comments': comments,
+            'decision_date': timezone.now().date(),
+        }
+        
+        if is_approved:
+            message = f"""
+Dear {employee.full_name},
+
+Your leave request has been APPROVED.
+
+Request Details:
+- Control Number: {leave_request.control_number}
+- Leave Type: {leave_request.leave_type.name}
+- Duration: {leave_request.date_from} to {leave_request.date_to} ({leave_request.days_requested} days)
+- Reason: {leave_request.reason}
+
+{f'HR Comments: {comments}' if comments else ''}
+
+Please ensure to coordinate with your team and complete any necessary handover procedures before your leave period.
+
+Best regards,
+HR Department
+REPConnect
+"""
+        else:
+            message = f"""
+Dear {employee.full_name},
+
+Your leave request has been DISAPPROVED.
+
+Request Details:
+- Control Number: {leave_request.control_number}
+- Leave Type: {leave_request.leave_type.name}
+- Duration: {leave_request.date_from} to {leave_request.date_to} ({leave_request.days_requested} days)
+- Reason: {leave_request.reason}
+
+{f'HR Comments: {comments}' if comments else ''}
+
+If you have any questions or would like to discuss this decision, please contact the HR department.
+
+Best regards,
+HR Department
+REPConnect
+"""
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@repconnect.com'),
+            recipient_list=[employee.email] if hasattr(employee, 'email') and employee.email else [],
+            fail_silently=True,
+        )
+        
+    except Exception as e:
+        print(f"Email notification failed: {str(e)}")
+
+
+@login_required
+def hr_admin_approval_detail(request, control_number):
+    if not (request.user.hr_admin or request.user.hr_manager or 
+            request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    try:
+        leave_request = get_object_or_404(
+            LeaveRequest.objects.select_related(
+                'employee', 'leave_type', 'leave_reason', 
+                'employee__employment_info__department'
+            ).prefetch_related('approval_actions__approver'),
+            control_number=control_number
+        )
+        
+        approval_action = leave_request.approval_actions.filter(
+            approver=request.user,
+            action_at__isnull=True
+        ).first()
+        
+        can_approve = approval_action is not None and leave_request.status == 'routing'
+        
+        leave_balances = LeaveBalance.objects.filter(
+            employee=leave_request.employee,
+            leave_type=leave_request.leave_type,
+            validity_status='active'
+        ).order_by('valid_from')
+        
+        total_remaining = sum(balance.remaining for balance in leave_balances)
+        remaining_after_approval = total_remaining - leave_request.days_requested
+        
+        from django.template.loader import render_to_string
+        content = render_to_string('leaverequest/approval_detail_content.html', {
+            'leave_request': leave_request,
+            'can_approve': can_approve,
+            'is_admin_view': True,
+            'leave_balances': leave_balances,
+            'total_remaining': total_remaining,
+            'remaining_after_approval': remaining_after_approval,
+            'sufficient_balance': total_remaining >= leave_request.days_requested
+        }, request=request)
+        
+        return JsonResponse({
+            'success': True,
+            'content': content,
+            'can_approve': can_approve
         })
         
     except Exception as e:

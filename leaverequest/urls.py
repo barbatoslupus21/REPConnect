@@ -22,6 +22,10 @@ urlpatterns = [
     path('admin/approve/<str:control_number>/', views.admin_approve_leave, name='admin_approve_leave'),
     path('admin/disapprove/<str:control_number>/', views.admin_disapprove_leave, name='admin_disapprove_leave'),
     
+    # HR Admin approval views
+    path('admin/approval-detail/<str:control_number>/', views.hr_admin_approval_detail, name='hr_admin_approval_detail'),
+    path('admin/process-approval/<str:control_number>/', views.hr_admin_process_approval, name='hr_admin_process_approval'),
+    
     # AJAX endpoints
     path('ajax/balance/', views.get_leave_balance, name='get_leave_balance'),
     path('ajax/chart-data/', views.leave_chart_data, name='leave_chart_data'),
