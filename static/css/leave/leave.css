@@ -3367,7 +3367,6 @@
 
 /* Control Number Styling */
 .control-number {
-    font-family: 'Courier New', monospace;
     font-weight: 600;
     color: var(--primary-color);
     background: rgba(99, 102, 241, 0.1);

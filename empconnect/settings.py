@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'generalsettings.apps.GeneralsettingsConfig',
     'finance.apps.FinanceConfig',
     'leaverequest.apps.LeaverequestConfig',
+    'ticketing.apps.TicketingConfig',
 ]
 
 AUTH_USER_MODEL = 'userlogin.EmployeeLogin'

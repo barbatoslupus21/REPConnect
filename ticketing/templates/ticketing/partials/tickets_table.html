@@ -1,0 +1,47 @@
+{% for ticket in tickets %}
+<tr>
+    <td>
+        <span class="control-number">{{ ticket.ticket_number }}</span>
+    </td>
+    <td>{{ ticket.requestor.firstname }} {{ ticket.requestor.lastname }}</td>
+    <td>{{ ticket.device.device_name|default:"-" }}</td>
+    <td>{{ ticket.category.name|default:"-" }}</td>
+    <td>
+        <div class="center-align">
+            <span class="status-pill status-{% if ticket.priority_level == 'Urgent' %}red{% elif ticket.priority_level == 'High' %}orange{% elif ticket.priority_level == 'Medium' %}blue{% else %}green{% endif %}">
+                {{ ticket.priority_level }}
+            </span>
+        </div>
+    </td>
+    <td>
+        <div class="center-align">
+            <span class="status-pill status-{% if ticket.status == 'Approved' %}green{% elif ticket.status == 'Disapproved' %}red{% elif ticket.status == 'Cancelled' %}purple{% else %}yellow{% endif %}">
+                {{ ticket.status }}
+            </span>
+        </div>
+    </td>
+    <td>{{ ticket.created_at|date:"M d, Y" }}</td>
+    <td>
+        <div class="center-align">
+            <button class="btn btn-icon" onclick="viewTicket({{ ticket.id }})" title="View">
+                <i class="fas fa-eye"></i>
+            </button>
+            {% if ticket.status == 'Processing' %}
+            <button class="btn btn-icon btn-error" onclick="confirmCancelTicket({{ ticket.id }})" title="Cancel">
+                <i class="fas fa-times"></i>
+            </button>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="7" class="text-center">
+        <div class="empty-state">
+            <i class="fas fa-ticket-alt"></i>
+            <h5>No Tickets Found</h5>
+            <p>No tickets match your search criteria.</p>
+        </div>
+    </td>
+</tr>
+{% endfor %}

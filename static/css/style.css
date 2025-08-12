@@ -766,11 +766,14 @@ input:checked + .slider:before {
     margin-top: var(--space-lg);
 }
 
-#pageNumbers {
+#pageNumbers,
+#requestsPageNumbers,
+#devicesPageNumbers {
     display: flex;
     flex-direction: row;
     gap: var(--space-xs);
     align-items: center;
+    flex-wrap: nowrap;
 }
 
 .pagination-info {
@@ -784,6 +787,8 @@ input:checked + .slider:before {
     align-items: center;
     gap: var(--space-xs);
     flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: center;
 }
 
 .pagination-btn {
@@ -793,7 +798,6 @@ input:checked + .slider:before {
     min-width: 30px;
     height: 30px;
     padding: 0 var(--space-xs);
-    /* border: 1px solid var(--border-color); */
     background: none;
     color: var(--text-secondary);
     border-radius: 50%;
@@ -802,6 +806,7 @@ input:checked + .slider:before {
     cursor: pointer;
     transition: all var(--transition-normal);
     text-decoration: none;
+    border: none !important;
 }
 
 .pagination-btn:hover {
@@ -811,8 +816,6 @@ input:checked + .slider:before {
 }
 
 .pagination-btn.active {
-    /* background: var(--primary-color);
-    border-color: var(--primary-color); */
     font-weight: 700;
     color: var(--primary-color);
     font-size: var(--font-size-md);
@@ -826,6 +829,25 @@ input:checked + .slider:before {
 
 .pagination-btn i {
     font-size: var(--font-size-sm);
+}
+
+#requestsPaginationControls,
+#devicesPaginationControls {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.25rem !important;
+    border: none !important;
+}
+
+#requestsPageNumbers,
+#devicesPageNumbers {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+    border: none !important;
 }
 
 @keyframes pageContentEntrance {
@@ -1133,12 +1155,29 @@ small {
     transform: none !important;
 }
 
+.text-center {
+    text-align: center;
+}
+
+.overview-two-column {
+    display: flex;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-md);
+}
+
+@media (max-width: 1200px) {
+    .overview-two-column {
+        flex-direction: column;
+        height: auto;
+    }
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
 
 .dashboard-stats {
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--space-sm);
 }
 
 .dashboard-stats-container {
@@ -3244,7 +3283,9 @@ select.form-input {
     .pagination, .pagination-btn, .pagination-info {
         font-size: 0.93rem;
     }
-    #pageNumbers, #pageNumbers .pagination-btn, .pagination-btn i {
+    #pageNumbers, #pageNumbers .pagination-btn, .pagination-btn i,
+    #requestsPageNumbers, #requestsPageNumbers .pagination-btn,
+    #devicesPageNumbers, #devicesPageNumbers .pagination-btn {
         font-size: 0.8rem;
     }
     .pagination-btn {
@@ -4516,6 +4557,14 @@ select.form-input {
   color: #e0e6ed !important;
 }
 
+[data-theme="dark"] .modern-stat-change.positive {
+    color: #22c55e !important;
+}
+
+[data-theme="dark"] .modern-stat-change.negative {
+    color: #ef4444 !important;
+}
+
 .admin-prf-table th,
 .admin-prf-table td {
     display: table-cell !important;
@@ -5227,6 +5276,47 @@ textarea:required:invalid {
 .status-pill.status-purple  { background: #ede9fe; color: #6366f1; }
 .status-pill.status-pink    { background: #ffe4f0; color: #ec4899; }
 .status-pill.status-cyan    { background: #e0f7fa; color: #06b6d4; }
+.status-pill.status-orange  { background: #fff2e0; color: #f97316; }
+
+[data-theme="dark"] .status-pill.status-blue  {
+    border: 0.5px solid #3b82f6;
+    background: #e3f0ff12;
+}
+
+[data-theme="dark"] .status-pill.status-green  {
+    border: 0.5px solid #22c55e;
+    background: #e6faea16;
+}
+
+[data-theme="dark"] .status-pill.status-yellow  {
+    border: 0.5px solid #eab308;
+    background: #fff7e016;
+}
+
+[data-theme="dark"] .status-pill.status-red  {
+    border: 0.5px solid #ef4444;
+    background: #ffeaea14;
+}
+
+[data-theme="dark"] .status-pill.status-purple  {
+    border: 0.5px solid #6366f1;
+    background: #ede9fe13;
+}
+
+[data-theme="dark"] .status-pill.status-pink  {
+    border: 0.5px solid #ec4899;
+    background: #ffe4f014;
+}
+
+[data-theme="dark"] .status-pill.status-cyan  {
+    border: 0.5px solid #06b6d4;
+    background: #e0f7fa12;
+}
+
+[data-theme="dark"] .status-pill.status-orange  {
+    border: 0.5px solid #f97316;
+    background: #fff2e012;
+}
 
 .status-icons {
   display: flex;
@@ -5548,6 +5638,31 @@ textarea:required:invalid {
   height: 100%;
   min-height: 300px;
   text-align: center;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: var(--space-2xl);
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: var(--font-size-4xl);
+    margin-bottom: var(--space-lg);
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.empty-state h4,
+.empty-state h5 {
+    margin: 0 0 var(--space-sm) 0;
+    color: var(--text-secondary);
+}
+
+.empty-state p {
+    margin: 0 0 var(--space-lg) 0;
+    color: var(--text-muted);
 }
 
 .filter-type-suboptions {

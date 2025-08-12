@@ -1,0 +1,395 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - MIS Ticketing{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/ticket/ticket.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+        <div class="page-header">
+            <div class="page-header-content">
+                <h1 class="page-title">MIS Admin Dashboard</h1>
+                <p class="page-subtitle">Manage all IT support tickets and devices</p>
+            </div>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon blue">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div class="modern-stat-label">Total Requests</div>
+                    <div class="modern-stat-value">{{ stats.total_requests }}</div>
+                    <div class="modern-stat-change {% if stats.is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.percentage_change }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Approved</div>
+                    <div class="modern-stat-value">{{ stats.approved }}</div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon red">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Disapproved</div>
+                    <div class="modern-stat-value">{{ stats.disapproved }}</div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon orange">
+                        <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <div class="modern-stat-label">Processing</div>
+                    <div class="modern-stat-value">{{ stats.processing }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs-horizontal">
+            <div class="tab-list">
+                <button class="tab active" data-tab="tickets">Ticket Requests</button>
+                <button class="tab" data-tab="devices">User Devices</button>
+            </div>
+        </div>
+            
+        <div class="tab-panel active" id="tickets-tab">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left" data-intro="Search for devices" data-step="8">
+                    <form class="search-box" method="get" action="" id="devicesSearchForm">
+                        <input type="text" class="search-input" id="devicesSearchInput" placeholder="Search devices..." name="search" value="{{ search }}" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        {% if search %}
+                            <span class="search-clear">
+                                <a href="#" id="clearDevicesSearch"> <i class="fas fa-times"></i> </a>
+                            </span>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" id="importBtn" data-action="open-modal" data-modal="addBalanceModal">
+                        <i class="fas fa-download"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ticket #</th>
+                                <th>Requestor</th>
+                                <th>Device</th>
+                                <th>Category</th>
+                                <th style="text-align: center;">Priority</th>
+                                <th style="text-align: center;">Status</th>
+                                <th>Created</th>
+                                <th style="text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ticket in tickets %}
+                            <tr>
+                                <td>
+                                    <span class="control-number">{{ ticket.ticket_number }}</span>
+                                </td>
+                                <td>{{ ticket.requestor_name }}</td>
+                                <td>{{ ticket.device.device_name|default:"-" }}</td>
+                                <td>{{ ticket.category.name|default:"-" }}</td>
+                                <td>
+                                    <div class="center-align">
+                                        <span class="status-pill status-{% if ticket.priority_level == 'Urgent' %}red{% elif ticket.priority_level == 'High' %}yellow{% elif ticket.priority_level == 'Medium' %}blue{% else %}green{% endif %}">
+                                            {{ ticket.priority_level }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="center-align">
+                                        <span class="status-pill status-{% if ticket.status == 'Approved' %}green{% elif ticket.status == 'Disapproved' %}red{% elif ticket.status == 'Cancelled' %}purple{% else %}yellow{% endif %}">
+                                            {{ ticket.status }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>{{ ticket.created_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <div class="center-align">
+                                        {% if ticket.status == 'Processing' %}
+                                        <button class="btn btn-sm btn-primary" onclick="reviewTicket({{ ticket.id }})" title="Review">
+                                            <i class="fas fa-check"></i> 
+                                            Review
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-icon" onclick="viewTicket({{ ticket.id }})" title="View">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center">No tickets found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="devicesPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="devicesStartRecord">{{ devices.start_index|default:0 }}</span> to <span id="devicesEndRecord">{{ devices.end_index|default:0 }}</span> of <span id="devicesTotalRecords">{{ devices.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="devicesPaginationControls">
+                    {% if devices.has_previous %}
+                        <button class="pagination-btn" onclick="loadDevicesPage({{ devices.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="devicesPageNumbers">
+                        {% if devices.paginator.page_range %}
+                            {% for num in devices.paginator.page_range %}
+                                {% if devices.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > devices.number|add:'-3' and num < devices.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadDevicesPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if devices.has_next %}
+                        <button class="pagination-btn" onclick="loadDevicesPage({{ devices.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div> 
+
+        </div>
+            
+        <div class="tab-panel" id="devices-tab">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left" data-intro="Search for devices" data-step="8">
+                    <form class="search-box" method="get" action="" id="devicesSearchForm">
+                        <input type="text" class="search-input" id="devicesSearchInput" placeholder="Search devices..." name="search" value="{{ search }}" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        {% if search %}
+                            <span class="search-clear">
+                                <a href="#" id="clearDevicesSearch"> <i class="fas fa-times"></i> </a>
+                            </span>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Owner</th>
+                                <th>Device Name</th>
+                                <th>Device Code</th>
+                                <th>Device Type</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for device in devices %}
+                            <tr>
+                                <td>{{ device.user.full_name }}</td>
+                                <td>{{ device.device_name }}</td>
+                                <td>{{ device.device_code }}</td>
+                                <td>{{ device.device_type.name|default:"-" }}</td>
+                                <td>{{ device.device_location }}</td>
+                                <td>
+                                    <span class="status-pill status-{% if device.is_active %}green{% else %}red{% endif %}">
+                                        {% if device.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </td>
+                                <td>{{ device.created_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <button class="btn btn-icon" onclick="viewDevice({{ device.id }})" title="View">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center">No devices found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="devicesPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="devicesStartRecord">{{ devices.start_index|default:0 }}</span> to <span id="devicesEndRecord">{{ devices.end_index|default:0 }}</span> of <span id="devicesTotalRecords">{{ devices.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="devicesPaginationControls">
+                    {% if devices.has_previous %}
+                        <button class="pagination-btn" onclick="loadDevicesPage({{ devices.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="devicesPageNumbers">
+                        {% if devices.paginator.page_range %}
+                            {% for num in devices.paginator.page_range %}
+                                {% if devices.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > devices.number|add:'-3' and num < devices.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadDevicesPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if devices.has_next %}
+                        <button class="pagination-btn" onclick="loadDevicesPage({{ devices.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div> 
+        </div>
+</div>
+
+<!-- View Ticket Modal -->
+<div class="modal modal-md" id="viewTicketModal">
+        <div class="modal-overlay" onclick="closeModal('viewTicketModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>Ticket Details</h3>
+                <button class="modal-close" onclick="closeModal('viewTicketModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="ticketDetailsContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('viewTicketModal')">Close</button>
+            </div>
+        </div>
+</div>
+
+<!-- Review Ticket Modal -->
+<div class="modal modal-md" id="reviewTicketModal">
+        <div class="modal-overlay" onclick="closeModal('reviewTicketModal')"></div>
+        <div class="modal-content modal-xl">
+            <div class="modal-header">
+                <h3>Review Ticket Request</h3>
+                <button class="modal-close" onclick="closeModal('reviewTicketModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="ticketInfoSection" class="mb-4">
+                    <!-- Ticket info will be loaded here -->
+                </div>
+                <hr class="my-4">
+                <form id="reviewTicketForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="reviewTicketId" name="ticket_id">
+                    <div class="form-row form-row-2col">
+                        <div class="form-group">
+                            <label class="form-label">Status <span class="text-danger">*</span></label>
+                            <select name="status" class="form-input" required>
+                                <option value="">Select Status</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Disapproved">Disapproved</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Technician Name</label>
+                            <input type="text" name="technician_name" class="form-input" value="{{ request.user.full_name }}" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Diagnosis <span class="text-danger">*</span></label>
+                        <textarea name="diagnosis" class="form-input" rows="3" required placeholder="Enter diagnosis details"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Action Taken <span class="text-danger">*</span></label>
+                        <textarea name="action_taken" class="form-input" rows="3" required placeholder="Describe actions taken"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Possible Reason <span class="text-danger">*</span></label>
+                        <textarea name="possible_reason" class="form-input" rows="3" required placeholder="Explain possible reasons for the issue"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Recommendation</label>
+                        <textarea name="recommendation" class="form-input" rows="3" placeholder="Optional recommendations"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('reviewTicketModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitReviewTicket()">Submit Review</button>
+            </div>
+        </div>
+</div>
+
+<!-- View Device Modal -->
+<div class="modal modal-md" id="viewDeviceModal">
+        <div class="modal-overlay" onclick="closeModal('viewDeviceModal')"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h3>Device Details</h3>
+                <button class="modal-close" onclick="closeModal('viewDeviceModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="deviceDetailsContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('viewDeviceModal')">Close</button>
+            </div>
+        </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/ticket/admin_ticket.js' %}"></script>
+{% endblock extra_js %}

@@ -1,0 +1,27 @@
+{% for device in devices %}
+<tr>
+    <td>{{ device.device_name }}</td>
+    <td>{{ device.device_code }}</td>
+    <td>{{ device.device_type.name|default:"-" }}</td>
+    <td>{{ device.device_location }}</td>
+    <td>{{ device.created_at|date:"M d, Y" }}</td>
+    <td>
+        <button class="btn btn-icon" onclick="viewDevice({{ device.id }})" title="View">
+            <i class="fas fa-eye"></i>
+        </button>
+        <button class="btn btn-icon btn-error" onclick="confirmDeleteDevice({{ device.id }})" title="Delete">
+            <i class="fas fa-trash"></i>
+        </button>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="6" class="text-center">
+        <div class="empty-state">
+            <i class="fas fa-laptop"></i>
+            <h5>No Devices Found</h5>
+            <p>No devices match your search criteria.</p>
+        </div>
+    </td>
+</tr>
+{% endfor %}

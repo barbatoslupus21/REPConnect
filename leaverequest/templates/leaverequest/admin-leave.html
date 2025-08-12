@@ -6,11 +6,6 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/leave/leave.css' %}">
-    <style>
-        /* Ensure global sidebar user profile dropdown works on this page */
-        #dropdown-menu { z-index: 3000; position: fixed; }
-        #dropdown-menu.active { display: block !important; }
-    </style>
 {% endblock %}
 
 {% block content %}
@@ -153,7 +148,7 @@
                     </button>
                     <button class="btn btn-action" id="export-leave-report-btn">
                         <i class="fas fa-download"></i>
-                        Export
+                        Export Report
                     </button>
                 </div>
             </div>
