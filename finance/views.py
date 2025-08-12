@@ -34,7 +34,7 @@ from django.core.files.storage import default_storage
 from decimal import Decimal
 from django.db import transaction, models
 
-@login_required
+@login_required(login_url="user-login")
 def finance_dashboard(request):
     user = request.user
     context = {}
@@ -193,8 +193,7 @@ def finance_dashboard(request):
 
     return render(request, 'finance/admin-finance.html', context)
 
-@login_required
-
+@login_required(login_url="user-login")
 def user_finance(request):
     user = request.user
     now = timezone.now()
@@ -304,7 +303,7 @@ def user_finance(request):
     return render(request, 'finance/user-finance.html', content)
 
 # OJT Payslip Upload
-@login_required
+@login_required(login_url="user-login")
 def ojt_payslip_upload(request):
     """Handle OJT payslip uploads (Excel files only)"""
     if not request.user.accounting_admin:
@@ -498,7 +497,7 @@ def ojt_payslip_template(request):
     response['Content-Disposition'] = 'attachment; filename="ojt_payslip_template.xlsx"'
     return response
 
-@login_required
+@login_required(login_url="user-login")
 def ojt_payslip_details(request, payslip_id):
     try:
         payslip = OJTPayslipData.objects.get(id=payslip_id)
@@ -532,7 +531,7 @@ def ojt_payslip_details(request, payslip_id):
     except OJTPayslipData.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Payslip not found'}, status=404)
 
-@login_required
+@login_required(login_url="user-login")
 def ajax_ojt_payslip_details(request, payslip_id):
     try:
         payslip = OJTPayslipData.objects.get(id=payslip_id)
@@ -592,7 +591,7 @@ def ajax_ojt_payslip_details(request, payslip_id):
         return JsonResponse({'success': False, 'error': 'Payslip not found'}, status=404)
     
 # REGULAR Payslip Upload
-@login_required
+@login_required(login_url="user-login")
 def regular_payslip_upload(request):
     """Handle payslip file upload with validation and progress tracking"""
     if not request.user.accounting_admin:
@@ -670,7 +669,7 @@ def regular_payslip_upload(request):
 
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
-@login_required
+@login_required(login_url="user-login")
 def download_failed_payslips(request):
     """Generate Excel file with failed payslip uploads"""
     if not request.user.accounting_admin:
@@ -764,7 +763,7 @@ def ajax_employee_payslips(request, employee_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
 # Loan Management
-@login_required
+@login_required(login_url="user-login")
 def loan_principal_upload(request):
     """Upload loan principal amounts (creates or stacks loans)"""
     try:
@@ -812,7 +811,7 @@ def loan_principal_upload(request):
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': f'Unexpected error (outer): {str(e)}'})
 
-@login_required
+@login_required(login_url="user-login")
 def loan_deduction_upload(request):
     """Upload loan deductions for a specific cutoff"""
     try:
@@ -1090,7 +1089,7 @@ def process_loan_deduction_excel(file, cutoff_date):
     except Exception as e:
         return False, [f'Error reading file: {str(e)}'], 0, []
     
-@login_required
+@login_required(login_url="user-login")
 def export_loan_principal_template(request):
     """Export Excel template for loan principal upload"""
     if not request.user.accounting_admin:
@@ -1191,7 +1190,7 @@ def export_loan_principal_template(request):
     workbook.save(response)
     return response
 
-@login_required  
+@login_required(login_url="user-login")  
 def export_loan_deduction_template(request):
     """Export Excel template for loan deduction upload"""
     if not request.user.accounting_admin:
@@ -1293,7 +1292,7 @@ def export_loan_deduction_template(request):
     workbook.save(response)
     return response
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def delete_loan(request, loan_id):
     from django.urls import reverse
@@ -1335,7 +1334,7 @@ def delete_loan(request, loan_id):
             return redirect('admin_finance')
    
 # Allowance Upload
-@login_required
+@login_required(login_url="user-login")
 def allowances_upload(request):
     def is_ajax(req):
         return req.headers.get('x-requested-with') == 'XMLHttpRequest' or req.headers.get('accept', '').find('application/json') != -1
@@ -1461,7 +1460,7 @@ def process_allowance_file(file):
     except Exception as e:
         return False, [f"Error reading file: {str(e)}"]
 
-@login_required  
+@login_required(login_url="user-login")  
 def export_allowance_template(request):
     """Export Excel template for allowance import"""
     if not request.user.accounting_admin:
@@ -1550,7 +1549,7 @@ def export_allowance_template(request):
     workbook.save(response)
     return response
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def delete_allowance(request, allowance_id):
     from django.urls import reverse
@@ -1591,7 +1590,7 @@ def delete_allowance(request, allowance_id):
             return redirect('admin_finance')
     
 # Send to Mail
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def send_payslip(request, payslip_id):
     payslip = get_object_or_404(Payslip, id=payslip_id)
@@ -1657,7 +1656,7 @@ def send_payslip(request, payslip_id):
         return JsonResponse({'success': False, 'message': f'Error sending email: {str(e)}'})
 
 
-@login_required
+@login_required(login_url="user-login")
 def employee_finance_details(request, employee_id):
     user = request.user
     if not (user.accounting_admin):
@@ -1740,7 +1739,7 @@ def employee_finance_details(request, employee_id):
         messages.error(request, f"An error occurred: {str(e)}")
         return redirect('admin_finance')
     
-@login_required
+@login_required(login_url="user-login")
 def employee_allowances(request, employee_id):
     if not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Permission denied'})
@@ -1773,7 +1772,7 @@ def employee_allowances(request, employee_id):
         'allowance_groups': allowance_groups
     })
 
-@login_required
+@login_required(login_url="user-login")
 def employees_list(request):
     if not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Permission denied'})
@@ -1849,7 +1848,7 @@ def employees_list(request):
         'total_count': paginator.count,
     })
 
-@login_required
+@login_required(login_url="user-login")
 @require_GET
 def employee_table_partial(request):
     user = request.user
@@ -1894,7 +1893,7 @@ def employee_table_partial(request):
     }, request=request)
     return JsonResponse({'html': html})
 
-@login_required
+@login_required(login_url="user-login")
 def chart_data(request):
     try:
         if not request.user.accounting_admin:
@@ -2065,7 +2064,7 @@ def chart_data(request):
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)})
 
-@login_required
+@login_required(login_url="user-login")
 def filter_options(request):
     if not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Permission denied'})
@@ -2090,7 +2089,7 @@ def filter_options(request):
         'options': []
     })
 
-@login_required
+@login_required(login_url="user-login")
 def employee_details(request, employee_id):
     if not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Permission denied'})
@@ -2146,7 +2145,7 @@ def employee_details(request, employee_id):
         return JsonResponse({'success': False, 'message': str(e)})
 
 
-@login_required
+@login_required(login_url="user-login")
 def delete_payslip(request, payslip_id):
     if not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': "You don't have permission to perform this action."}, status=403)
@@ -2185,7 +2184,7 @@ def delete_payslip(request, payslip_id):
     return JsonResponse({'success': False, 'message': "Invalid request."}, status=400)
 
 
-@login_required
+@login_required(login_url="user-login")
 @require_GET
 def loan_deductions_list(request, loan_id):
     from .models import LoanDeduction
@@ -2205,7 +2204,7 @@ def loan_deductions_list(request, loan_id):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
-@login_required
+@login_required(login_url="user-login")
 def export_finance_report(request):
     export_type = request.GET.get('type')
     if export_type == 'employee_total_loans':
@@ -2218,7 +2217,7 @@ def export_finance_report(request):
         return HttpResponseBadRequest('Invalid export type')
     
 # Export Employee Total Loans Report (Excel)
-@login_required
+@login_required(login_url="user-login")
 @user_passes_test(lambda u: u.is_superuser or u.accounting_admin or u.hr_admin)
 def export_employee_total_loans(request):
     # Only export loans with nonzero balance
@@ -2313,7 +2312,7 @@ def export_employee_total_loans(request):
     return response
 
 # Export Employee Savings Report (Excel)
-@login_required
+@login_required(login_url="user-login")
 @user_passes_test(lambda u: u.is_superuser or u.accounting_admin or u.hr_admin)
 def export_employee_savings_report(request):
     """Export Employee Savings Total Report"""
@@ -2400,7 +2399,7 @@ def export_employee_savings_report(request):
     return response
 
 # Export Total OJT Allowances Report (Excel)
-@login_required
+@login_required(login_url="user-login")
 @user_passes_test(lambda u: u.is_superuser or u.accounting_admin or u.hr_admin)
 def export_total_ojt_allowances_report(request):
     """Export Total OJT Allowances Report"""
@@ -2494,7 +2493,7 @@ def export_total_ojt_allowances_report(request):
     wb.save(response)
     return response
 
-@login_required
+@login_required(login_url="user-login")
 def export_savings_template(request):
     """Export savings template Excel file"""
     user = request.user
@@ -2594,7 +2593,7 @@ def export_savings_template(request):
     wb.save(response)
     return response
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def savings_upload(request):
     if request.method == 'POST':
@@ -2709,7 +2708,7 @@ def savings_upload(request):
         'message': 'Invalid request method.'
     })
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def withdraw_savings(request, savings_id):
     """Withdraw savings - set is_withdrawn to True but keep the amount"""

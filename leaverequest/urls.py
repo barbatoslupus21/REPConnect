@@ -37,4 +37,14 @@ urlpatterns = [
     path('api/leave-reasons/<int:leave_type_id>/', views.leave_reasons_api, name='leave_reasons_api'),
     path('api/holidays-and-exceptions/', views.holidays_and_exceptions_api, name='holidays_and_exceptions_api'),
     path('api/check-approver/', views.check_approver_api, name='check_approver_api'),
+    
+    # Export endpoints
+    path('export-report/', views.export_leave_report, name='export_leave_report'),
+    
+    # Balance management endpoints
+    path('balance/details/<int:balance_id>/', views.get_balance_details, name='get_balance_details'),
+    path('balance/update/<int:balance_id>/', views.update_balance, name='update_balance'),
+    path('balance/delete/<int:balance_id>/', views.delete_balance, name='delete_balance'),
+    path('balance/download-template/', views.download_balance_template, name='download_balance_template'),
+    path('balance/import/', views.import_balance, name='import_balance'),
 ]

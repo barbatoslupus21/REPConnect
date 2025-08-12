@@ -1,3 +1,5 @@
+import json
+import io
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -6,7 +8,6 @@ from django.core.paginator import Paginator
 from django.db.models import Q, F, Exists, OuterRef, Subquery, Count, Q
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-import json
 from userlogin.models import EmployeeLogin
 from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction, LeaveReason
 from .forms import LeaveRequestForm, LeaveApprovalForm, LeaveSearchForm
@@ -19,8 +20,11 @@ from decimal import Decimal
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.chart import LineChart, Reference
 
-@login_required
+@login_required(login_url="user-login")
 def leave_dashboard(request):
     user = request.user
 
@@ -102,7 +106,7 @@ def leave_dashboard(request):
 
     return render(request, 'leaverequest/user-leave.html', context)
 
-@login_required
+@login_required(login_url="user-login")
 def leave_requests_list(request):
     """List all leave requests for the current user"""
     search_form = LeaveSearchForm(request.GET)
@@ -142,7 +146,7 @@ def leave_requests_list(request):
     
     return render(request, 'leaverequest/requests_list.html', context)
 
-@login_required
+@login_required(login_url="user-login")
 def apply_leave(request):
     if request.method == 'POST':
         form = LeaveRequestForm(request.POST, request.FILES, user=request.user)
@@ -264,7 +268,7 @@ def apply_leave(request):
     
     return redirect('user_leave')
 
-@login_required
+@login_required(login_url="user-login")
 def leave_detail(request, control_number):
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
     
@@ -303,8 +307,8 @@ def leave_detail(request, control_number):
         'has_approver': has_approver
     })
 
-@login_required
-@login_required
+@login_required(login_url="user-login")
+@login_required(login_url="user-login")
 def edit_leave(request, control_number):
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
 
@@ -350,7 +354,7 @@ def edit_leave(request, control_number):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def cancel_leave(request, control_number):
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
@@ -378,7 +382,7 @@ def cancel_leave(request, control_number):
     
     return JsonResponse({'success': True, 'message': 'Leave request cancelled successfully.'})
 
-@login_required
+@login_required(login_url="user-login")
 def approver_dashboard(request):
     """Dashboard for approvers"""
     pending_approvals = LeaveRequest.objects.filter(
@@ -456,7 +460,7 @@ def get_next_approver(leave_request, current_approver):
         print(f"Error determining next approver: {e}")
         return None
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def process_approval(request, control_number):
     approval_action = get_object_or_404(LeaveApprovalAction, leave_request__control_number=control_number, approver=request.user)
@@ -531,7 +535,7 @@ def process_approval(request, control_number):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
-@login_required
+@login_required(login_url="user-login")
 def admin_dashboard(request):
     if not (request.user.hr_admin or request.user.hr_manager or 
             request.user.is_superuser or request.user.is_staff):
@@ -648,7 +652,44 @@ def admin_dashboard(request):
         'disapproved_requests': LeaveRequest.objects.filter(status='disapproved').count(),
     }
     
-    # Handle AJAX requests
+    # Leave Balances with search functionality
+    balance_search_query = request.GET.get('balance_search', '').strip()
+    leave_balances = LeaveBalance.objects.select_related('employee', 'leave_type', 'employee__employment_info__department').all()
+    
+    if balance_search_query:
+        leave_balances = leave_balances.filter(
+            Q(employee__idnumber__icontains=balance_search_query) |
+            Q(employee__firstname__icontains=balance_search_query) |
+            Q(employee__lastname__icontains=balance_search_query) |
+            Q(leave_type__name__icontains=balance_search_query) |
+            Q(employee__employment_info__department__department_name__icontains=balance_search_query)
+        )
+    
+    leave_balances = leave_balances.order_by('-valid_from', '-created_at')
+    
+    # Pagination for leave balances
+    balance_page = request.GET.get('balance_page', 1)
+    balance_paginator = Paginator(leave_balances, 10)  # 10 per page as requested
+    leave_balances_page = balance_paginator.get_page(balance_page)
+    
+    # Handle AJAX request for balance search FIRST (before general AJAX handler)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and 'balance_search' in request.GET:
+        from django.template.loader import render_to_string
+        balance_table_html = render_to_string('leaverequest/partials/balance_table.html', {
+            'leave_balances': leave_balances_page,
+            'user': request.user
+        }, request=request)
+        return JsonResponse({
+            'success': True,
+            'html': balance_table_html,
+            'count': leave_balances.count(),
+            'has_next': leave_balances_page.has_next(),
+            'has_previous': leave_balances_page.has_previous(),
+            'page_number': leave_balances_page.number,
+            'total_pages': balance_paginator.num_pages
+        })
+    
+    # Handle general AJAX requests (for leave requests search)
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         from django.template.loader import render_to_string
         table_html = render_to_string('leaverequest/partials/leave_table.html', {
@@ -666,6 +707,8 @@ def admin_dashboard(request):
     
     context = {
         'leave_requests': leave_requests_page,
+        'leave_balances': leave_balances_page,
+        'balance_search': balance_search_query,
         'stats': stats,
         'page_title': 'Leave Management - Admin',
         # Cards: current month numbers and percent change vs prev. month
@@ -703,7 +746,7 @@ def admin_dashboard(request):
     
     return render(request, 'leaverequest/admin-leave.html', context)
 
-@login_required
+@login_required(login_url="user-login")
 def admin_chart_data(request):
     """AJAX endpoint to get chart data for admin dashboard"""
     if request.method != 'GET':
@@ -838,7 +881,7 @@ def admin_chart_data(request):
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)})
 
-@login_required
+@login_required(login_url="user-login")
 def get_leave_balance(request):
     """AJAX endpoint to get leave balance for validation"""
     if request.method == 'GET':
@@ -857,7 +900,6 @@ def get_leave_balance(request):
                 leave_type_id=leave_type_id,
                 valid_from__lte=today,
                 valid_to__gte=today,
-                validity_status='active'
             ).first()
             
             if balance:
@@ -872,7 +914,7 @@ def get_leave_balance(request):
     
     return JsonResponse({'error': 'Invalid request method'})
 
-@login_required
+@login_required(login_url="user-login")
 def leave_chart_data(request):
     if request.method != 'GET':
         return JsonResponse({'error': 'Invalid request method'})
@@ -983,7 +1025,7 @@ def leave_chart_data(request):
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)})
 
-@login_required
+@login_required(login_url="user-login")
 def approval_chart_data(request):
     if request.method != 'GET':
         return JsonResponse({'error': 'Invalid request method'})
@@ -1125,7 +1167,7 @@ def leave_reasons_api(request, leave_type_id):
     ]
     return JsonResponse(data, safe=False)
 
-@login_required
+@login_required(login_url="user-login")
 def holidays_and_exceptions_api(request):
     from usercalendar.models import Holiday
     from .models import SundayException
@@ -1141,7 +1183,7 @@ def holidays_and_exceptions_api(request):
         'sunday_exceptions': exceptions_list
     })
 
-@login_required
+@login_required(login_url="user-login")
 def check_approver_api(request):
     try:
         employment_info = request.user.employment_info
@@ -1158,7 +1200,7 @@ def check_approver_api(request):
             'error': 'Employment information not found'
         })
 
-@login_required
+@login_required(login_url="user-login")
 def search_approvals_ajax(request):
     """AJAX endpoint for searching approvals"""
     user = request.user
@@ -1223,9 +1265,8 @@ def search_approvals_ajax(request):
         'search_query': search_query
     })
 
-@login_required
+@login_required(login_url="user-login")
 def admin_leave_detail(request, control_number):
-    """AJAX endpoint for loading leave details in modal"""
     if not (request.user.hr_admin or request.user.hr_manager or 
             request.user.is_superuser or request.user.is_staff):
         return JsonResponse({'error': 'Permission denied'}, status=403)
@@ -1239,7 +1280,6 @@ def admin_leave_detail(request, control_number):
             control_number=control_number
         )
         
-        # Check if current user can approve this request
         hr_approval_action = leave_request.approval_actions.filter(
             approver__hr_admin=True,
             action_at__isnull=True
@@ -1268,10 +1308,9 @@ def admin_leave_detail(request, control_number):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-@login_required  
+@login_required(login_url="user-login")  
 @require_POST
 def admin_approve_leave(request, control_number):
-    """AJAX endpoint for approving leave requests"""
     if not (request.user.hr_admin or request.user.hr_manager or 
             request.user.is_superuser or request.user.is_staff):
         return JsonResponse({'error': 'Permission denied'}, status=403)
@@ -1279,7 +1318,6 @@ def admin_approve_leave(request, control_number):
     try:
         leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
         
-        # Find the approval action for current user
         approval_action = leave_request.approval_actions.filter(
             approver=request.user,
             action_at__isnull=True
@@ -1288,17 +1326,14 @@ def admin_approve_leave(request, control_number):
         if not approval_action:
             return JsonResponse({'error': 'No pending approval found for this user'}, status=400)
         
-        # Get comments from request
         comments = request.POST.get('comments', '').strip()
         
-        # Update the approval action
         approval_action.action = 'approved'
         approval_action.status = 'approved'
         approval_action.comments = comments
         approval_action.action_at = timezone.now()
         approval_action.save()
         
-        # Update the leave request status
         leave_request.status = 'approved'
         leave_request.save()
         
@@ -1310,10 +1345,9 @@ def admin_approve_leave(request, control_number):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST  
 def admin_disapprove_leave(request, control_number):
-    """AJAX endpoint for disapproving leave requests"""
     if not (request.user.hr_admin or request.user.hr_manager or 
             request.user.is_superuser or request.user.is_staff):
         return JsonResponse({'error': 'Permission denied'}, status=403)
@@ -1321,7 +1355,6 @@ def admin_disapprove_leave(request, control_number):
     try:
         leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
         
-        # Find the approval action for current user
         approval_action = leave_request.approval_actions.filter(
             approver=request.user,
             action_at__isnull=True
@@ -1330,17 +1363,14 @@ def admin_disapprove_leave(request, control_number):
         if not approval_action:
             return JsonResponse({'error': 'No pending approval found for this user'}, status=400)
         
-        # Get comments from request
         comments = request.POST.get('comments', '').strip()
         
-        # Update the approval action
         approval_action.action = 'disapproved'
         approval_action.status = 'disapproved'
         approval_action.comments = comments
         approval_action.action_at = timezone.now()
         approval_action.save()
         
-        # Update the leave request status
         leave_request.status = 'disapproved'
         leave_request.save()
         
@@ -1353,7 +1383,7 @@ def admin_disapprove_leave(request, control_number):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@login_required
+@login_required(login_url="user-login")
 @require_POST
 def hr_admin_process_approval(request, control_number):
     if not (request.user.hr_admin or request.user.hr_manager or 
@@ -1419,27 +1449,49 @@ def process_leave_approval_with_balance_check(leave_request, original_comments):
     leave_type = leave_request.leave_type
     request_start = leave_request.date_from
     request_end = leave_request.date_to
+    days_requested = leave_request.days_requested
     
     balances = LeaveBalance.objects.filter(
         employee=employee,
         leave_type=leave_type,
         valid_from__lte=request_end,
         valid_to__gte=request_start,
-        validity_status='active'
     ).order_by('valid_from')
     
-    total_remaining = sum(balance.remaining for balance in balances)
+    for bal in balances:
+        print(f"  Balance {bal.id}: {bal.valid_from} to {bal.valid_to}, entitled: {bal.entitled}, used: {bal.used}, remaining: {bal.remaining}")
     
-    if total_remaining == 0:
-        additional_comment = f"You currently have no remaining leave balance for this leave type ({leave_type.name})."
+    if not balances.exists():
+        additional_comment = f"No active leave balance found for this leave type ({leave_type.name})."
         if original_comments:
             return f"{original_comments}\n\n{additional_comment}"
         else:
             return additional_comment
     
+    total_remaining = sum(balance.remaining for balance in balances)
+
+    if total_remaining < days_requested:
+        additional_comment = f"Insufficient leave balance. Available: {total_remaining} days, Requested: {days_requested} days. Leave approved but balance may go negative."
+        if original_comments:
+            comments_with_warning = f"{original_comments}\n\n{additional_comment}"
+        else:
+            comments_with_warning = additional_comment
+        
+        try:
+            deduct_leave_balance(leave_request)
+        except Exception as e:
+            error_comment = f"Balance deduction failed: {str(e)}"
+            comments_with_warning += f"\n{error_comment}"
+        
+        return comments_with_warning
+    
     try:
         deduct_leave_balance(leave_request)
-        return original_comments
+        success_comment = f"Leave balance deducted successfully. Remaining balance: {total_remaining - days_requested} days."
+        if original_comments:
+            return f"{original_comments}\n\n{success_comment}"
+        else:
+            return success_comment
     except Exception as e:
         error_comment = f"Leave approved but balance deduction failed: {str(e)}"
         if original_comments:
@@ -1449,7 +1501,6 @@ def process_leave_approval_with_balance_check(leave_request, original_comments):
 
 
 def deduct_leave_balance(leave_request):
-    
     employee = leave_request.employee
     leave_type = leave_request.leave_type
     request_start = leave_request.date_from
@@ -1461,7 +1512,6 @@ def deduct_leave_balance(leave_request):
         leave_type=leave_type,
         valid_from__lte=request_end,
         valid_to__gte=request_start,
-        validity_status='active'
     ).order_by('valid_from')
     
     if not balances.exists():
@@ -1473,25 +1523,42 @@ def deduct_leave_balance(leave_request):
         if remaining_days <= 0:
             break
         
+        if balance.valid_from <= request_start and balance.valid_to >= request_end:
+            days_to_deduct = min(remaining_days, balance.remaining)
+            
+            if days_to_deduct > 0:
+                balance.used += days_to_deduct
+                balance.remaining = balance.entitled - balance.used
+                balance.save()
+                
+                remaining_days -= days_to_deduct
+                print(f"Deducted {days_to_deduct} days from balance {balance.id} (Complete coverage). Remaining balance: {balance.remaining}")
+    
+    for balance in balances:
+        if remaining_days <= 0:
+            break
+        
+        if balance.valid_from <= request_start and balance.valid_to >= request_end:
+            continue
+        
         overlap_start = max(request_start, balance.valid_from)
         overlap_end = min(request_end, balance.valid_to)
         
         if overlap_start <= overlap_end:
-            overlap_days = leave_request.calculate_working_days(overlap_start, overlap_end)
+            days_to_deduct = min(remaining_days, balance.remaining)
             
-            days_to_deduct = min(remaining_days, Decimal(str(overlap_days)))
-            
-            if balance.remaining < days_to_deduct:
-                raise Exception(f"Insufficient leave balance. Available: {balance.remaining} days, Required: {days_to_deduct} days")
-            
-            balance.used += days_to_deduct
-            balance.remaining = balance.entitled - balance.used
-            balance.save()
-            
-            remaining_days -= days_to_deduct
+            if days_to_deduct > 0:
+                balance.used += days_to_deduct
+                balance.remaining = balance.entitled - balance.used
+                balance.save()
+                
+                remaining_days -= days_to_deduct
+                print(f"Deducted {days_to_deduct} days from balance {balance.id} (Partial overlap). Remaining balance: {balance.remaining}")
     
     if remaining_days > 0:
-        raise Exception(f"Could not fully deduct leave days. {remaining_days} days remaining.")
+        print(f"Warning: Could not fully deduct leave days for {employee.full_name}. {remaining_days} days remaining after deduction.")
+    else:
+        print(f"Successfully deducted {total_days} days for {employee.full_name} - {leave_type.name}")
 
 
 def send_leave_decision_email(leave_request, is_approved, comments):
@@ -1564,7 +1631,7 @@ REPConnect
         print(f"Email notification failed: {str(e)}")
 
 
-@login_required
+@login_required(login_url="user-login")
 def hr_admin_approval_detail(request, control_number):
     if not (request.user.hr_admin or request.user.hr_manager or 
             request.user.is_superuser or request.user.is_staff):
@@ -1585,15 +1652,29 @@ def hr_admin_approval_detail(request, control_number):
         ).first()
         
         can_approve = approval_action is not None and leave_request.status == 'routing'
+    
         
         leave_balances = LeaveBalance.objects.filter(
             employee=leave_request.employee,
             leave_type=leave_request.leave_type,
-            validity_status='active'
+            valid_from__lte=leave_request.date_to,
+            valid_to__gte=leave_request.date_from,
         ).order_by('valid_from')
+        
+        for bal in leave_balances:
+            overlap_check = bal.valid_from <= leave_request.date_to and bal.valid_to >= leave_request.date_from
+            print(f"  Balance {bal.id}: {bal.valid_from} to {bal.valid_to}, remaining: {bal.remaining}, overlap: {overlap_check}")
         
         total_remaining = sum(balance.remaining for balance in leave_balances)
         remaining_after_approval = total_remaining - leave_request.days_requested
+        
+        all_active_balances = LeaveBalance.objects.filter(
+            employee=leave_request.employee,
+            leave_type=leave_request.leave_type,
+        ).order_by('valid_from')
+        
+        for bal in all_active_balances:
+            print(f"  Balance {bal.id}: {bal.valid_from} to {bal.valid_to}, remaining: {bal.remaining}")
         
         from django.template.loader import render_to_string
         content = render_to_string('leaverequest/approval_detail_content.html', {
@@ -1601,6 +1682,7 @@ def hr_admin_approval_detail(request, control_number):
             'can_approve': can_approve,
             'is_admin_view': True,
             'leave_balances': leave_balances,
+            'all_active_balances': all_active_balances,
             'total_remaining': total_remaining,
             'remaining_after_approval': remaining_after_approval,
             'sufficient_balance': total_remaining >= leave_request.days_requested
@@ -1614,3 +1696,553 @@ def hr_admin_approval_detail(request, control_number):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required(login_url="user-login")
+def export_leave_report(request):
+    # Get date range from request
+    date_from_str = request.GET.get('date_from')
+    date_to_str = request.GET.get('date_to')
+    
+    if not date_from_str or not date_to_str:
+        return JsonResponse({'error': 'Date range is required'}, status=400)
+    
+    try:
+        date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+        date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format'}, status=400)
+    
+    # Get filtered leave requests
+    leave_requests = LeaveRequest.objects.filter(
+        Q(date_from__gte=date_from, date_from__lte=date_to) |
+        Q(date_to__gte=date_from, date_to__lte=date_to) |
+        Q(date_from__lte=date_from, date_to__gte=date_to)
+    ).select_related('employee', 'leave_type', 'leave_reason', 'employee__employment_info__department')
+    
+    # Create workbook
+    wb = Workbook()
+    
+    # Remove default sheet
+    wb.remove(wb.active)
+    
+    # Create sheets
+    create_overview_sheet(wb, leave_requests, date_from, date_to)
+    create_ranking_sheet(wb, date_from, date_to)
+    create_summary_sheet(wb, leave_requests, date_from, date_to)
+    create_routing_sheet(wb, leave_requests, date_from, date_to)
+    
+    # Save to memory
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Create response
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="leave_report_{date_from_str}_to_{date_to_str}.xlsx"'
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    
+    return response
+
+def apply_sheet_formatting(ws, start_row=1):
+    """Apply consistent formatting to all sheets"""
+    # Define styles
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Apply borders to all cells with data
+    for row in ws.iter_rows(min_row=start_row):
+        for cell in row:
+            if cell.value is not None:
+                cell.border = thin_border
+    
+    # Apply header formatting only to header row (start_row + 2)
+    header_row_num = start_row
+    for cell in ws[header_row_num]:
+        if cell.value is not None:
+            cell.font = header_font
+            cell.fill = header_fill
+
+def create_overview_sheet(wb, leave_requests, date_from, date_to):
+    ws = wb.create_sheet("Overview")
+    
+    ws['A1'] = "RYONAN ELECTRIC PHILIPPINES CORPORATION"
+    ws['A2'] = f"Leave Overview ({date_from} to {date_to})"
+    
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A2'].font = Font(italic=True, size=12)
+    ws.merge_cells('A1:F1')
+    ws.merge_cells('A2:F2')
+    
+    headers = ['Leave Type', 'Leave Count', 'Leave Percentage']
+    
+    departments = Department.objects.values_list('department_name', flat=True).distinct()
+    headers.extend(departments)
+    
+    for col, header in enumerate(headers, 1):
+        ws.cell(row=4, column=col, value=header)
+    
+    leave_type_stats = leave_requests.values('leave_type__name').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    total_requests = leave_requests.count()
+    
+    row = 5
+    for stat in leave_type_stats:
+        leave_type = stat['leave_type__name']
+        count = stat['count']
+        percentage = (count / total_requests * 100) if total_requests > 0 else 0
+        
+        ws.cell(row=row, column=1, value=leave_type)
+        ws.cell(row=row, column=2, value=count)
+        ws.cell(row=row, column=3, value=f"{percentage:.1f}%")
+        
+        dept_stats = leave_requests.filter(leave_type__name=leave_type).values(
+            'employee__employment_info__department__department_name'
+        ).annotate(count=Count('id'))
+        
+        dept_dict = {dept['employee__employment_info__department__department_name']: dept['count'] for dept in dept_stats}
+        
+        for col, dept_name in enumerate(departments, 4):
+            dept_count = dept_dict.get(dept_name, 0)
+            ws.cell(row=row, column=col, value=dept_count)
+        
+        row += 1
+    
+    chart_start_row = row + 2
+    chart = LineChart()
+    chart.title = "Leave Type Distribution"
+    chart.style = 13
+    chart.y_axis.title = 'Number of Requests'
+    chart.x_axis.title = 'Leave Types'
+    
+    # Data for chart (Leave Type and Count)
+    data = Reference(ws, min_col=2, min_row=4, max_row=row-1, max_col=2)  # Count column
+    cats = Reference(ws, min_col=1, min_row=5, max_row=row-1)  # Leave type names
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(cats)
+    
+    ws.add_chart(chart, f"A{chart_start_row}")
+    
+    apply_sheet_formatting(ws, 4)
+
+def create_ranking_sheet(wb, date_from, date_to):
+    ws = wb.create_sheet("Leave Ranking")
+    
+    ws['A1'] = "RYONAN ELECTRIC PHILIPPINES CORPORATION"
+    
+    current_date = datetime.now()
+    if current_date.month >= 5:
+        fiscal_year_start = current_date.year
+        fiscal_year_end = current_date.year + 1
+    else:
+        fiscal_year_start = current_date.year - 1
+        fiscal_year_end = current_date.year
+    
+    ws['A2'] = f"Leave Reason Ranking for FY {fiscal_year_start}-{fiscal_year_end}"
+    
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A2'].font = Font(italic=True, size=12)
+    ws.merge_cells('A1:N1')
+    ws.merge_cells('A2:N2')
+    
+    months = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr']
+    headers = ['Leave Reason'] + [f"{month} {fiscal_year_start if i < 8 else fiscal_year_end}" for i, month in enumerate(months)]
+    
+    for col, header in enumerate(headers, 1):
+        ws.cell(row=4, column=col, value=header)
+    
+    fiscal_start_date = datetime(fiscal_year_start, 5, 1).date()
+    fiscal_end_date = datetime(fiscal_year_end, 4, 30).date()
+    
+    fiscal_requests = LeaveRequest.objects.filter(
+        date_prepared__date__gte=fiscal_start_date,
+        date_prepared__date__lte=fiscal_end_date
+    )
+    
+    leave_reason_stats = fiscal_requests.values('leave_reason__reason_text').annotate(
+        total_count=Count('id')
+    ).order_by('-total_count')
+    
+    row = 5
+    for stat in leave_reason_stats:
+        reason = stat['leave_reason__reason_text'] or 'No Reason'
+        ws.cell(row=row, column=1, value=reason)
+        
+        for month_idx, month in enumerate(months):
+            if month_idx < 8:
+                year = fiscal_year_start
+                month_num = month_idx + 5
+            else:
+                year = fiscal_year_end
+                month_num = month_idx - 7
+            
+            monthly_count = fiscal_requests.filter(
+                leave_reason__reason_text=stat['leave_reason__reason_text'],
+                date_prepared__year=year,
+                date_prepared__month=month_num
+            ).count()
+            
+            ws.cell(row=row, column=month_idx + 2, value=monthly_count)
+        
+        row += 1
+    
+    apply_sheet_formatting(ws, 4)
+
+def create_summary_sheet(wb, leave_requests, date_from, date_to):
+    """Create Leave Summary sheet with all leave requests"""
+    ws = wb.create_sheet("Leave Summary")
+    
+    # Headers
+    ws['A1'] = "RYONAN ELECTRIC PHILIPPINES CORPORATION"
+    ws['A2'] = f"Leave Request Summary ({date_from} to {date_to})"
+    
+    # Make headers bold and italic for subheader
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A2'].font = Font(italic=True, size=12)
+    ws.merge_cells('A1:G1')
+    ws.merge_cells('A2:G2')
+    
+    # Column headers
+    headers = ['Control Number', 'Date Prepared', 'Employee Name', 'Department', 'Leave Type', 'Leave Reason', 'Status']
+    for col, header in enumerate(headers, 1):
+        ws.cell(row=4, column=col, value=header)
+    
+    # Status colors
+    status_colors = {
+        'approved': PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid"),  # Light green
+        'disapproved': PatternFill(start_color="FFB6C1", end_color="FFB6C1", fill_type="solid"),  # Light red
+        'routing': PatternFill(start_color="FFFF99", end_color="FFFF99", fill_type="solid"),  # Light yellow
+        'cancelled': PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid"),  # Light gray
+    }
+    
+    # Add data
+    row = 5
+    for leave in leave_requests.order_by('-date_prepared'):
+        ws.cell(row=row, column=1, value=leave.control_number)
+        ws.cell(row=row, column=2, value=leave.date_prepared.strftime('%Y-%m-%d'))
+        ws.cell(row=row, column=3, value=leave.employee.full_name)
+        ws.cell(row=row, column=4, value=leave.employee.employment_info.department.department_name if leave.employee.employment_info else 'N/A')
+        ws.cell(row=row, column=5, value=leave.leave_type.name)
+        ws.cell(row=row, column=6, value=leave.leave_reason.reason_text if leave.leave_reason else 'N/A')
+        
+        # Status cell with color
+        status_cell = ws.cell(row=row, column=7, value=leave.get_status_display())
+        if leave.status in status_colors:
+            status_cell.fill = status_colors[leave.status]
+        
+        row += 1
+    
+    apply_sheet_formatting(ws, 4)
+
+def create_routing_sheet(wb, leave_requests, date_from, date_to):
+    """Create Routing Leave sheet with pending requests"""
+    ws = wb.create_sheet("Routing Leave")
+    
+    # Headers
+    ws['A1'] = "RYONAN ELECTRIC PHILIPPINES CORPORATION"
+    ws['A2'] = f"Leave For Routing ({date_from} to {date_to})"
+    
+    # Make headers bold and italic for subheader
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A2'].font = Font(italic=True, size=12)
+    ws.merge_cells('A1:G1')
+    ws.merge_cells('A2:G2')
+    
+    # Column headers
+    headers = ['Control Number', 'Employee Name', 'Department', 'Leave Type', 'Leave Reason', 'Duration', 'Current Approver']
+    for col, header in enumerate(headers, 1):
+        ws.cell(row=4, column=col, value=header)
+    
+    # Filter for routing status only
+    routing_requests = leave_requests.filter(status='routing').order_by('-date_prepared')
+    
+    # Add data
+    row = 5
+    for leave in routing_requests:
+        # Get current approver
+        current_action = leave.approval_actions.filter(status='routing').first()
+        current_approver = current_action.approver.full_name if current_action else 'N/A'
+        
+        ws.cell(row=row, column=1, value=leave.control_number)
+        ws.cell(row=row, column=2, value=leave.employee.full_name)
+        ws.cell(row=row, column=3, value=leave.employee.employment_info.department.department_name if leave.employee.employment_info else 'N/A')
+        ws.cell(row=row, column=4, value=leave.leave_type.name)
+        ws.cell(row=row, column=5, value=leave.leave_reason.reason_text if leave.leave_reason else 'N/A')
+        ws.cell(row=row, column=6, value=leave.duration_display)
+        ws.cell(row=row, column=7, value=current_approver)
+        row += 1
+    
+    apply_sheet_formatting(ws, 4)
+
+@login_required(login_url="user-login")
+def get_balance_details(request, balance_id):
+    """Get balance details for modal display"""
+    try:
+        balance = LeaveBalance.objects.select_related(
+            'employee', 'leave_type', 'employee__employment_info__department'
+        ).get(id=balance_id)
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'id': balance.id,
+                'employee_id': balance.employee.idnumber,
+                'employee_name': balance.employee.full_name,
+                'leave_type': balance.leave_type.name,
+                'entitled': str(balance.entitled),
+                'used': str(balance.used),
+                'remaining': str(balance.remaining),
+                'valid_from': balance.valid_from.strftime('%Y-%m-%d'),
+                'valid_to': balance.valid_to.strftime('%Y-%m-%d'),
+                'can_edit': hasattr(request.user, 'accounting_admin') and request.user.accounting_admin
+            }
+        })
+    except LeaveBalance.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Balance not found'}, status=404)
+
+@login_required(login_url="user-login") 
+def update_balance(request, balance_id):
+    """Update balance details"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+    
+    # Check if user has permission
+    if not (hasattr(request.user, 'accounting_admin') and request.user.accounting_admin):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+    
+    try:
+        balance = LeaveBalance.objects.get(id=balance_id)
+        
+        # Update editable fields with proper type conversion
+        entitled_str = request.POST.get('entitled', '').strip()
+        valid_from_str = request.POST.get('valid_from', '').strip()
+        valid_to_str = request.POST.get('valid_to', '').strip()
+        
+        # Validate and convert entitled to Decimal
+        if entitled_str:
+            try:
+                balance.entitled = Decimal(entitled_str)
+            except (ValueError, TypeError):
+                return JsonResponse({'success': False, 'error': 'Invalid entitled value'}, status=400)
+        
+        # Validate and convert date fields
+        if valid_from_str:
+            try:
+                balance.valid_from = datetime.strptime(valid_from_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Invalid valid_from date format'}, status=400)
+        
+        if valid_to_str:
+            try:
+                balance.valid_to = datetime.strptime(valid_to_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Invalid valid_to date format'}, status=400)
+        
+        # Validate business rules
+        if balance.valid_from and balance.valid_to and balance.valid_to <= balance.valid_from:
+            return JsonResponse({'success': False, 'error': 'Valid to date must be after valid from date'}, status=400)
+        
+        if balance.entitled and balance.entitled <= 0:
+            return JsonResponse({'success': False, 'error': 'Entitled days must be greater than 0'}, status=400)
+        
+        balance.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Balance updated successfully'
+        })
+    except LeaveBalance.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Balance not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required(login_url="user-login")
+def delete_balance(request, balance_id):
+    """Delete balance"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+    
+    try:
+        balance = LeaveBalance.objects.get(id=balance_id)
+        balance.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Balance deleted successfully'
+        })
+    except LeaveBalance.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Balance not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required(login_url="user-login")
+def download_balance_template(request):
+    """Download Excel template for balance import"""
+    wb = Workbook()
+    
+    # Remove default sheet
+    wb.remove(wb.active)
+    
+    # Create Upload Balance sheet
+    upload_sheet = wb.create_sheet("Upload Balance")
+    upload_headers = ['Id Number', 'Name', 'Leave Type', 'Entitled', 'Valid From', 'Valid To']
+    for col, header in enumerate(upload_headers, 1):
+        upload_sheet.cell(row=1, column=col, value=header)
+        upload_sheet.cell(row=1, column=col).font = Font(bold=True)
+    
+    # Add sample data
+    sample_data = [
+        ['EMP001', 'John Doe', 'Vacation Leave', 15, '2024-01-01', '2024-12-31'],
+        ['EMP002', 'Jane Smith', 'Sick Leave', 12, '2024-01-01', '2024-12-31']
+    ]
+    
+    for row_num, row_data in enumerate(sample_data, 2):
+        for col_num, value in enumerate(row_data, 1):
+            upload_sheet.cell(row=row_num, column=col_num, value=value)
+    
+    # Add instructions
+    instructions = [
+        "",
+        "INSTRUCTIONS:",
+        "1. Replace sample data with actual employee information",
+        "2. Id Number: Use employee ID exactly as in system",
+        "3. Name: Employee's full name",
+        "4. Leave Type: Select from dropdown (see Leave Type sheet)",
+        "5. Entitled: Number of leave days allocated",
+        "6. Valid From/To: Date range format YYYY-MM-DD",
+        "7. Delete these instruction rows before uploading",
+    ]
+    
+    start_row = len(sample_data) + 3
+    for i, instruction in enumerate(instructions):
+        upload_sheet.cell(row=start_row + i, column=1, value=instruction)
+        if instruction.startswith("INSTRUCTIONS:"):
+            upload_sheet.cell(row=start_row + i, column=1).font = Font(bold=True)
+    
+    # Create Leave Type sheet
+    leave_type_sheet = wb.create_sheet("Leave Type")
+    leave_type_sheet.cell(row=1, column=1, value="Leave Types")
+    leave_type_sheet.cell(row=1, column=1).font = Font(bold=True)
+    
+    leave_types = LeaveType.objects.filter(is_active=True).values_list('name', flat=True)
+    for row, leave_type in enumerate(leave_types, 2):
+        leave_type_sheet.cell(row=row, column=1, value=leave_type)
+    
+    # Add data validation for Leave Type column in Upload Balance sheet
+    from openpyxl.worksheet.datavalidation import DataValidation
+    dv = DataValidation(
+        type="list",
+        formula1=f"'Leave Type'!$A$2:$A${len(leave_types) + 1}",
+        showDropDown=True
+    )
+    upload_sheet.add_data_validation(dv)
+    dv.add(f'C2:C1000')  # Apply to Leave Type column
+    
+    # Save to memory
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Create response
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="leave_balance_template.xlsx"'
+    
+    return response
+
+@login_required(login_url="user-login")
+def import_balance(request):
+    """Import balance from Excel file"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+    
+    try:
+        uploaded_file = request.FILES.get('file')
+        delete_all = request.POST.get('delete_all') == 'true'
+        
+        if not uploaded_file:
+            return JsonResponse({'success': False, 'error': 'No file uploaded'}, status=400)
+        
+        # Delete all existing balances if requested
+        if delete_all:
+            LeaveBalance.objects.all().delete()
+        
+        # Process Excel file
+        import pandas as pd
+        df = pd.read_excel(uploaded_file, sheet_name='Upload Balance')
+        
+        created_count = 0
+        skipped_count = 0
+        errors = []
+        
+        for index, row in df.iterrows():
+            try:
+                # Get employee by ID number
+                employee = EmployeeLogin.objects.get(idnumber=row['Id Number'])
+
+                # Get leave type
+                leave_type = LeaveType.objects.get(name=row['Leave Type'])
+
+                # Convert pandas Timestamp to date if necessary
+                valid_from = row['Valid From']
+                valid_to = row['Valid To']
+                if hasattr(valid_from, 'to_pydatetime'):
+                    valid_from = valid_from.to_pydatetime().date()
+                elif hasattr(valid_from, 'date'):
+                    valid_from = valid_from.date()
+                if hasattr(valid_to, 'to_pydatetime'):
+                    valid_to = valid_to.to_pydatetime().date()
+                elif hasattr(valid_to, 'date'):
+                    valid_to = valid_to.date()
+
+                # Check for duplicates
+                existing = LeaveBalance.objects.filter(
+                    employee=employee,
+                    leave_type=leave_type,
+                    valid_from=valid_from,
+                    valid_to=valid_to
+                ).exists()
+
+                if existing:
+                    skipped_count += 1
+                    continue
+
+                # Create balance
+                LeaveBalance.objects.create(
+                    employee=employee,
+                    leave_type=leave_type,
+                    entitled=row['Entitled'],
+                    valid_from=valid_from,
+                    valid_to=valid_to
+                )
+                created_count += 1
+                
+            except EmployeeLogin.DoesNotExist:
+                errors.append(f"Row {index + 2}: Employee with ID {row['Id Number']} not found")
+            except LeaveType.DoesNotExist:
+                errors.append(f"Row {index + 2}: Leave type '{row['Leave Type']}' not found")
+            except Exception as e:
+                errors.append(f"Row {index + 2}: {str(e)}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Import completed. {created_count} records created, {skipped_count} skipped.',
+            'errors': errors if errors else None
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

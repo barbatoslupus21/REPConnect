@@ -1276,7 +1276,7 @@ small {
     opacity: 0;
     visibility: hidden;
     position: fixed;
-    top: 0;
+    top: 0; 
     left: 0;
     width: 100%;
     height: 100%;
@@ -1309,6 +1309,7 @@ small {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
     width: 50%;
+    max-height: 90vh;
     overflow: hidden;
     position: relative;
     z-index: 2;
@@ -2814,7 +2815,7 @@ select.form-input {
     background: none;
     border: none;
     box-shadow: none;
-    margin-top: var(--space-md);
+    margin: var(--space-md) 0;
     padding: 0;
 }
 
@@ -5681,3 +5682,48 @@ textarea:required:invalid {
   text-align: center;
 }
 
+
+.common-table-container {
+    overflow-x: auto;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    width: 100%;
+}
+.common-table-container table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.common-table-container th,
+.common-table-container td {
+    padding: var(--space-md) var(--space-lg);
+    text-align: left;
+    border-bottom: 0.5px solid var(--border-color);
+}
+
+.common-table-container th {
+    background: var(--surface-hover);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.common-table-container td {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 768px) {
+
+    .common-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .common-table-container .data-table {
+        min-width: 600px;
+        width: 100%;
+        table-layout: auto;
+    }
+}

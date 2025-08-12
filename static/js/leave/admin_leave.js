@@ -20,6 +20,7 @@ class LeaveAdminInterface {
         this.initializeDropdowns();
         this.initializeTabs();
         this.initializeModals();
+        this.initializeBalanceManagement();
     }
 
     initializeTabs() {
@@ -42,8 +43,14 @@ class LeaveAdminInterface {
                     const target = this.getAttribute('data-target');
                     if (target === 'leave-requests') {
                         leaveRequestsPanel.classList.add('active');
+                        // Clear balance search when switching to leave requests
+                        const balanceSearchInput = document.getElementById('balanceSearchInput');
+                        if (balanceSearchInput) balanceSearchInput.value = '';
                     } else if (target === 'leave-balances') {
                         leaveBalancesPanel.classList.add('active');
+                        // Clear leave request search when switching to balance
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) searchInput.value = '';
                     }
                 });
             });
@@ -62,6 +69,9 @@ class LeaveAdminInterface {
 
         // Initialize filter form
         this.initializeFilterForm();
+        
+        // Initialize export modal
+        this.initializeExportModal();
     }
 
     initializeFilterForm() {
@@ -86,13 +96,22 @@ class LeaveAdminInterface {
             });
         }
 
-        // Handle filter form submission with AJAX
+        // Handle filter form submission with AJAX and add animation effects
         if (searchFilterForm) {
             searchFilterForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const formData = new FormData(searchFilterForm);
                 const params = new URLSearchParams(formData);
-
+                const tableContainer = document.querySelector('#leave-requests .leave-table-container');
+                if (tableContainer) {
+                    // Remove any lingering classes and reset opacity
+                    tableContainer.classList.remove('fade-in');
+                    tableContainer.classList.remove('fade-out');
+                    tableContainer.style.opacity = '1';
+                    // Force reflow to ensure transition
+                    void tableContainer.offsetWidth;
+                    tableContainer.classList.add('fade-out');
+                }
                 fetch(window.location.pathname + '?' + params.toString(), {
                     method: 'GET',
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -100,18 +119,30 @@ class LeaveAdminInterface {
                 .then(res => res.json())
                 .then(data => {
                     if (data.success && data.html) {
-                        const tableContainer = document.querySelector('#leave-requests .leave-table-container');
                         if (tableContainer) {
-                            tableContainer.innerHTML = data.html;
+                            setTimeout(() => {
+                                tableContainer.innerHTML = data.html;
+                                // Remove fade-out, force reflow, then fade-in
+                                tableContainer.classList.remove('fade-out');
+                                void tableContainer.offsetWidth;
+                                tableContainer.classList.add('fade-in');
+                                setTimeout(() => {
+                                    tableContainer.classList.remove('fade-in');
+                                    tableContainer.style.opacity = '1';
+                                }, 350);
+                            }, 200);
                         }
-                        
-                        // Close the filter modal
                         this.closeModal('filterModal');
                     }
                 })
                 .catch(err => {
                     console.error('Filter error:', err);
                     this.showMessage('Error applying filters', 'error');
+                    if (tableContainer) {
+                        tableContainer.classList.remove('fade-out');
+                        tableContainer.classList.remove('fade-in');
+                        tableContainer.style.opacity = '1';
+                    }
                 });
             });
         }
@@ -124,6 +155,12 @@ class LeaveAdminInterface {
                 const searchTerm = searchInput.value.trim();
 
                 searchTimeout = setTimeout(() => {
+                    // Check if we're on the leave requests tab
+                    const leaveRequestsTab = document.getElementById('leave-requests');
+                    if (!leaveRequestsTab || !leaveRequestsTab.classList.contains('active')) {
+                        return; // Don't search if not on leave requests tab
+                    }
+
                     const params = new URLSearchParams();
                     if (searchTerm) params.append('search', searchTerm);
 
@@ -185,7 +222,101 @@ class LeaveAdminInterface {
         };
     }
 
+    initializeExportModal() {
+        const exportBtn = document.getElementById('export-leave-report-btn');
+        const exportModal = document.getElementById('exportModal');
+        const exportButton = document.querySelector('[data-action="start-export"]');
+        const exportDateFrom = document.getElementById('exportDateFrom');
+        const exportDateTo = document.getElementById('exportDateTo');
+
+        // Open export modal
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.openModal('exportModal');
+            });
+        }
+
+        // Handle export
+        if (exportButton) {
+            exportButton.addEventListener('click', () => {
+                const dateFrom = exportDateFrom.value;
+                const dateTo = exportDateTo.value;
+
+                // Validate date inputs
+                if (!dateFrom || !dateTo) {
+                    this.showMessage('Please select both date from and date to fields', 'error');
+                    return;
+                }
+
+                if (new Date(dateFrom) > new Date(dateTo)) {
+                    this.showMessage('Date from cannot be later than date to', 'error');
+                    return;
+                }
+
+                // Start export process
+                this.exportLeaveReport(dateFrom, dateTo);
+            });
+        }
+    }
+
+    exportLeaveReport(dateFrom, dateTo) {
+        // Show loading state
+        const exportButton = document.querySelector('[data-action="start-export"]');
+        const originalText = exportButton.innerHTML;
+        exportButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+        exportButton.disabled = true;
+
+        // Create download URL with date parameters
+        const url = new URL('/leave/export-report/', window.location.origin);
+        url.searchParams.set('date_from', dateFrom);
+        url.searchParams.set('date_to', dateTo);
+
+        // Use window.location.href for direct download to Downloads folder
+        window.location.href = url.toString();
+
+        // Reset button state
+        setTimeout(() => {
+            exportButton.innerHTML = originalText;
+            exportButton.disabled = false;
+            this.closeModal('exportModal');
+            this.showMessage('Report exported successfully', 'success');
+        }, 1500);
+    }
+
+    openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'flex';
+            // Force reflow
+            void modal.offsetWidth;
+            modal.classList.add('show');
+            document.body.classList.add('modal-open');
+        }
+    }
+
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+            }, 300);
+        }
+    }
+
     bindEvents() {
+        // Update existing modal handling to use new methods
+        const closeButtons = document.querySelectorAll('[data-action="close-modal"]');
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const modalId = btn.getAttribute('data-modal');
+                if (modalId) {
+                    this.closeModal(modalId);
+                }
+            });
+        });
+
         // Event delegation for all actions
         document.addEventListener('click', this.handleClick.bind(this));
         document.addEventListener('change', this.handleChange.bind(this));
@@ -271,6 +402,12 @@ class LeaveAdminInterface {
             case 'start-export':
                 this.startExport();
                 break;
+            case 'view-balance-details':
+                this.viewBalanceDetails(actionEl);
+                break;
+            case 'delete-balance':
+                this.deleteBalance(actionEl);
+                break;
             case 'dropdown-toggle':
                 this.toggleDropdown(actionEl);
                 break;
@@ -303,6 +440,14 @@ class LeaveAdminInterface {
     }
 
     handleSubmit(e) {
+        if (e.target.id === 'balanceSearchForm') {
+            e.preventDefault();
+            const searchInput = document.getElementById('balanceSearchInput');
+            const searchValue = searchInput ? searchInput.value : '';
+            this.performBalanceSearch(searchValue);
+            return false;
+        }
+        
         if (e.target.id === 'addBalanceForm') {
             if (!this.validateBalanceForm()) {
                 e.preventDefault();
@@ -474,8 +619,62 @@ class LeaveAdminInterface {
 
     // Search and Filtering
     initializeSearch() {
-        // AJAX search removed. The table will refresh via full page reloads (form submit).
-        // No JS needed for search input.
+        // Initialize balance search functionality
+        const balanceSearchInput = document.getElementById('balanceSearchInput');
+        const balanceSearchForm = document.getElementById('balanceSearchForm');
+        
+        if (balanceSearchInput) {
+            balanceSearchInput.addEventListener('input', this.debounce((e) => {
+                this.performBalanceSearch(e.target.value);
+            }, 300));
+        }
+
+        // Prevent form submission for balance search form
+        if (balanceSearchForm) {
+            balanceSearchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const searchValue = balanceSearchInput ? balanceSearchInput.value : '';
+                this.performBalanceSearch(searchValue);
+                return false;
+            });
+        }
+    }
+
+    performBalanceSearch(query) {
+        // Check if we're on the leave balances tab
+        const leaveBalancesTab = document.getElementById('leave-balances');
+        if (!leaveBalancesTab || !leaveBalancesTab.classList.contains('active')) {
+            return; // Don't search if not on leave balances tab
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('balance_search', query);
+        
+        fetch(url.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const tableBody = document.getElementById('balanceTableBody');
+                if (tableBody) {
+                    // Add fade animation
+                    tableBody.style.opacity = '0';
+                    setTimeout(() => {
+                        tableBody.innerHTML = data.html;
+                        tableBody.style.opacity = '1';
+                        // Re-attach event listeners to new content
+                        this.setupBalanceTableListeners();
+                    }, 150);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Balance search error:', error);
+            this.showMessage('Search failed. Please try again.', 'error');
+        });
     }
 
     performLiveSearch(query) {
@@ -1074,10 +1273,13 @@ class LeaveAdminInterface {
                 form.reset();
             }
 
-            // Clear dynamic content
-            const dynamicContent = modal.querySelector('[id$="Content"]');
-            if (dynamicContent) {
-                dynamicContent.innerHTML = '';
+            // Clear dynamic content only for modals that load content via AJAX
+            // Skip balanceDetailsContent as it has static form fields
+            if (modalId === 'leaveDetailsModal' || modalId === 'approvalModal') {
+                const dynamicContent = modal.querySelector('[id$="Content"]');
+                if (dynamicContent) {
+                    dynamicContent.innerHTML = '';
+                }
             }
 
             modal.removeEventListener('animationend', onAnimationEnd);
@@ -1362,6 +1564,266 @@ class LeaveAdminInterface {
             closeButton.style.backgroundColor = 'transparent';
         });
     }
+
+    // Balance Management Methods
+    viewBalanceDetails(actionEl) {
+        let balanceId = null;
+        if (typeof actionEl === 'string') {
+            balanceId = actionEl;
+        } else if (actionEl && typeof actionEl.getAttribute === 'function') {
+            balanceId = actionEl.getAttribute('data-balance-id');
+        }
+        if (!balanceId) {
+            this.showMessage('Invalid balance ID', 'error');
+            return;
+        }
+        fetch(`/leave/balance/details/${balanceId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.populateBalanceModal(data.data);
+                    this.openModal('balanceDetailsModal');
+                } else {
+                    this.showMessage('Failed to load balance details', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading balance details:', error);
+                this.showMessage('Failed to load balance details', 'error');
+            });
+    }
+
+    populateBalanceModal(data) {
+        const employeeIdInput = document.getElementById('balance-employee-id');
+        const employeeNameInput = document.getElementById('balance-employee-name');
+        const leaveTypeInput = document.getElementById('balance-leave-type');
+        const entitledInput = document.getElementById('balance-entitled');
+        const usedInput = document.getElementById('balance-used');
+        const remainingInput = document.getElementById('balance-remaining');
+        const validFromInput = document.getElementById('balance-valid-from');
+        const validToInput = document.getElementById('balance-valid-to');
+
+        if (employeeIdInput) employeeIdInput.value = data.employee_id || '';
+        if (employeeNameInput) employeeNameInput.value = data.employee_name || '';
+        if (leaveTypeInput) leaveTypeInput.value = data.leave_type || '';
+        if (entitledInput) entitledInput.value = data.entitled || '';
+        if (usedInput) usedInput.value = data.used || '';
+        if (remainingInput) remainingInput.value = data.remaining || '';
+        if (validFromInput) validFromInput.value = data.valid_from || '';
+        if (validToInput) validToInput.value = data.valid_to || '';
+        
+        // Show edit button if user can edit
+        const editBtn = document.getElementById('edit-balance-btn');
+        const entitledField = document.getElementById('balance-entitled');
+        const validFromField = document.getElementById('balance-valid-from');
+        const validToField = document.getElementById('balance-valid-to');
+        if (data.can_edit && editBtn) {
+            editBtn.style.display = 'block';
+            editBtn.setAttribute('data-balance-id', data.id);
+            // Enable editable fields
+            if (entitledField) entitledField.readOnly = false;
+            if (validFromField) validFromField.readOnly = false;
+            if (validToField) validToField.readOnly = false;
+        } else {
+            if (editBtn) editBtn.style.display = 'none';
+            // Disable editable fields
+            if (entitledField) entitledField.readOnly = true;
+            if (validFromField) validFromField.readOnly = true;
+            if (validToField) validToField.readOnly = true;
+        }
+    }
+
+    deleteBalance(actionEl) {
+        const balanceId = actionEl.getAttribute('data-balance-id');
+        
+        // Store balance ID for deletion
+        const confirmBtn = document.getElementById('confirm-delete-balance-btn');
+        if (confirmBtn) {
+            confirmBtn.setAttribute('data-balance-id', balanceId);
+        }
+        
+        this.openModal('deleteBalanceModal');
+    }
+
+    updateBalance(balanceId) {
+        const formData = new FormData();
+        formData.append('entitled', document.getElementById('balance-entitled').value);
+        formData.append('valid_from', document.getElementById('balance-valid-from').value);
+        formData.append('valid_to', document.getElementById('balance-valid-to').value);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch(`/leave/balance/update/${balanceId}/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.showMessage(data.message, 'success');
+                this.closeModal('balanceDetailsModal');
+                this.refreshBalanceTable();
+            } else {
+                this.showMessage(data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating balance:', error);
+            this.showMessage('Failed to update balance', 'error');
+        });
+    }
+
+    confirmDeleteBalance(balanceId) {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch(`/leave/balance/delete/${balanceId}/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.showMessage(data.message, 'success');
+                this.closeModal('deleteBalanceModal');
+                this.refreshBalanceTable();
+            } else {
+                this.showMessage(data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting balance:', error);
+            this.showMessage('Failed to delete balance', 'error');
+        });
+    }
+
+    handleImportBalance() {
+        const fileInput = document.getElementById('balance-files');
+        const deleteAllCheckbox = document.getElementById('deleteAllBalances');
+        
+        if (!fileInput.files.length) {
+            this.showMessage('Please select a file to import', 'error');
+            return;
+        }
+
+        if (deleteAllCheckbox.checked) {
+            // Show confirmation modal
+            this.openModal('importConfirmModal');
+        } else {
+            this.processImportBalance();
+        }
+    }
+
+    confirmImportBalance() {
+        this.closeModal('importConfirmModal');
+        this.processImportBalance();
+    }
+
+    processImportBalance() {
+        const fileInput = document.getElementById('balance-files');
+        const deleteAllCheckbox = document.getElementById('deleteAllBalances');
+        const formData = new FormData();
+        
+        formData.append('file', fileInput.files[0]);
+        formData.append('delete_all', deleteAllCheckbox.checked);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        // Show loading state
+        const importBtn = document.getElementById('import-balance-btn');
+        const originalText = importBtn.innerHTML;
+        importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+        importBtn.disabled = true;
+
+        fetch('/leave/balance/import/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.showMessage(data.message, 'success');
+                if (data.errors && data.errors.length > 0) {
+                    console.warn('Import warnings:', data.errors);
+                }
+                this.closeModal('addBalanceModal');
+                this.refreshBalanceTable();
+                // Clear file input
+                fileInput.value = '';
+                deleteAllCheckbox.checked = false;
+            } else {
+                this.showMessage(data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error importing balance:', error);
+            this.showMessage('Failed to import balance', 'error');
+        })
+        .finally(() => {
+            // Reset button state
+            importBtn.innerHTML = originalText;
+            importBtn.disabled = false;
+        });
+    }
+
+    refreshBalanceTable() {
+        // Reload balance table via AJAX
+        const balanceSearch = document.getElementById('balanceSearchInput').value || '';
+        this.performBalanceSearch(balanceSearch);
+    }
+
+    // Balance Management Initialization
+    initializeBalanceManagement() {
+        // Initialize balance table listeners
+        this.setupBalanceTableListeners();
+        
+        // Edit balance button
+        const editBalanceBtn = document.getElementById('edit-balance-btn');
+        if (editBalanceBtn) {
+            editBalanceBtn.addEventListener('click', (e) => {
+                this.updateBalance(e.target.getAttribute('data-balance-id'));
+            });
+        }
+
+        // Confirm delete balance button
+        const confirmDeleteBtn = document.getElementById('confirm-delete-balance-btn');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', (e) => {
+                this.confirmDeleteBalance(e.target.getAttribute('data-balance-id'));
+            });
+        }
+
+        // Import balance button
+        const importBalanceBtn = document.getElementById('import-balance-btn');
+        if (importBalanceBtn) {
+            importBalanceBtn.addEventListener('click', () => {
+                this.handleImportBalance();
+            });
+        }
+
+        // Confirm import button
+        const confirmImportBtn = document.getElementById('confirm-import-btn');
+        if (confirmImportBtn) {
+            confirmImportBtn.addEventListener('click', () => {
+                this.confirmImportBalance();
+            });
+        }
+    }
+
+    // Setup event listeners for balance table rows
+    setupBalanceTableListeners() {
+        // View balance buttons
+        document.querySelectorAll('[data-action="view-balance-details"]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.viewBalanceDetails(e.currentTarget);
+            });
+        });
+
+        // Delete balance buttons
+        document.querySelectorAll('[data-action="delete-balance"]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.deleteBalanceConfirm(e.currentTarget);
+            });
+        });
+    }
 }
 
 // CSS for admin-specific animations and styles
@@ -1623,6 +2085,14 @@ window.LeaveAdmin = {
         const element = document.createElement('div');
         element.setAttribute('data-control-number', controlNumber);
         window.leaveAdminInterface?.exportRequest(element);
+    },
+
+    // Balance Management Methods (delegated to interface)
+    viewBalanceDetails: (actionEl) => {
+        window.leaveAdminInterface?.viewBalanceDetails(actionEl);
+    },
+    deleteBalance: (actionEl) => {
+        window.leaveAdminInterface?.deleteBalanceConfirm(actionEl.getAttribute('data-balance-id'));
     }
 };
 
@@ -1907,6 +2377,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             initializeAdminChart();
             setupChartControls();
+            setupApprovalChartControls();
+            loadApprovalChartData(approvalCurrentPeriod, approvalCurrentType);
         }, 100);
     }
 });
@@ -2039,14 +2511,6 @@ function setupApprovalChartControls() {
         if (btn.classList.contains('active')) updateTypeSlider(idx);
     });
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-    setupApprovalChartControls();
-    loadApprovalChartData(approvalCurrentPeriod, approvalCurrentType);
-    
-    // Initialize the Leave Admin Interface
-    new LeaveAdminInterface();
-});
 
 // Slider effect CSS (inject if not present)
 (function() {

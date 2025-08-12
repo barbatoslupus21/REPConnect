@@ -90,23 +90,26 @@
 
             {% if leave_balances %}
                 <div class="balance-details">
-                    <h5>Breakdown:</h5>
+                    <h5>Relevant Balance Breakdown ({{ leave_request.date_from|date:"M d, Y" }} - {{ leave_request.date_to|date:"M d, Y" }}):</h5>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                        <strong>Debug Info:</strong> Showing {{ leave_balances|length }} balance(s) that overlap with the leave request period.
+                    </p>
                     <table class="balance-table">
                         <thead>
                             <tr>
                                 <th>Valid Period</th>
-                                <th>Entitled</th>
-                                <th>Used</th>
-                                <th>Remaining</th>
+                                <th style="text-align: center;">Entitled</th>
+                                <th style="text-align: center;">Used</th>
+                                <th style="text-align: center;">Remaining</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for balance in leave_balances %}
                             <tr>
                                 <td>{{ balance.valid_from|date:"M d, Y" }} - {{ balance.valid_to|date:"M d, Y" }}</td>
-                                <td>{{ balance.entitled }}</td>
-                                <td>{{ balance.used }}</td>
-                                <td>{{ balance.remaining }}</td>
+                                <td style="text-align: center;">{{ balance.entitled }}</td>
+                                <td style="text-align: center;">{{ balance.used }}</td>
+                                <td style="text-align: center;">{{ balance.remaining }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -217,6 +220,14 @@
 
 .text-danger {
     color: #dc3545;
+}
+
+.text-warning {
+    color: #ffc107;
+}
+
+.text-info {
+    color: #17a2b8;
 }
 
 .balance-details {

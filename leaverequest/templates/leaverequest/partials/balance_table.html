@@ -1,0 +1,35 @@
+{% for bal in leave_balances %}
+    <tr>
+        <td>{{ bal.employee.idnumber }}</td>
+        <td>
+            <span class="employee-name">{{ bal.employee.full_name }}</span>
+        </td>
+        <td>{{ bal.employee.employment_info.department.department_name|default:"N/A" }}</td>
+        <td>{{ bal.leave_type.name }}</td>
+        <td>{{ bal.entitled }}</td>
+        <td>{{ bal.used }}</td>
+        <td>{{ bal.remaining }}</td>
+        <td>{{ bal.valid_from|date:"M d, Y" }}</td>
+        <td>{{ bal.valid_to|date:"M d, Y" }}</td>
+        <td>
+            <div class="center-align">
+                <button class="btn btn-icon" data-action="view-balance-details" data-balance-id="{{ bal.id }}" title="View Details">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-icon btn-error" data-action="delete-balance" data-balance-id="{{ bal.id }}" title="Delete Balance">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </td>
+    </tr>
+{% empty %}
+    <tr>
+        <td colspan="10" class="text-center">
+            <div class="empty-state">
+                <i class="fas fa-calendar-alt"></i>
+                <h5>No Leave Balances Found</h5>
+                <p>No leave balances match your search criteria.</p>
+            </div>
+        </td>
+    </tr>
+{% endfor %}
