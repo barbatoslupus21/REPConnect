@@ -442,6 +442,8 @@ async function viewTicket(ticketId) {
         // Setup edit/save buttons visibility
         const editBtn = document.getElementById('editTicketBtn');
         const saveBtn = document.getElementById('saveTicketBtn');
+        const printBtn = document.getElementById('printTicketBtn');
+        
         if (data.can_edit) {
             editBtn.style.display = 'inline-block';
             saveBtn.style.display = 'none';
@@ -452,6 +454,13 @@ async function viewTicket(ticketId) {
         } else {
             editBtn.style.display = 'none';
             saveBtn.style.display = 'none';
+        }
+        
+        // Show Print Ticket button only for approved tickets
+        if (data.status === 'Approved') {
+            printBtn.style.display = 'inline-block';
+        } else {
+            printBtn.style.display = 'none';
         }
         
         // Reset edit mode and remove animation
@@ -797,4 +806,27 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+function printTicket() {
+    if (!currentTicketId) {
+        showToast('No ticket selected for printing.', 'error');
+        return;
+    }
+    
+    try {
+        // Create download link
+        const url = `/ticket/ticket/${currentTicketId}/print/`;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = '';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast('Ticket PDF generated successfully. Download will begin shortly.', 'success');
+    } catch (error) {
+        console.error('Print ticket error:', error);
+        showToast('Failed to generate ticket PDF. Please try again.', 'error');
+    }
 }

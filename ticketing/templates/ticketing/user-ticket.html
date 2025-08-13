@@ -410,19 +410,19 @@
                 <div class="review-section" id="reviewSection" style="display: none;">
                     <h4>Review Information</h4>
                     <div class="ticket-details-grid">
-                        <div class="detail-group">
+                        <div class="detail-group" style="grid-column: span 2;">
                             <span class="detail-label">Technician</span>
                             <span class="detail-value" id="detailTechnician">-</span>
                         </div>
-                        <div class="detail-group">
+                        <div class="detail-group" style="grid-column: span 2;">
                             <span class="detail-label">Diagnosis</span>
                             <span class="detail-value" id="detailDiagnosis">-</span>
                         </div>
-                        <div class="detail-group">
+                        <div class="detail-group" style="grid-column: span 2;">
                             <span class="detail-label">Action Taken</span>
                             <span class="detail-value" id="detailActionTaken">-</span>
                         </div>
-                        <div class="detail-group">
+                        <div class="detail-group" style="grid-column: span 2;">
                             <span class="detail-label">Possible Reason</span>
                             <span class="detail-value" id="detailPossibleReason">-</span>
                         </div>
@@ -437,6 +437,9 @@
                 <button class="btn btn-outline" onclick="closeModal('viewTicketModal')">Close</button>
                 <button class="btn btn-primary" id="editTicketBtn" onclick="toggleEditTicket()">Edit Ticket</button>
                 <button class="btn btn-primary" id="saveTicketBtn" onclick="saveTicketChanges()" style="display: none;">Save Changes</button>
+                <button class="btn btn-success" id="printTicketBtn" onclick="printTicket()" style="display: none;">
+                    <i class="fas fa-print"></i> Print Ticket
+                </button>
             </div>
         </div>
 </div>

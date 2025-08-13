@@ -35,18 +35,11 @@ function switchToTab(targetTab) {
 
 function setupEventListeners() {
     const reviewTicketForm = document.getElementById('reviewTicketForm');
-    const exportBtn = document.getElementById('exportBtn');
     
     if (reviewTicketForm) {
         reviewTicketForm.addEventListener('submit', function(e) {
             e.preventDefault();
             submitReviewTicket();
-        });
-    }
-    
-    if (exportBtn) {
-        exportBtn.addEventListener('click', function() {
-            openModal('exportOptionsModal');
         });
     }
 }
@@ -251,9 +244,6 @@ async function reviewTicket(ticketId) {
     currentTicketId = ticketId;
     document.getElementById('reviewTicketId').value = ticketId;
     
-    // Clear all form fields first
-    clearReviewForm();
-    
     try {
         const response = await fetch(`/ticket/ticket/${ticketId}/details/`);
         if (!response.ok) {
@@ -343,15 +333,14 @@ async function viewTicket(ticketId) {
                     <span class="detail-label">Category</span>
                     <span class="detail-value">${data.category || '-'}</span>
                 </div>
-                <div class="detail-group">
-                    <span class="detail-label">Created At</span>
-                    <span class="detail-value">${formatDate(data.created_at)}</span>
-                </div>
                 <div class="detail-group" style="grid-column: span 2;">
                     <span class="detail-label">Problem Details</span>
                     <span class="detail-value">${data.problem_details}</span>
                 </div>
-                
+                <div class="detail-group">
+                    <span class="detail-label">Created At</span>
+                    <span class="detail-value">${formatDate(data.created_at)}</span>
+                </div>
             </div>
         `;
         
@@ -359,21 +348,21 @@ async function viewTicket(ticketId) {
         if (data.status !== 'Processing' && data.technician_name) {
             ticketContent += `
                 <div class="review-section">
-                    <h4>MIS Diagnosis Information</h4>
+                    <h4>Review Information</h4>
                     <div class="ticket-details-grid">
-                        <div class="detail-group" style="grid-column: span 2;">
+                        <div class="detail-group">
                             <span class="detail-label">Technician</span>
                             <span class="detail-value">${data.technician_name || '-'}</span>
                         </div>
-                        <div class="detail-group" style="grid-column: span 2;">
+                        <div class="detail-group">
                             <span class="detail-label">Diagnosis</span>
                             <span class="detail-value">${data.diagnosis || '-'}</span>
                         </div>
-                        <div class="detail-group" style="grid-column: span 2;">
+                        <div class="detail-group">
                             <span class="detail-label">Action Taken</span>
                             <span class="detail-value">${data.action_taken || '-'}</span>
                         </div>
-                        <div class="detail-group" style="grid-column: span 2;">
+                        <div class="detail-group">
                             <span class="detail-label">Possible Reason</span>
                             <span class="detail-value">${data.possible_reason || '-'}</span>
                         </div>
@@ -491,237 +480,11 @@ async function submitReviewTicket() {
     }
 }
 
-function clearReviewForm() {
-    const form = document.getElementById('reviewTicketForm');
-    if (form) {
-        // Clear all form inputs
-        const inputs = form.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => {
-            if (input.type === 'hidden' && input.id === 'reviewTicketId') {
-                // Keep the ticket ID field
-                return;
-            }
-            if (input.name === 'technician_name') {
-                // Reset to default user name if available
-                return;
-            }
-            input.value = '';
-        });
-        
-        // Reset select elements to first option
-        const selects = form.querySelectorAll('select');
-        selects.forEach(select => {
-            select.selectedIndex = 0;
-        });
-    }
-}
-
-async function exportReport() {
-    const form = document.getElementById('exportOptionsForm');
-    const formData = new FormData(form);
-    
-    // Validate required fields
-    const dateFrom = formData.get('date_from');
-    const dateTo = formData.get('date_to');
-    
-    if (!dateFrom || !dateTo) {
-        showToast('Please select both date from and date to.', 'error');
-        return;
-    }
-    
-    // Build query parameters
-    const params = new URLSearchParams();
-    params.set('date_from', dateFrom);
-    params.set('date_to', dateTo);
-    
-    if (formData.get('category')) {
-        params.set('category', formData.get('category'));
-    }
-    if (formData.get('status')) {
-        params.set('status', formData.get('status'));
-    }
-    
-    try {
-        // Create download link
-        const url = `/ticket/export/tickets/?${params.toString()}`;
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = '';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        closeModal('exportOptionsModal');
-        showToast('Report export started. Download will begin shortly.', 'success');
-    } catch (error) {
-        console.error('Export error:', error);
-        showToast('Failed to export report. Please try again.', 'error');
-    }
-}
-
-async function viewDeviceHistory(deviceId) {
-    currentDeviceId = deviceId;
-    
-    try {
-        const response = await fetch(`/ticket/device/${deviceId}/history/`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        
-        if (data.success) {
-            // Update modal title
-            const modalTitle = document.querySelector('#deviceHistoryModal .modal-header h4');
-            if (modalTitle) {
-                modalTitle.textContent = `${data.device.device_name} (${data.device.device_code}) - Ticket History`;
-            }
-            
-            // Create tabs for each month
-            const tabsList = document.getElementById('historyTabsList');
-            const tabPanels = document.getElementById('historyTabPanels');
-            
-            tabsList.innerHTML = '';
-            tabPanels.innerHTML = '';
-            
-            const months = Object.keys(data.history);
-            
-            if (months.length === 0) {
-                tabPanels.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-clipboard-list"></i>
-                        <h5>No Ticket History</h5>
-                        <p>This device has no ticket history.</p>
-                    </div>
-                `;
-            } else {
-                months.forEach((month, index) => {
-                    // Create tab button
-                    const tabButton = document.createElement('button');
-                    tabButton.className = `tab ${index === 0 ? 'active' : ''}`;
-                    tabButton.dataset.tab = month.replace(' ', '_');
-                    tabButton.textContent = month;
-                    tabButton.addEventListener('click', function() {
-                        switchHistoryTab(this.dataset.tab);
-                    });
-                    tabsList.appendChild(tabButton);
-                    
-                    // Create tab panel
-                    const tabPanel = document.createElement('div');
-                    tabPanel.className = `tab-panel ${index === 0 ? 'active' : ''}`;
-                    tabPanel.id = `${month.replace(' ', '_')}-tab`;
-                    
-                    let panelContent = '<div class="tickets-history-list">';
-                    data.history[month].forEach(ticket => {
-                        panelContent += `
-                            <div class="ticket-history-item">
-                                <div class="ticket-history-header">
-                                    <span class="ticket-number">${ticket.ticket_number}</span>
-                                    <span class="ticket-date">${ticket.created_at}</span>
-                                    <span class="status-pill status-${getStatusColor(ticket.status)}">${ticket.status}</span>
-                                </div>
-                                <div class="ticket-history-details">
-                                    <div class="detail-row">
-                                        <span class="label">Requestor:</span>
-                                        <span class="value">${ticket.requestor_name}</span>
-                                    </div>
-                                    <div class="detail-row">
-                                        <span class="label">Priority:</span>
-                                        <span class="value">
-                                            <span class="status-pill status-${getPriorityColor(ticket.priority_level)}">${ticket.priority_level}</span>
-                                        </span>
-                                    </div>
-                                    <div class="detail-row">
-                                        <span class="label">Category:</span>
-                                        <span class="value">${ticket.category}</span>
-                                    </div>
-                                    <div class="detail-row">
-                                        <span class="label">Problem:</span>
-                                        <span class="value">${ticket.problem_details}</span>
-                                    </div>
-                                    ${ticket.status !== 'Processing' ? `
-                                        <div class="mis-diagnosis">
-                                            <h5>MIS Diagnosis</h5>
-                                            <div class="detail-row">
-                                                <span class="label">Technician:</span>
-                                                <span class="value">${ticket.technician_name}</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="label">Diagnosis:</span>
-                                                <span class="value">${ticket.diagnosis}</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="label">Action Taken:</span>
-                                                <span class="value">${ticket.action_taken}</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="label">Possible Reason:</span>
-                                                <span class="value">${ticket.possible_reason}</span>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span class="label">Recommendation:</span>
-                                                <span class="value">${ticket.recommendation}</span>
-                                            </div>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    panelContent += '</div>';
-                    
-                    tabPanel.innerHTML = panelContent;
-                    tabPanels.appendChild(tabPanel);
-                });
-            }
-            
-            openModal('deviceHistoryModal');
-        }
-    } catch (error) {
-        console.error('Device history error:', error);
-        showToast('Failed to load device history. Please try again.', 'error');
-    }
-}
-
-function switchHistoryTab(targetTab) {
-    const tabs = document.querySelectorAll('#historyTabs .tab');
-    const panels = document.querySelectorAll('#historyTabPanels .tab-panel');
-    
-    tabs.forEach(t => t.classList.remove('active'));
-    panels.forEach(p => p.classList.remove('active'));
-    
-    const activeTab = document.querySelector(`#historyTabs [data-tab="${targetTab}"]`);
-    const activePanel = document.getElementById(`${targetTab}-tab`);
-    
-    if (activeTab) activeTab.classList.add('active');
-    if (activePanel) activePanel.classList.add('active');
-}
-
-async function exportDeviceHistory() {
-
-    if (!currentDeviceId) {
-        showToast('No device selected for export.', 'error');
-        return;
-    }
-    try {
-        // Create download link
-        const url = `/ticket/device/${currentDeviceId}/export-history/`;
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = '';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast('Device history export started. Download will begin shortly.', 'success');
-    } catch (error) {
-        console.error('Export device history error:', error);
-        showToast('Failed to export device history. Please try again.', 'error');
-    }
-}
-
+// Helper functions
 function getPriorityColor(priority) {
     switch (priority) {
         case 'Urgent': return 'red';
-        case 'High': return 'orange';
+        case 'High': return 'yellow';
         case 'Medium': return 'blue';
         case 'Low': return 'green';
         default: return 'gray';
@@ -773,6 +536,9 @@ function showToast(message, type = 'info') {
             <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
             <span>${message}</span>
         </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
     `;
     
     // Add to container

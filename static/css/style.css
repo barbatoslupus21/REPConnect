@@ -768,7 +768,8 @@ input:checked + .slider:before {
 
 #pageNumbers,
 #requestsPageNumbers,
-#devicesPageNumbers {
+#devicesPageNumbers,
+#ticketsPageNumbers {
     display: flex;
     flex-direction: row;
     gap: var(--space-xs);
@@ -1348,7 +1349,7 @@ small {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
     width: 50%;
-    max-height: 90vh;
+    /* max-height: 90vh; */
     overflow: hidden;
     position: relative;
     z-index: 2;
@@ -1391,7 +1392,7 @@ small {
 .modal-body {
     padding: var(--space-lg);
     overflow-y: auto;
-    max-height: calc(90vh - 120px);
+    max-height: calc(90vh - 150px);
 }
 
 .modal-footer {
@@ -5262,7 +5263,6 @@ textarea:required:invalid {
   font-weight: 500;
   background: #f4f4f4;
   color: #3b82f6;
-  margin: 0 4px;
   letter-spacing: 0.02em;
   transition: background 0.2s, color 0.2s;
   border: none;
@@ -5842,3 +5842,93 @@ textarea:required:invalid {
         table-layout: auto;
     }
 }
+
+.detail-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md)
+
+}
+
+.detail-row .label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.detail-row .value {
+    color: var(--text-primary);
+}
+
+.mis-diagnosis {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.mis-diagnosis h5 {
+    margin-bottom: 0.75rem;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+
+/* Toast without close button styling */
+.toast {
+    position: relative;
+    max-width: 350px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 0.75rem;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    animation: slideInRight 0.3s ease-out;
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.toast-content i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.toast-success {
+    background: var(--success-color);
+    color: white;
+}
+
+.toast-error {
+    background: var(--error-color);
+    color: white;
+}
+
+.toast-info {
+    background: var(--accent-color);
+    color: white;
+}
+
+/* Print Ticket Button Styling */
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+    color: white;
+}
+
+.btn-success:focus, .btn-success.focus {
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.5);
+}
+
+.btn-success:active, .btn-success.active {
+    background-color: #1e7e34;
+    border-color: #1c7430;
+}
+

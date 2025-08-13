@@ -17,7 +17,8 @@ urlpatterns = [
     path('api/', include('generalsettings.urls')),
     path('finance/', include('finance.urls')),
     path('leave/', include('leaverequest.urls')),
-    path('ticket/', include('ticketing.urls'))
+    path('ticket/', include('ticketing.urls')),
+    path('announcement/', include('announcement.urls')),
 ]
 
 if settings.DEBUG:
