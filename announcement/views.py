@@ -155,13 +155,51 @@ def toggle_reaction(request, pk):
     else:
         removed = False
     
-    reaction_summary = announcement.reaction_summary
+    # Get user's current reaction
+    user_reaction = None
+    if not removed:
+        user_reaction = emoji
+    
+    # Get reactor data
+    reactors = []
+    reactions = AnnouncementReaction.objects.filter(announcement=announcement).select_related('user').order_by('-created_at')
+    
+    for reaction_obj in reactions:
+        user = reaction_obj.user
+        reactors.append({
+            'name': f"{user.firstname} {user.lastname}",
+            'avatar': user.avatar.url if hasattr(user, 'avatar') and user.avatar else None,
+            'reaction': reaction_obj.emoji
+        })
     
     return JsonResponse({
         'success': True,
         'removed': removed,
-        'reaction_summary': reaction_summary,
-        'total_reactions': announcement.total_reactions
+        'user_reaction': user_reaction,
+        'reactors': reactors,
+        'total_reactions': len(reactors)
+    })
+
+
+@login_required
+def get_announcement_reactors(request, pk):
+    announcement = get_object_or_404(Announcement, pk=pk, is_active=True)
+    
+    reactors = []
+    reactions = AnnouncementReaction.objects.filter(announcement=announcement).select_related('user').order_by('-created_at')
+    
+    for reaction_obj in reactions:
+        user = reaction_obj.user
+        reactors.append({
+            'name': f"{user.firstname} {user.lastname}",
+            'avatar': user.avatar.url if hasattr(user, 'avatar') and user.avatar else None,
+            'reaction': reaction_obj.emoji
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'reactors': reactors,
+        'total_reactions': len(reactors)
     })
 
 

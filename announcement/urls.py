@@ -7,5 +7,6 @@ urlpatterns = [
     path('update/<int:pk>/', views.update_announcement, name='update'),
     path('delete/<int:pk>/', views.delete_announcement, name='delete'),
     path('react/<int:pk>/', views.toggle_reaction, name='react'),
+    path('reactors/<int:pk>/', views.get_announcement_reactors, name='reactors'),
     path('detail/<int:pk>/', views.get_announcement_detail, name='detail'),
 ]

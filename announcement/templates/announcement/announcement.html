@@ -57,7 +57,7 @@
                             {% endif %}
                         </div>
                         <div class="author-info">
-                            <h4 class="author-name">{{ announcement.author.full_name }}</h4>
+                            <h4 class="author-name">{{ announcement.author.full_name }} <span class="post-status">posted an announcement</span></h4>
                             <span class="post-time" data-time="{{ announcement.created_at|date:'c' }}">
                                 {{ announcement.created_at|date:"F d, Y at g:i A" }}
                             </span>
@@ -93,19 +93,52 @@
 
                 <div class="post-footer">
                     <div class="reactions-container">
-                        <div class="reactions-buttons">
-                            {% for emoji_code, emoji_symbol in emoji_choices %}
-                            <button class="reaction-btn {% if announcement.user_reaction == emoji_code %}active{% endif %}" 
-                                    data-emoji="{{ emoji_code }}" 
-                                    data-announcement="{{ announcement.id }}">
-                                <span class="emoji">{{ emoji_symbol }}</span>
-                            </button>
-                            {% endfor %}
-                        </div>
-                        <div class="reactions-summary">
-                            {% if announcement.total_reactions > 0 %}
-                            <span class="total-reactions">{{ announcement.total_reactions }} reaction{{ announcement.total_reactions|pluralize }}</span>
-                            {% endif %}
+                        <div class="reaction-section">
+                            <!-- Main Reaction Button -->
+                            <div class="main-reaction-wrapper">
+                                <button class="main-reaction-btn" data-announcement="{{ announcement.id }}">
+                                    {% if announcement.user_reaction %}
+                                        {% for emoji_code, emoji_symbol in emoji_choices %}
+                                            {% if emoji_code == announcement.user_reaction %}
+                                                <span class="reaction-icon active" data-emoji="{{ emoji_code }}">{{ emoji_symbol }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <i class="fas fa-thumbs-up reaction-icon"></i>
+                                    {% endif %}
+                                </button>
+                                
+                                <!-- Reactions Popover -->
+                                <div class="reactions-popover" id="popover-{{ announcement.id }}">
+                                    {% for emoji_code, emoji_symbol in emoji_choices %}
+                                    <button class="popover-reaction-btn" 
+                                            data-emoji="{{ emoji_code }}" 
+                                            data-announcement="{{ announcement.id }}">
+                                        <span class="emoji">{{ emoji_symbol }}</span>
+                                    </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Reactors Display -->
+                            <div class="reactors-display" id="reactors-{{ announcement.id }}">
+                                {% if announcement.total_reactions > 0 %}
+                                    <div class="reactor-avatars">
+                                        <!-- Avatars will be populated by JavaScript -->
+                                    </div>
+                                    <div class="reactor-text">
+                                        <span class="latest-reactor"></span>
+                                        <span class="remaining-count" data-tooltip-id="tooltip-{{ announcement.id }}"></span>
+                                    </div>
+                                    
+                                    <!-- Tooltip for reactor list -->
+                                    <div class="reactors-tooltip" id="tooltip-{{ announcement.id }}">
+                                        <div class="tooltip-content">
+                                            <!-- Will be populated by JavaScript -->
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -189,12 +222,7 @@
                 
                 <!-- Image Preview -->
                 <div class="image-preview-container" id="newImagePreview" style="display: none;">
-                    <div class="image-preview">
-                        <img id="previewImg" src="" alt="Preview">
-                        <button type="button" class="remove-image-btn" id="removeImageBtn">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
+                    <!-- The preview content will be injected by JS. The remove-image-btn will be visible when an image is selected. -->
                 </div>
             </div>
             <div class="modal-footer">
@@ -222,8 +250,17 @@
             {% csrf_token %}
             <input type="hidden" name="announcement_id" id="editAnnouncementId">
             <div class="modal-body">
+                <div class="create-post-header">
+                    <span class="form-label">Edit your announcement</span>
+                    <div class="upload-actions">
+                        <input type="file" name="image" class="announcement-file-input" id="editPostImage" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                        <button type="button" class="btn btn-icon upload-btn" id="editUploadImageBtn" title="Upload New Image">
+                            <i class="fas fa-image"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label class="form-label">Edit your announcement</label>
                     <textarea name="content" id="editContent" class="form-input" rows="8" placeholder="What's on your mind?" required></textarea>
                     <div class="field-error"></div>
                 </div>
@@ -235,15 +272,6 @@
                         <img id="currentImg" src="" alt="Current image">
                         <p>Current image - upload a new one to replace it</p>
                     </div>
-                </div>
-                
-                <!-- Image Upload Section -->
-                <div class="upload-actions">
-                    <input type="file" name="image" class="announcement-file-input" id="editPostImage" accept="image/jpeg,image/jpg,image/png" style="display: none;">
-                    <button type="button" class="btn-icon upload-btn" id="editUploadImageBtn" title="Upload New Image">
-                        <i class="fas fa-image"></i>
-                    </button>
-                    <span class="upload-text">Upload New Image</span>
                 </div>
                 
                 <!-- Image Preview -->

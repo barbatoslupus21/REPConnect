@@ -11,6 +11,15 @@ document.addEventListener('DOMContentLoaded', function() {
         newPostBtn.addEventListener('click', openNewPostModal);
     }
 
+    // Photo/Video button functionality
+    document.getElementById('photoVideoBtn')?.addEventListener('click', function() {
+        openNewPostModal();
+        // Focus on the image upload button
+        setTimeout(() => {
+            document.getElementById('uploadImageBtn')?.click();
+        }, 300);
+    });
+
     function openNewPostModal() {
         document.body.classList.add('modal-open');
         newPostModal.classList.add('show');
@@ -97,12 +106,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     const currentImageContainer = document.getElementById('currentImageContainer');
                     if (announcement.image) {
                         currentImageContainer.innerHTML = `
-                            <p>Current Image:</p>
-                            <img src="${announcement.image}" alt="Current image">
+                            <label class="form-label">Current Image</label>
+                            <div class="current-image-preview">
+                                <img id="currentImg" src="${announcement.image}" alt="Current image">
+                                <p>Current image - upload a new one to replace it</p>
+                            </div>
                         `;
-                        currentImageContainer.classList.add('show');
+                        currentImageContainer.style.display = 'block';
                     } else {
-                        currentImageContainer.classList.remove('show');
+                        currentImageContainer.style.display = 'none';
                     }
                     
                     document.body.classList.add('modal-open');
@@ -159,10 +171,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             deleteAnnouncementId = this.dataset.id;
-            const card = this.closest('.announcement-card');
-            const title = card.querySelector('.announcement-title').textContent;
+            const card = this.closest('.post-card');
+            const contentElement = card.querySelector('.post-text');
+            const content = contentElement ? contentElement.textContent.trim() : 'this announcement';
             
-            document.getElementById('deleteDetails').textContent = `"${title}"`;
+            // Show first 50 characters of content for confirmation
+            const displayContent = content.length > 50 ? content.substring(0, 50) + '...' : content;
+            document.getElementById('deleteDetails').textContent = `"${displayContent}"`;
             
             document.body.classList.add('modal-open');
             deleteConfirmModal.classList.add('show');
@@ -203,53 +218,237 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.querySelectorAll('.reaction-btn').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const emoji = this.dataset.emoji;
-            const announcementId = this.dataset.announcement;
+    // New Reaction System
+    let currentPopover = null;
+    
+    // Main reaction button click and hover handlers
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.main-reaction-btn')) {
+            const btn = e.target.closest('.main-reaction-btn');
+            const announcementId = btn.dataset.announcement;
+            const popover = document.getElementById(`popover-${announcementId}`);
             
-            try {
-                const response = await fetch(`/announcement/react/${announcementId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `emoji=${emoji}`
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    const card = document.querySelector(`.announcement-card[data-id="${announcementId}"]`);
-                    const buttons = card.querySelectorAll('.reaction-btn');
-                    
-                    buttons.forEach(b => {
-                        if (b.dataset.emoji === emoji) {
-                            if (data.removed) {
-                                b.classList.remove('active');
-                            } else {
-                                b.classList.add('active');
-                            }
-                        } else {
-                            b.classList.remove('active');
-                        }
-                    });
-                    
-                    const summaryContainer = card.querySelector('.reactions-summary');
-                    if (data.total_reactions > 0) {
-                        summaryContainer.innerHTML = `
-                            <span class="total-reactions">${data.total_reactions} reaction${data.total_reactions > 1 ? 's' : ''}</span>
-                        `;
-                    } else {
-                        summaryContainer.innerHTML = '';
-                    }
+            // Hide other popovers
+            document.querySelectorAll('.reactions-popover').forEach(p => {
+                if (p !== popover) {
+                    p.classList.remove('show');
                 }
-            } catch (error) {
-                showToast('Failed to update reaction.', 'error');
+            });
+            
+            // Toggle current popover
+            if (currentPopover === popover && popover.classList.contains('show')) {
+                popover.classList.remove('show');
+                currentPopover = null;
+            } else {
+                // Position the popover above the button (centered horizontally, above vertically)
+                const rect = btn.getBoundingClientRect();
+                const popoverHeight = popover.offsetHeight || 48; // fallback height
+                const scrollY = window.scrollY || window.pageYOffset;
+                const scrollX = window.scrollX || window.pageXOffset;
+                popover.style.left = `${rect.left + rect.width / 2 + scrollX}px`;
+                popover.style.top = `${rect.top - popoverHeight - 12 + scrollY}px`;
+                popover.classList.add('show');
+                currentPopover = popover;
             }
-        });
+            e.stopPropagation();
+        }
+        // Hide popovers when clicking outside
+        else if (!e.target.closest('.reactions-popover')) {
+            document.querySelectorAll('.reactions-popover').forEach(p => {
+                p.classList.remove('show');
+            });
+            currentPopover = null;
+        }
     });
+
+    // Popover reaction button clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.popover-reaction-btn')) {
+            const btn = e.target.closest('.popover-reaction-btn');
+            const emoji = btn.dataset.emoji;
+            const announcementId = btn.dataset.announcement;
+            handleReaction(emoji, announcementId);
+        }
+    });
+
+    // Tooltip handlers
+    document.addEventListener('mouseenter', function(e) {
+        if (e.target.classList.contains('remaining-count')) {
+            const tooltipId = e.target.dataset.tooltipId;
+            const tooltip = document.getElementById(tooltipId);
+            if (tooltip) {
+                tooltip.classList.add('show');
+            }
+        }
+    }, true);
+
+    document.addEventListener('mouseleave', function(e) {
+        if (e.target.classList.contains('remaining-count')) {
+            const tooltipId = e.target.dataset.tooltipId;
+            const tooltip = document.getElementById(tooltipId);
+            if (tooltip) {
+                tooltip.classList.remove('show');
+            }
+        }
+    }, true);
+
+    async function handleReaction(emoji, announcementId) {
+        try {
+            const response = await fetch(`/announcement/react/${announcementId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `emoji=${emoji}`
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                updateReactionUI(announcementId, data);
+                // Hide popover after selection
+                const popover = document.getElementById(`popover-${announcementId}`);
+                if (popover) {
+                    popover.classList.remove('show');
+                    currentPopover = null;
+                }
+            }
+        } catch (error) {
+            showToast('Failed to update reaction.', 'error');
+        }
+    }
+
+    function updateReactionUI(announcementId, data) {
+        const card = document.querySelector(`.post-card[data-id="${announcementId}"]`);
+        const mainBtn = card.querySelector('.main-reaction-btn');
+        const reactorDisplay = card.querySelector(`#reactors-${announcementId}`);
+        
+        // Update main reaction button icon
+        const reactionIcon = mainBtn.querySelector('.reaction-icon');
+        if (data.user_reaction) {
+            // Find emoji for user's reaction
+            const emojiMap = {
+                'like': '👍',
+                'love': '❤️', 
+                'laugh': '😂',
+                'wow': '😮',
+                'sad': '😢',
+                'angry': '😡'
+            };
+            reactionIcon.outerHTML = `<span class="reaction-icon active">${emojiMap[data.user_reaction] || '👍'}</span>`;
+        } else {
+            reactionIcon.outerHTML = `<i class="fas fa-thumbs-up reaction-icon"></i>`;
+        }
+        
+        // Update reactors display
+        if (data.total_reactions > 0 && data.reactors) {
+            updateReactorsDisplay(announcementId, data.reactors, data.total_reactions);
+        } else {
+            reactorDisplay.style.display = 'none';
+        }
+    }
+
+    function updateReactorsDisplay(announcementId, reactors, totalReactions) {
+        const reactorDisplay = document.querySelector(`#reactors-${announcementId}`);
+        
+        if (totalReactions === 0) {
+            reactorDisplay.style.display = 'none';
+            return;
+        }
+        
+        reactorDisplay.style.display = 'flex';
+        
+        // Show first 5 reactor avatars
+        const avatarsContainer = reactorDisplay.querySelector('.reactor-avatars');
+        avatarsContainer.innerHTML = '';
+        
+        const displayReactors = reactors.slice(0, 5);
+        displayReactors.forEach(reactor => {
+            const avatar = document.createElement('div');
+            avatar.className = 'reactor-avatar';
+            
+            if (reactor.avatar) {
+                avatar.innerHTML = `<img src="${reactor.avatar}" alt="${reactor.name}">`;
+            } else {
+                const initials = reactor.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                avatar.innerHTML = `<div class="avatar-placeholder">${initials}</div>`;
+            }
+            
+            avatarsContainer.appendChild(avatar);
+        });
+        
+        // Update text
+        const latestReactor = reactorDisplay.querySelector('.latest-reactor');
+        const remainingCount = reactorDisplay.querySelector('.remaining-count');
+        
+        if (reactors.length > 0) {
+            latestReactor.textContent = reactors[0].name;
+            
+            if (totalReactions > 1) {
+                const remaining = totalReactions - 1;
+                remainingCount.textContent = `and ${remaining} ${remaining === 1 ? 'person' : 'people'} reacted to this announcement`;
+                remainingCount.style.display = 'inline';
+                
+                // Update tooltip
+                updateReactorsTooltip(announcementId, reactors);
+            } else {
+                remainingCount.textContent = 'reacted to this announcement';
+                remainingCount.style.display = 'inline';
+            }
+        }
+    }
+
+    function updateReactorsTooltip(announcementId, reactors) {
+        const tooltip = document.getElementById(`tooltip-${announcementId}`);
+        const tooltipContent = tooltip.querySelector('.tooltip-content');
+        
+        tooltipContent.innerHTML = '';
+        
+        reactors.forEach(reactor => {
+            const reactorDiv = document.createElement('div');
+            reactorDiv.className = 'tooltip-reactor';
+            
+            const emojiMap = {
+                'like': '👍',
+                'love': '❤️', 
+                'laugh': '😂',
+                'wow': '😮',
+                'sad': '😢',
+                'angry': '😡'
+            };
+            
+            reactorDiv.innerHTML = `
+                <span class="emoji">${emojiMap[reactor.reaction] || '👍'}</span>
+                <span>${reactor.name}</span>
+            `;
+            
+            tooltipContent.appendChild(reactorDiv);
+        });
+    }
+
+    // Load initial reactor data for each announcement
+    document.querySelectorAll('.post-card').forEach(card => {
+        const announcementId = card.dataset.id;
+        const reactorDisplay = card.querySelector(`#reactors-${announcementId}`);
+        
+        if (reactorDisplay && reactorDisplay.style.display !== 'none') {
+            loadReactorData(announcementId);
+        }
+    });
+
+    async function loadReactorData(announcementId) {
+        try {
+            const response = await fetch(`/announcement/reactors/${announcementId}/`);
+            const data = await response.json();
+            
+            if (data.success && data.reactors) {
+                updateReactorsDisplay(announcementId, data.reactors, data.total_reactions);
+            }
+        } catch (error) {
+            console.error('Failed to load reactor data:', error);
+        }
+    }
 
 
     // Handle post menu dropdown toggle
@@ -300,14 +499,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle image removal
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('remove-image-btn')) {
-            const modal = e.target.closest('.modal');
-            const input = modal.querySelector('.announcement-file-input');
+            // Find the correct preview and input for both Create and Edit modals
             const preview = e.target.closest('.image-preview-container');
-            
-            if (input) input.value = '';
+            let input = null;
             if (preview) {
+                // Try to find the file input in the same modal
+                const modal = preview.closest('.modal');
+                if (modal) {
+                    // If there are multiple file inputs, match by preview id
+                    if (preview.id === 'newImagePreview') {
+                        input = modal.querySelector('#newPostImage');
+                    } else if (preview.id === 'editImagePreview') {
+                        input = modal.querySelector('#editPostImage');
+                    } else {
+                        input = modal.querySelector('.announcement-file-input');
+                    }
+                }
+                if (input) input.value = '';
                 preview.classList.remove('show');
                 preview.style.display = 'none';
+                // Also clear the preview image if present
+                const img = preview.querySelector('img');
+                if (img) img.src = '';
             }
         }
     });
@@ -359,8 +572,8 @@ document.addEventListener('DOMContentLoaded', function() {
             preview.style.display = 'none';
             return;
         }
-        if (file.size > 5 * 1024 * 1024) {
-            showToast('Image size must be less than 5MB.', 'error');
+        if (file.size > 20 * 1024 * 1024) {
+            showToast('Image size must be less than 20MB.', 'error');
             // Clear the input
             const modal = preview.closest('.modal');
             const input = modal.querySelector('.announcement-file-input');

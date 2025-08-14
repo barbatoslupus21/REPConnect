@@ -2569,16 +2569,15 @@ select.form-input {
 }
 
 .toast {
-    background: var(--surface);
-    border: 1px solid var(--border-color);
+    position: relative;
+    max-width: 350px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 0.75rem;
     border-radius: var(--radius-md);
-    padding: var(--space-md);
     box-shadow: var(--shadow-lg);
-    min-width: 300px;
-    animation: toastIn 0.3s ease-out;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    animation: slideInRight 0.3s ease-out;
+    z-index: 99999;
 }
-
 
 .persistent-toast {
     display: flex;
@@ -5874,15 +5873,6 @@ textarea:required:invalid {
 
 
 /* Toast without close button styling */
-.toast {
-    position: relative;
-    max-width: 350px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 0.75rem;
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    animation: slideInRight 0.3s ease-out;
-}
 
 .toast-content {
     display: flex;
