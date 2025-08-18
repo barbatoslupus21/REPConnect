@@ -2315,28 +2315,6 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
     margin: 4px 0;
 }
 
-/* Empty state styles */
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-muted);
-}
-
-.empty-state i {
-    margin-bottom: 16px;
-    opacity: 0.5;
-}
-
-.empty-state h5 {
-    margin-bottom: 8px;
-    color: var(--text-secondary);
-}
-
-.empty-state p {
-    margin: 0;
-    font-size: 0.9rem;
-}
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .employee-avatar {

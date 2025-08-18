@@ -59,10 +59,6 @@ class LeaveRequestForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         self.fields['leave_type'].queryset = LeaveType.objects.filter(is_active=True)
-        today = timezone.now().date()
-        self.fields['date_from'].widget.attrs['min'] = today.isoformat()
-        self.fields['date_to'].widget.attrs['min'] = today.isoformat()
-        # Dynamically set reasons based on leave_type
         if 'leave_type' in self.data:
             try:
                 leave_type_id = int(self.data.get('leave_type'))
@@ -81,26 +77,16 @@ class LeaveRequestForm(forms.ModelForm):
         leave_type = cleaned_data.get('leave_type')
         leave_reason = cleaned_data.get('leave_reason')
         
-        # Validate leave_reason if there are available reasons for the selected leave_type
         if leave_type:
             available_reasons = LeaveReason.objects.filter(leave_type=leave_type, is_active=True)
             if available_reasons.exists() and not leave_reason:
                 raise ValidationError("Please select a leave reason category.")
         
         if date_from and date_to:
-            # Validate date range
             if date_to < date_from:
                 raise ValidationError("End date cannot be before start date.")
-            
-            # Validate not in the past (allow today)
-            today = timezone.now().date()
-            if date_from < today:
-                raise ValidationError("Leave cannot be requested for past dates.")
-            
-            # Calculate working days for validation (same logic as model)
             days_requested = self.calculate_working_days_for_validation(date_from, date_to)
             
-            # Check for overlapping leave requests
             if self.user:
                 overlapping = LeaveRequest.objects.filter(
                     employee=self.user,
@@ -109,19 +95,16 @@ class LeaveRequestForm(forms.ModelForm):
                     date_to__gte=date_from
                 )
                 
-                # Exclude current instance if editing
                 if self.instance.pk:
                     overlapping = overlapping.exclude(pk=self.instance.pk)
                 
                 if overlapping.exists():
                     raise ValidationError("You have overlapping leave requests for the selected dates.")
                 
-                # Check leave balance for regular employees only
                 if (hasattr(self.user, 'employment_info') and 
                     getattr(self.user.employment_info, 'employment_status', None) == 'Regular' and
                     leave_type):
                     
-                    # Get active leave balance for this leave type
                     today = timezone.now().date()
                     active_balance = LeaveBalance.objects.filter(
                         employee=self.user,

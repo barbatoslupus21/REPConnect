@@ -13,11 +13,41 @@ function initializeSettings() {
     // Add finance settings
     setupFinanceSettings();
     
+    // Add leave settings
+    setupLeaveSettings();
+    
+    // Add ticketing settings
+    setupTicketingSettings();
+    
     // Add modal overlay event listener
     const modalOverlay = document.querySelector('#departmentLinesModal .modal-overlay');
     if (modalOverlay) {
         modalOverlay.addEventListener('click', closeDepartmentLinesModal);
     }
+    
+    // Add keyboard event listeners for modals
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            // Close any open modals
+            const editReasonModal = document.getElementById('editLeaveTypeReasonModal');
+            const deleteModal = document.getElementById('deleteConfirmModal');
+            const departmentLinesModal = document.getElementById('departmentLinesModal');
+            const ojtRateModal = document.getElementById('ojtRateModal');
+            const leaveTypeReasonsModal = document.getElementById('leaveTypeReasonsModal');
+            
+            if (editReasonModal && editReasonModal.style.display === 'flex') {
+                closeEditLeaveTypeReasonModal();
+            } else if (deleteModal && deleteModal.style.display === 'flex') {
+                closeDeleteModal();
+            } else if (departmentLinesModal && departmentLinesModal.style.display === 'flex') {
+                closeDepartmentLinesModal();
+            } else if (ojtRateModal && ojtRateModal.style.display === 'flex') {
+                closeOJTRateModal();
+            } else if (leaveTypeReasonsModal && leaveTypeReasonsModal.style.display === 'flex') {
+                closeLeaveTypeReasonsModal();
+            }
+        }
+    });
     
     // Add tab switching functionality
     setupTabSwitching();
@@ -823,7 +853,7 @@ function getCsrfToken() {
 // Utility Functions
 function resetFieldState(fieldDiv) {
     // Remove any highlight or modified state classes
-    fieldDiv.classList.remove('modified');
+    fieldDiv.classList.remove('modified', 'changed');
     
     // Reset buttons state if needed
     const updateBtn = fieldDiv.querySelector('.btn-update');
@@ -860,12 +890,18 @@ function openDeleteModal(itemName, itemType, callback) {
         closeDeleteModal();
     };
     
-    modal.classList.add('show');
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
 }
 
 function closeDeleteModal() {
     const modal = document.getElementById('deleteConfirmModal');
     modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
     deleteCallback = null;
 }
 
@@ -1116,6 +1152,8 @@ function setupTabSwitching() {
                 // Initialize the corresponding settings when tab is activated
                 if (targetTab === 'finance') {
                     initializeFinanceSettings();
+                } else if (targetTab === 'leave') {
+                    initializeLeaveSettings();
                 }
             }
         });
@@ -1177,7 +1215,7 @@ function addLoanTypeField(loanTypeData = null) {
                        data-field="description"
                        oninput="handleFieldChange(this)">
             </div>
-            <div class="checkbox-wrapper">
+            <div class="checkbox-container">
                 <label class="standard-checkbox">
                     <input type="checkbox" ${isStackable ? 'checked' : ''} data-field="is_stackable" onchange="handleFieldChange(this)">
                     <span class="checkmark"></span>
@@ -1313,7 +1351,7 @@ function deleteLoanType(button) {
         return;
     }
     
-    showDeleteModal(loanType, () => {
+    openDeleteModal(loanType, 'loantype', () => {
         fetch(`/general-settings/api/loantypes/${loanTypeId}/`, {
             method: 'DELETE',
             headers: {
@@ -1484,7 +1522,7 @@ function deleteAllowanceType(button) {
         return;
     }
     
-    showDeleteModal(allowanceType, () => {
+    openDeleteModal(allowanceType, 'allowancetype', () => {
         fetch(`/general-settings/api/allowancetypes/${allowanceTypeId}/`, {
             method: 'DELETE',
             headers: {
@@ -1538,14 +1576,14 @@ function addOJTRateField(ojtRateData = null) {
                    oninput="handleFieldChange(this)">
         </div>
         <div class="field-actions">
+            <button type="button" class="btn-department-lines" onclick="openOJTRateModal(this)" title="Rates" ${!ojtRateId ? 'disabled' : ''}>
+                <i class="fa fa-list-ul"></i>
+            </button>
             <button type="button" class="btn-update" onclick="updateOJTRate(this)" title="Update">
                 <i class="fas fa-check"></i>
             </button>
             <button type="button" class="btn-delete" onclick="deleteOJTRate(this)" title="Delete">
                 <i class="fas fa-times"></i>
-            </button>
-            <button type="button" class="btn-department-line" onclick="openOJTRateModal(this)" title="Rates" ${!ojtRateId ? 'disabled' : ''}>
-                Rate
             </button>
         </div>
     `;
@@ -1665,7 +1703,7 @@ function deleteOJTRate(button) {
         return;
     }
     
-    showDeleteModal(site, () => {
+    openDeleteModal(site, 'ojtrate', () => {
         fetch(`/general-settings/api/ojtrates/${ojtRateId}/`, {
             method: 'DELETE',
             headers: {
@@ -1712,19 +1750,30 @@ function openOJTRateModal(button) {
     
     // Show modal
     const modal = document.getElementById('ojtRateModal');
-    modal.classList.add('show');
+    modal.style.display = 'flex';
+    // Use setTimeout to trigger transition after display is set
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
 }
 
 function closeOJTRateModal() {
     const modal = document.getElementById('ojtRateModal');
     modal.classList.remove('show');
+    // Use setTimeout to hide after transition completes
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
     currentOJTRateId = null;
     
-    // Clear form
-    const form = document.getElementById('ojtRateForm');
-    if (form) {
-        form.reset();
-    }
+    // Clear form inputs manually
+    document.getElementById('allowanceDayInput').value = '';
+    document.getElementById('regNdRateInput').value = '';
+    document.getElementById('regNdOtRateInput').value = '';
+    document.getElementById('regOtRateInput').value = '';
+    document.getElementById('restOtRateInput').value = '';
+    document.getElementById('legalRateInput').value = '';
+    document.getElementById('satOffRateInput').value = '';
 }
 
 function loadOJTRateData(ojtRateId) {
@@ -1773,7 +1822,12 @@ function saveOJTRate() {
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(result => {
         if (result.success) {
             showToast('OJT rates saved successfully', 'success');
@@ -1783,6 +1837,1068 @@ function saveOJTRate() {
         }
     })
     .catch(error => {
+        console.error('Error saving OJT rates:', error);
         showToast('Error saving OJT rates', 'error');
+    });
+}
+
+// Leave Settings
+function setupLeaveSettings() {
+    setupLeaveTypeSettings();
+    setupSundayExceptionSettings();
+}
+
+function initializeLeaveSettings() {
+    loadExistingLeaveTypes();
+    loadExistingSundayExceptions();
+}
+
+// LeaveType Settings
+function setupLeaveTypeSettings() {
+    const addBtn = document.getElementById('addLeaveTypeBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            addLeaveTypeField();
+        });
+    }
+}
+
+function addLeaveTypeField(leaveTypeData = null) {
+    const fieldsContainer = document.getElementById('leaveTypeFields');
+    if (!fieldsContainer) return;
+    
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'invite-field';
+    
+    const leaveTypeId = leaveTypeData ? leaveTypeData.id : '';
+    const name = leaveTypeData ? leaveTypeData.name : '';
+    const code = leaveTypeData ? leaveTypeData.code : '';
+    const goToClinic = leaveTypeData ? leaveTypeData.go_to_clinic : false;
+    const isActive = leaveTypeData ? leaveTypeData.is_active : true;
+    
+    fieldDiv.innerHTML = `
+        <div class="leave-type-inputs">
+            <div class="input-with-icon">
+                <i class="fas fa-calendar-alt"></i>
+                <input type="text" 
+                       placeholder="Enter leave type name..." 
+                       value="${name}"
+                       data-id="${leaveTypeId}"
+                       data-original="${name}"
+                       data-field="name"
+                       oninput="handleFieldChange(this)">
+            </div>
+            <div class="input-with-icon">
+                <i class="fas fa-code"></i>
+                <input type="text" 
+                       placeholder="Enter code..." 
+                       value="${code}"
+                       data-field="code"
+                       oninput="handleFieldChange(this)">
+            </div>
+            <div class="leave-type-checkboxes">
+                <div class="checkbox-container">
+                    <label class="standard-checkbox">
+                        <input type="checkbox" ${goToClinic ? 'checked' : ''} data-field="go_to_clinic" onchange="handleFieldChange(this)">
+                        <span class="checkmark"></span>
+                    </label>
+                    <span>Go to Clinic</span>
+                </div>
+                <div class="checkbox-container">
+                    <label class="standard-checkbox">
+                        <input type="checkbox" ${isActive ? 'checked' : ''} data-field="is_active" onchange="handleFieldChange(this)">
+                        <span class="checkmark"></span>
+                    </label>
+                    <span>Is Active</span>
+                </div>
+            </div>
+        </div>
+        <div class="leave-type-actions">
+            <button type="button" class="btn-department-lines" onclick="openLeaveTypeReasonsModal(this)" title="Reasons" ${!leaveTypeId ? 'disabled' : ''}>
+                <i class="fa fa-list-ul"></i>
+            </button>
+            <button type="button" class="btn-update" onclick="updateLeaveType(this)" title="Update">
+                <i class="fas fa-check"></i>
+            </button>
+            <button type="button" class="btn-delete" onclick="deleteLeaveType(this)" title="Delete">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    fieldsContainer.appendChild(fieldDiv);
+    
+    if (!leaveTypeData) {
+        fieldDiv.querySelector('input[data-field="name"]').focus();
+    }
+}
+
+function loadExistingLeaveTypes() {
+    fetch('/general-settings/api/leavetypes/')
+        .then(response => response.json())
+        .then(data => {
+            const fieldsContainer = document.getElementById('leaveTypeFields');
+            if (!fieldsContainer) return;
+            
+            fieldsContainer.innerHTML = '';
+            
+            const leaveTypes = data.leavetypes || [];
+            const minFields = 3;
+            
+            leaveTypes.forEach(leaveType => {
+                addLeaveTypeField(leaveType);
+            });
+            
+            while (fieldsContainer.children.length < minFields) {
+                addLeaveTypeField();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading leave types:', error);
+        });
+}
+
+function updateLeaveType(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const nameInput = fieldDiv.querySelector('input[data-field="name"]');
+    const codeInput = fieldDiv.querySelector('input[data-field="code"]');
+    const goToClinicInput = fieldDiv.querySelector('input[data-field="go_to_clinic"]');
+    const isActiveInput = fieldDiv.querySelector('input[data-field="is_active"]');
+    
+    const leaveTypeId = nameInput.dataset.id;
+    const name = nameInput.value.trim();
+    const code = codeInput.value.trim();
+    const goToClinic = goToClinicInput.checked;
+    const isActive = isActiveInput.checked;
+    
+    if (!name || !code) {
+        showToast('Please enter both name and code', 'error');
+        return;
+    }
+    
+    const data = {
+        name: name,
+        code: code,
+        go_to_clinic: goToClinic,
+        is_active: isActive
+    };
+    
+    if (leaveTypeId) {
+        // Update existing
+        fetch(`/general-settings/api/leavetypes/${leaveTypeId}/`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Leave type updated successfully', 'success');
+                nameInput.dataset.original = name;
+                resetFieldState(fieldDiv);
+            } else {
+                showToast(result.error || 'Failed to update leave type', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error updating leave type', 'error');
+        });
+    } else {
+        // Create new
+        fetch('/general-settings/api/leavetypes/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Leave type created successfully', 'success');
+                nameInput.dataset.id = result.leavetype.id;
+                nameInput.dataset.original = name;
+                resetFieldState(fieldDiv);
+                
+                // Enable the List button
+                const listBtn = fieldDiv.querySelector('.btn-department-line');
+                if (listBtn) {
+                    listBtn.disabled = false;
+                }
+                
+                addLeaveTypeField(); // Add new empty field
+            } else {
+                showToast(result.error || 'Failed to create leave type', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error creating leave type', 'error');
+        });
+    }
+}
+
+function deleteLeaveType(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const nameInput = fieldDiv.querySelector('input[data-field="name"]');
+    const leaveTypeId = nameInput.dataset.id;
+    const name = nameInput.value.trim();
+    
+    if (!leaveTypeId) {
+        fieldDiv.remove();
+        ensureMinimumFields('leaveTypeFields', 3, addLeaveTypeField);
+        return;
+    }
+    
+    openDeleteModal(name, 'leavetype', () => {
+        fetch(`/general-settings/api/leavetypes/${leaveTypeId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Leave type deleted successfully', 'success');
+                fieldDiv.remove();
+                ensureMinimumFields('leaveTypeFields', 3, addLeaveTypeField);
+            } else {
+                showToast(result.error || 'Failed to delete leave type', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error deleting leave type', 'error');
+        });
+    });
+}
+
+// SundayException Settings
+function setupSundayExceptionSettings() {
+    const addBtn = document.getElementById('addSundayExceptionBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            addSundayExceptionField();
+        });
+    }
+}
+
+function addSundayExceptionField(sundayExceptionData = null) {
+    const fieldsContainer = document.getElementById('sundayExceptionFields');
+    if (!fieldsContainer) return;
+    
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'invite-field';
+    
+    const sundayExceptionId = sundayExceptionData ? sundayExceptionData.id : '';
+    const date = sundayExceptionData ? sundayExceptionData.date : '';
+    const description = sundayExceptionData ? sundayExceptionData.description : '';
+    
+    fieldDiv.innerHTML = `
+        <div class="sunday-exception-inputs">
+            <div class="input-with-icon">
+                <i class="fas fa-calendar"></i>
+                <input type="date" 
+                       value="${date}"
+                       data-id="${sundayExceptionId}"
+                       data-original="${date}"
+                       data-field="date"
+                       oninput="handleFieldChange(this)">
+            </div>
+            <div class="input-with-icon">
+                <i class="fas fa-comment"></i>
+                <input type="text" 
+                       placeholder="Enter description..." 
+                       value="${description}"
+                       data-field="description"
+                       oninput="handleFieldChange(this)">
+            </div>
+        </div>
+        <div class="field-actions">
+            <button type="button" class="btn-update" onclick="updateSundayException(this)" title="Update">
+                <i class="fas fa-check"></i>
+            </button>
+            <button type="button" class="btn-delete" onclick="deleteSundayException(this)" title="Delete">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    fieldsContainer.appendChild(fieldDiv);
+    
+    if (!sundayExceptionData) {
+        fieldDiv.querySelector('input[data-field="date"]').focus();
+    }
+}
+
+function loadExistingSundayExceptions() {
+    fetch('/general-settings/api/sundayexceptions/')
+        .then(response => response.json())
+        .then(data => {
+            const fieldsContainer = document.getElementById('sundayExceptionFields');
+            if (!fieldsContainer) return;
+            
+            fieldsContainer.innerHTML = '';
+            
+            const sundayExceptions = data.sundayexceptions || [];
+            const minFields = 3;
+            
+            sundayExceptions.forEach(sundayException => {
+                addSundayExceptionField(sundayException);
+            });
+            
+            while (fieldsContainer.children.length < minFields) {
+                addSundayExceptionField();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading sunday exceptions:', error);
+        });
+}
+
+function updateSundayException(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const dateInput = fieldDiv.querySelector('input[data-field="date"]');
+    const descriptionInput = fieldDiv.querySelector('input[data-field="description"]');
+    
+    const sundayExceptionId = dateInput.dataset.id;
+    const date = dateInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!date) {
+        showToast('Please select a date', 'error');
+        return;
+    }
+    
+    const data = {
+        date: date,
+        description: description
+    };
+    
+    if (sundayExceptionId) {
+        // Update existing
+        fetch(`/general-settings/api/sundayexceptions/${sundayExceptionId}/`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Sunday exception updated successfully', 'success');
+                dateInput.dataset.original = date;
+                resetFieldState(fieldDiv);
+            } else {
+                showToast(result.error || 'Failed to update sunday exception', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error updating sunday exception', 'error');
+        });
+    } else {
+        // Create new
+        fetch('/general-settings/api/sundayexceptions/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Sunday exception created successfully', 'success');
+                dateInput.dataset.id = result.sundayexception.id;
+                dateInput.dataset.original = date;
+                resetFieldState(fieldDiv);
+                addSundayExceptionField(); // Add new empty field
+            } else {
+                showToast(result.error || 'Failed to create sunday exception', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error creating sunday exception', 'error');
+        });
+    }
+}
+
+function deleteSundayException(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const dateInput = fieldDiv.querySelector('input[data-field="date"]');
+    const sundayExceptionId = dateInput.dataset.id;
+    const date = dateInput.value.trim();
+    
+    if (!sundayExceptionId) {
+        fieldDiv.remove();
+        ensureMinimumFields('sundayExceptionFields', 3, addSundayExceptionField);
+        return;
+    }
+    
+    openDeleteModal(date, 'sundayexception', () => {
+        fetch(`/general-settings/api/sundayexceptions/${sundayExceptionId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Sunday exception deleted successfully', 'success');
+                fieldDiv.remove();
+                ensureMinimumFields('sundayExceptionFields', 3, addSundayExceptionField);
+            } else {
+                showToast(result.error || 'Failed to delete sunday exception', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error deleting sunday exception', 'error');
+        });
+    });
+}
+
+// Leave Type Reasons Modal Functions
+let currentLeaveTypeId = null;
+let currentLeaveTypeName = '';
+
+function openLeaveTypeReasonsModal(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const nameInput = fieldDiv.querySelector('input[data-field="name"]');
+    const leaveTypeId = nameInput.dataset.id;
+    const leaveTypeName = nameInput.value.trim();
+    
+    if (!leaveTypeId) {
+        showToast('Please save the leave type first before managing reasons', 'error');
+        return;
+    }
+    
+    currentLeaveTypeId = leaveTypeId;
+    currentLeaveTypeName = leaveTypeName;
+    
+    // Update modal title
+    document.getElementById('leaveTypeReasonsTitle').textContent = `Reasons for ${leaveTypeName}`;
+    
+    // Load current reasons
+    loadLeaveTypeReasons(leaveTypeId);
+    
+    // Show modal
+    const modal = document.getElementById('leaveTypeReasonsModal');
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+function closeLeaveTypeReasonsModal() {
+    const modal = document.getElementById('leaveTypeReasonsModal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+    currentLeaveTypeId = null;
+    currentLeaveTypeName = '';
+    
+    // Clear form
+    document.getElementById('newReasonInput').value = '';
+    document.getElementById('newReasonActiveInput').checked = true;
+}
+
+function loadLeaveTypeReasons(leaveTypeId) {
+    const reasonsList = document.getElementById('leaveTypeReasonsList');
+    reasonsList.innerHTML = '<div class="loading">Loading reasons...</div>';
+    
+    fetch(`/general-settings/api/leavetypes/${leaveTypeId}/reasons/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayLeaveTypeReasons(data.reasons);
+            } else {
+                reasonsList.innerHTML = '<div class="error">Error loading reasons</div>';
+            }
+        })
+        .catch(error => {
+            reasonsList.innerHTML = '<div class="error">Error loading reasons</div>';
+        });
+}
+
+function displayLeaveTypeReasons(reasons) {
+    const reasonsList = document.getElementById('leaveTypeReasonsList');
+    
+    if (reasons.length === 0) {
+        reasonsList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-list"></i>
+                <p>No reasons added yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    reasonsList.innerHTML = reasons.map(reason => `
+        <div class="reason-item" data-reason-id="${reason.id}">
+            <div class="reason-content">
+                <div class="reason-text">${reason.reason_text}</div>
+                <div class="reason-status ${reason.is_active ? 'active' : 'inactive'}">
+                    ${reason.is_active ? 'Active' : 'Inactive'}
+                </div>
+            </div>
+            <div class="reason-actions">
+                <button class="btn btn-icon" onclick="editLeaveTypeReason(${reason.id}, '${reason.reason_text.replace(/'/g, "\\'")}', ${reason.is_active})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-icon btn-error" onclick="deleteLeaveTypeReason(${reason.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addReasonToLeaveType() {
+    if (!currentLeaveTypeId) {
+        showToast('No leave type selected', 'error');
+        return;
+    }
+    
+    const reasonText = document.getElementById('newReasonInput').value.trim();
+    const isActive = document.getElementById('newReasonActiveInput').checked;
+    
+    if (!reasonText) {
+        showToast('Please enter reason text', 'error');
+        return;
+    }
+    
+    const data = {
+        reason_text: reasonText,
+        is_active: isActive
+    };
+    
+    fetch(`/general-settings/api/leavetypes/${currentLeaveTypeId}/reasons/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showToast('Reason added successfully', 'success');
+            document.getElementById('newReasonInput').value = '';
+            document.getElementById('newReasonActiveInput').checked = true;
+            loadLeaveTypeReasons(currentLeaveTypeId);
+        } else {
+            showToast(result.error || 'Failed to add reason', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error adding reason', 'error');
+    });
+}
+
+// Edit Leave Type Reason Modal Variables
+let editingReasonId = null;
+
+function editLeaveTypeReason(reasonId, reasonText, isActive) {
+    editingReasonId = reasonId;
+    
+    // Populate the edit form
+    document.getElementById('editReasonTextInput').value = reasonText;
+    document.getElementById('editReasonActiveInput').checked = isActive;
+    
+    // Open the modal
+    openEditLeaveTypeReasonModal();
+}
+
+function openEditLeaveTypeReasonModal() {
+    const modal = document.getElementById('editLeaveTypeReasonModal');
+    modal.style.display = 'flex';
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+}
+
+function closeEditLeaveTypeReasonModal() {
+    const modal = document.getElementById('editLeaveTypeReasonModal');
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+        // Clear form
+        document.getElementById('editReasonTextInput').value = '';
+        document.getElementById('editReasonActiveInput').checked = false;
+        editingReasonId = null;
+    }, 300);
+}
+
+function saveEditedLeaveTypeReason() {
+    if (!editingReasonId) return;
+    
+    const reasonText = document.getElementById('editReasonTextInput').value.trim();
+    const isActive = document.getElementById('editReasonActiveInput').checked;
+    
+    if (!reasonText) {
+        showToast('Reason text is required', 'error');
+        return;
+    }
+    
+    const data = {
+        reason_text: reasonText,
+        is_active: isActive
+    };
+    
+    fetch(`/general-settings/api/leavetypes/${currentLeaveTypeId}/reasons/${editingReasonId}/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showToast('Reason updated successfully', 'success');
+            loadLeaveTypeReasons(currentLeaveTypeId);
+            closeEditLeaveTypeReasonModal();
+        } else {
+            showToast(result.error || 'Failed to update reason', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error updating reason', 'error');
+    });
+}
+
+function deleteLeaveTypeReason(reasonId) {
+    if (!confirm('Are you sure you want to delete this reason?')) return;
+    
+    fetch(`/general-settings/api/leavetypes/${currentLeaveTypeId}/reasons/${reasonId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showToast('Reason deleted successfully', 'success');
+            loadLeaveTypeReasons(currentLeaveTypeId);
+        } else {
+            showToast(result.error || 'Failed to delete reason', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error deleting reason', 'error');
+    });
+}
+
+// ========================
+// TICKETING SETTINGS
+// ========================
+
+function setupTicketingSettings() {
+    setupDeviceTypeSettings();
+    setupTicketCategorySettings();
+}
+
+// DeviceType Settings
+function setupDeviceTypeSettings() {
+    const addBtn = document.getElementById('addDeviceTypeBtn');
+    const fieldsContainer = document.getElementById('deviceTypeFields');
+    
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            addDeviceTypeField();
+        });
+    }
+    
+    // Load existing device types
+    loadExistingDeviceTypes();
+}
+
+function addDeviceTypeField(deviceTypeData = null) {
+    const fieldsContainer = document.getElementById('deviceTypeFields');
+    if (!fieldsContainer) return;
+    
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'invite-field';
+    
+    const deviceTypeId = deviceTypeData ? deviceTypeData.id : '';
+    const name = deviceTypeData ? deviceTypeData.name : '';
+    const description = deviceTypeData ? deviceTypeData.description : '';
+    
+    fieldDiv.innerHTML = `
+        <div class="device-type-inputs">
+            <div class="input-with-icon">
+                <i class="fas fa-desktop"></i>
+                <input type="text" 
+                       placeholder="Enter device type name..." 
+                       value="${name}"
+                       data-id="${deviceTypeId}"
+                       data-original="${name}"
+                       data-field="name"
+                       oninput="handleFieldChange(this)">
+            </div>
+            <div class="input-with-icon">
+                <i class="fas fa-comment"></i>
+                <input type="text" 
+                       placeholder="Enter description..." 
+                       value="${description}"
+                       data-field="description"
+                       oninput="handleFieldChange(this)">
+            </div>
+        </div>
+        <div class="field-actions">
+            <button type="button" class="btn-update" onclick="updateDeviceType(this)" title="Update">
+                <i class="fas fa-check"></i>
+            </button>
+            <button type="button" class="btn-delete" onclick="deleteDeviceType(this)" title="Delete">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    fieldsContainer.appendChild(fieldDiv);
+    
+    if (!deviceTypeData) {
+        fieldDiv.querySelector('input[data-field="name"]').focus();
+    }
+}
+
+function loadExistingDeviceTypes() {
+    fetch('/general-settings/api/devicetypes/')
+        .then(response => response.json())
+        .then(data => {
+            const fieldsContainer = document.getElementById('deviceTypeFields');
+            if (!fieldsContainer) return;
+            
+            fieldsContainer.innerHTML = '';
+            
+            // Always ensure minimum 3 fields
+            const deviceTypes = data.devicetypes || [];
+            const minFields = 3;
+            
+            // Add existing device types
+            deviceTypes.forEach(deviceType => {
+                addDeviceTypeField(deviceType);
+            });
+            
+            // Add empty fields to reach minimum
+            while (fieldsContainer.children.length < minFields) {
+                addDeviceTypeField();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading device types:', error);
+            showToast('Error loading device types', 'error');
+        });
+}
+
+function updateDeviceType(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const nameInput = fieldDiv.querySelector('input[data-field="name"]');
+    const descriptionInput = fieldDiv.querySelector('input[data-field="description"]');
+    const deviceTypeId = nameInput.dataset.id;
+    
+    const name = nameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!name) {
+        showToast('Device type name is required', 'error');
+        nameInput.focus();
+        return;
+    }
+    
+    const data = {
+        name: name,
+        description: description
+    };
+    
+    let url, method;
+    if (deviceTypeId) {
+        url = `/general-settings/api/devicetypes/${deviceTypeId}/`;
+        method = 'PUT';
+    } else {
+        url = '/general-settings/api/devicetypes/';
+        method = 'POST';
+    }
+    
+    button.disabled = true;
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            const deviceType = result.devicetype;
+            nameInput.dataset.id = deviceType.id;
+            nameInput.dataset.original = deviceType.name;
+            descriptionInput.dataset.original = deviceType.description;
+            
+            resetFieldState(fieldDiv);
+            showToast(`Device type ${deviceTypeId ? 'updated' : 'created'} successfully`, 'success');
+            
+            if (!deviceTypeId) {
+                addDeviceTypeField(); // Add new empty field
+            }
+        } else {
+            showToast(result.error || 'Failed to save device type', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving device type:', error);
+        showToast('Error saving device type', 'error');
+    })
+    .finally(() => {
+        button.disabled = false;
+        ensureMinimumFields('deviceTypeFields', 3, addDeviceTypeField);
+    });
+}
+
+function deleteDeviceType(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const nameInput = fieldDiv.querySelector('input[data-field="name"]');
+    const deviceTypeId = nameInput.dataset.id;
+    const name = nameInput.value || 'this device type';
+    
+    if (!deviceTypeId) {
+        // If no ID, just remove the field
+        fieldDiv.remove();
+        ensureMinimumFields('deviceTypeFields', 3, addDeviceTypeField);
+        return;
+    }
+    
+    openDeleteModal(name, 'device type', function() {
+        fetch(`/general-settings/api/devicetypes/${deviceTypeId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                fieldDiv.remove();
+                showToast('Device type deleted successfully', 'success');
+                ensureMinimumFields('deviceTypeFields', 3, addDeviceTypeField);
+            } else {
+                showToast(result.error || 'Failed to delete device type', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting device type:', error);
+            showToast('Error deleting device type', 'error');
+        });
+    });
+}
+
+// TicketCategory Settings
+function setupTicketCategorySettings() {
+    const addBtn = document.getElementById('addTicketCategoryBtn');
+    const fieldsContainer = document.getElementById('ticketCategoryFields');
+    
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            addTicketCategoryField();
+        });
+    }
+    
+    // Load existing ticket categories
+    loadExistingTicketCategories();
+}
+
+function addTicketCategoryField(ticketCategoryData = null) {
+    const fieldsContainer = document.getElementById('ticketCategoryFields');
+    if (!fieldsContainer) return;
+    
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'invite-field';
+    
+    const ticketCategoryId = ticketCategoryData ? ticketCategoryData.id : '';
+    const name = ticketCategoryData ? ticketCategoryData.name : '';
+    const description = ticketCategoryData ? ticketCategoryData.description : '';
+    
+    fieldDiv.innerHTML = `
+        <div class="ticket-category-inputs">
+            <div class="input-with-icon">
+                <i class="fas fa-tag"></i>
+                <input type="text" 
+                       placeholder="Enter ticket category name..." 
+                       value="${name}"
+                       data-id="${ticketCategoryId}"
+                       data-original="${name}"
+                       data-field="name"
+                       oninput="handleFieldChange(this)">
+            </div>
+            <div class="input-with-icon">
+                <i class="fas fa-comment"></i>
+                <input type="text" 
+                       placeholder="Enter description..." 
+                       value="${description}"
+                       data-field="description"
+                       oninput="handleFieldChange(this)">
+            </div>
+        </div>
+        <div class="field-actions">
+            <button type="button" class="btn-update" onclick="updateTicketCategory(this)" title="Update">
+                <i class="fas fa-check"></i>
+            </button>
+            <button type="button" class="btn-delete" onclick="deleteTicketCategory(this)" title="Delete">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    fieldsContainer.appendChild(fieldDiv);
+    
+    if (!ticketCategoryData) {
+        fieldDiv.querySelector('input[data-field="name"]').focus();
+    }
+}
+
+function loadExistingTicketCategories() {
+    fetch('/general-settings/api/ticketcategories/')
+        .then(response => response.json())
+        .then(data => {
+            const fieldsContainer = document.getElementById('ticketCategoryFields');
+            if (!fieldsContainer) return;
+            
+            fieldsContainer.innerHTML = '';
+            
+            // Always ensure minimum 3 fields
+            const ticketCategories = data.ticketcategories || [];
+            const minFields = 3;
+            
+            // Add existing ticket categories
+            ticketCategories.forEach(ticketCategory => {
+                addTicketCategoryField(ticketCategory);
+            });
+            
+            // Add empty fields to reach minimum
+            while (fieldsContainer.children.length < minFields) {
+                addTicketCategoryField();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading ticket categories:', error);
+            showToast('Error loading ticket categories', 'error');
+        });
+}
+
+function updateTicketCategory(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const nameInput = fieldDiv.querySelector('input[data-field="name"]');
+    const descriptionInput = fieldDiv.querySelector('input[data-field="description"]');
+    const ticketCategoryId = nameInput.dataset.id;
+    
+    const name = nameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!name) {
+        showToast('Ticket category name is required', 'error');
+        nameInput.focus();
+        return;
+    }
+    
+    const data = {
+        name: name,
+        description: description
+    };
+    
+    let url, method;
+    if (ticketCategoryId) {
+        url = `/general-settings/api/ticketcategories/${ticketCategoryId}/`;
+        method = 'PUT';
+    } else {
+        url = '/general-settings/api/ticketcategories/';
+        method = 'POST';
+    }
+    
+    button.disabled = true;
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            const ticketCategory = result.ticketcategory;
+            nameInput.dataset.id = ticketCategory.id;
+            nameInput.dataset.original = ticketCategory.name;
+            descriptionInput.dataset.original = ticketCategory.description;
+            
+            resetFieldState(fieldDiv);
+            showToast(`Ticket category ${ticketCategoryId ? 'updated' : 'created'} successfully`, 'success');
+            
+            if (!ticketCategoryId) {
+                addTicketCategoryField(); // Add new empty field
+            }
+        } else {
+            showToast(result.error || 'Failed to save ticket category', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving ticket category:', error);
+        showToast('Error saving ticket category', 'error');
+    })
+    .finally(() => {
+        button.disabled = false;
+        ensureMinimumFields('ticketCategoryFields', 3, addTicketCategoryField);
+    });
+}
+
+function deleteTicketCategory(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const nameInput = fieldDiv.querySelector('input[data-field="name"]');
+    const ticketCategoryId = nameInput.dataset.id;
+    const name = nameInput.value || 'this ticket category';
+    
+    if (!ticketCategoryId) {
+        // If no ID, just remove the field
+        fieldDiv.remove();
+        ensureMinimumFields('ticketCategoryFields', 3, addTicketCategoryField);
+        return;
+    }
+    
+    openDeleteModal(name, 'ticket category', function() {
+        fetch(`/general-settings/api/ticketcategories/${ticketCategoryId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                fieldDiv.remove();
+                showToast('Ticket category deleted successfully', 'success');
+                ensureMinimumFields('ticketCategoryFields', 3, addTicketCategoryField);
+            } else {
+                showToast(result.error || 'Failed to delete ticket category', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting ticket category:', error);
+            showToast('Error deleting ticket category', 'error');
+        });
     });
 }

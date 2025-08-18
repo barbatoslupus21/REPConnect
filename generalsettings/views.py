@@ -3,8 +3,12 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
+from datetime import datetime
+from django.db import IntegrityError
 from .models import Department, Line, Position
 from finance.models import LoanType, AllowanceType, OJTRate
+from leaverequest.models import LeaveType, LeaveReason, SundayException
+from ticketing.models import DeviceType, TicketCategory
 
 # Create your views here.
 
@@ -406,5 +410,371 @@ def api_ojtrate_rates(request, ojtrate_id):
                 "success": True,
                 "message": "Rates updated successfully"
             })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+# Leave API Views
+
+# LeaveType API Views
+@require_http_methods(["GET", "POST"])
+def api_leavetypes(request):
+    if request.method == 'GET':
+        leavetypes = LeaveType.objects.all().order_by('name')
+        data = [{
+            "id": lt.id, 
+            "name": lt.name,
+            "code": lt.code,
+            "go_to_clinic": lt.go_to_clinic,
+            "is_active": lt.is_active
+        } for lt in leavetypes]
+        return JsonResponse({"leavetypes": data})
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            leavetype = LeaveType.objects.create(
+                name=data['name'],
+                code=data['code'],
+                go_to_clinic=data.get('go_to_clinic', False),
+                is_active=data.get('is_active', True)
+            )
+            return JsonResponse({
+                "success": True,
+                "leavetype": {
+                    "id": leavetype.id,
+                    "name": leavetype.name,
+                    "code": leavetype.code,
+                    "go_to_clinic": leavetype.go_to_clinic,
+                    "is_active": leavetype.is_active
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+@require_http_methods(["PUT", "DELETE"])
+def api_leavetype_detail(request, leavetype_id):
+    leavetype = get_object_or_404(LeaveType, id=leavetype_id)
+    
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            leavetype.name = data['name']
+            leavetype.code = data['code']
+            leavetype.go_to_clinic = data.get('go_to_clinic', False)
+            leavetype.is_active = data.get('is_active', True)
+            leavetype.save()
+            return JsonResponse({
+                "success": True,
+                "leavetype": {
+                    "id": leavetype.id,
+                    "name": leavetype.name,
+                    "code": leavetype.code,
+                    "go_to_clinic": leavetype.go_to_clinic,
+                    "is_active": leavetype.is_active
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    elif request.method == 'DELETE':
+        try:
+            leavetype.delete()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+# SundayException API Views
+@require_http_methods(["GET", "POST"])
+def api_sundayexceptions(request):
+    if request.method == 'GET':
+        sundayexceptions = SundayException.objects.all().order_by('date')
+        data = [{
+            "id": se.id, 
+            "date": se.date.strftime('%Y-%m-%d'),
+            "description": se.description
+        } for se in sundayexceptions]
+        return JsonResponse({"sundayexceptions": data})
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            date_str = data.get('date')
+            description = data.get('description', '')
+            
+            if not date_str:
+                return JsonResponse({"success": False, "error": "Date is required"})
+            
+            # Parse the date string to ensure it's valid
+            try:
+                parsed_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({"success": False, "error": "Invalid date format. Use YYYY-MM-DD"})
+            
+            # Check if date already exists
+            if SundayException.objects.filter(date=parsed_date).exists():
+                return JsonResponse({"success": False, "error": "A Sunday exception for this date already exists"})
+            
+            sundayexception = SundayException.objects.create(
+                date=parsed_date,
+                description=description
+            )
+            return JsonResponse({
+                "success": True,
+                "sundayexception": {
+                    "id": sundayexception.id,
+                    "date": sundayexception.date.strftime('%Y-%m-%d'),
+                    "description": sundayexception.description
+                }
+            })
+        except IntegrityError as e:
+            return JsonResponse({"success": False, "error": "A Sunday exception for this date already exists"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+@require_http_methods(["PUT", "DELETE"])
+def api_sundayexception_detail(request, sundayexception_id):
+    sundayexception = get_object_or_404(SundayException, id=sundayexception_id)
+    
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            date_str = data.get('date')
+            description = data.get('description', '')
+            
+            if not date_str:
+                return JsonResponse({"success": False, "error": "Date is required"})
+            
+            # Parse the date string to ensure it's valid
+            try:
+                parsed_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({"success": False, "error": "Invalid date format. Use YYYY-MM-DD"})
+            
+            # Check if date already exists (excluding current record)
+            if SundayException.objects.filter(date=parsed_date).exclude(id=sundayexception_id).exists():
+                return JsonResponse({"success": False, "error": "A Sunday exception for this date already exists"})
+            
+            sundayexception.date = parsed_date
+            sundayexception.description = description
+            sundayexception.save()
+            return JsonResponse({
+                "success": True,
+                "sundayexception": {
+                    "id": sundayexception.id,
+                    "date": sundayexception.date.strftime('%Y-%m-%d'),
+                    "description": sundayexception.description
+                }
+            })
+        except IntegrityError as e:
+            return JsonResponse({"success": False, "error": "A Sunday exception for this date already exists"})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    elif request.method == 'DELETE':
+        try:
+            sundayexception.delete()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+# LeaveReason API Views (for specific leave type)
+@require_http_methods(["GET", "POST"])
+def api_leavetype_reasons(request, leavetype_id):
+    leavetype = get_object_or_404(LeaveType, id=leavetype_id)
+    
+    if request.method == 'GET':
+        reasons = leavetype.reasons.all().order_by('reason_text')
+        data = [{
+            "id": lr.id,
+            "reason_text": lr.reason_text,
+            "is_active": lr.is_active
+        } for lr in reasons]
+        return JsonResponse({"success": True, "reasons": data})
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            reason = LeaveReason.objects.create(
+                leave_type=leavetype,
+                reason_text=data['reason_text'],
+                is_active=data.get('is_active', True)
+            )
+            return JsonResponse({
+                "success": True,
+                "reason": {
+                    "id": reason.id,
+                    "reason_text": reason.reason_text,
+                    "is_active": reason.is_active
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+@require_http_methods(["PUT", "DELETE"])
+def api_leavetype_reason_detail(request, leavetype_id, reason_id):
+    leavetype = get_object_or_404(LeaveType, id=leavetype_id)
+    reason = get_object_or_404(LeaveReason, id=reason_id, leave_type=leavetype)
+    
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            reason.reason_text = data['reason_text']
+            reason.is_active = data.get('is_active', True)
+            reason.save()
+            return JsonResponse({
+                "success": True,
+                "reason": {
+                    "id": reason.id,
+                    "reason_text": reason.reason_text,
+                    "is_active": reason.is_active
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    elif request.method == 'DELETE':
+        try:
+            reason.delete()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+# DeviceType API Views
+@csrf_exempt
+def api_devicetypes(request):
+    if request.method == 'GET':
+        devicetypes = DeviceType.objects.all().order_by('name')
+        data = [{
+            "id": dt.id, 
+            "name": dt.name,
+            "description": dt.description or ""
+        } for dt in devicetypes]
+        return JsonResponse({"devicetypes": data})
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            description = data.get('description', '').strip()
+            
+            if not name:
+                return JsonResponse({"success": False, "error": "Device type name is required"})
+            
+            devicetype = DeviceType.objects.create(
+                name=name,
+                description=description
+            )
+            return JsonResponse({
+                "success": True,
+                "devicetype": {
+                    "id": devicetype.id,
+                    "name": devicetype.name,
+                    "description": devicetype.description or ""
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+@require_http_methods(["PUT", "DELETE"])
+def api_devicetype_detail(request, devicetype_id):
+    devicetype = get_object_or_404(DeviceType, id=devicetype_id)
+    
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            description = data.get('description', '').strip()
+            
+            if not name:
+                return JsonResponse({"success": False, "error": "Device type name is required"})
+            
+            devicetype.name = name
+            devicetype.description = description
+            devicetype.save()
+            return JsonResponse({
+                "success": True,
+                "devicetype": {
+                    "id": devicetype.id,
+                    "name": devicetype.name,
+                    "description": devicetype.description or ""
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    elif request.method == 'DELETE':
+        try:
+            devicetype.delete()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+# TicketCategory API Views
+@csrf_exempt
+def api_ticketcategories(request):
+    if request.method == 'GET':
+        ticketcategories = TicketCategory.objects.all().order_by('name')
+        data = [{
+            "id": tc.id, 
+            "name": tc.name,
+            "description": tc.description or ""
+        } for tc in ticketcategories]
+        return JsonResponse({"ticketcategories": data})
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            description = data.get('description', '').strip()
+            
+            if not name:
+                return JsonResponse({"success": False, "error": "Ticket category name is required"})
+            
+            ticketcategory = TicketCategory.objects.create(
+                name=name,
+                description=description
+            )
+            return JsonResponse({
+                "success": True,
+                "ticketcategory": {
+                    "id": ticketcategory.id,
+                    "name": ticketcategory.name,
+                    "description": ticketcategory.description or ""
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+@require_http_methods(["PUT", "DELETE"])
+def api_ticketcategory_detail(request, ticketcategory_id):
+    ticketcategory = get_object_or_404(TicketCategory, id=ticketcategory_id)
+    
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            description = data.get('description', '').strip()
+            
+            if not name:
+                return JsonResponse({"success": False, "error": "Ticket category name is required"})
+            
+            ticketcategory.name = name
+            ticketcategory.description = description
+            ticketcategory.save()
+            return JsonResponse({
+                "success": True,
+                "ticketcategory": {
+                    "id": ticketcategory.id,
+                    "name": ticketcategory.name,
+                    "description": ticketcategory.description or ""
+                }
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    elif request.method == 'DELETE':
+        try:
+            ticketcategory.delete()
+            return JsonResponse({"success": True})
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)})

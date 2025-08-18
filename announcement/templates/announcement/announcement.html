@@ -121,23 +121,21 @@
                             </div>
                             
                             <!-- Reactors Display -->
-                            <div class="reactors-display" id="reactors-{{ announcement.id }}">
-                                {% if announcement.total_reactions > 0 %}
-                                    <div class="reactor-avatars">
-                                        <!-- Avatars will be populated by JavaScript -->
+                            <div class="reactors-display" id="reactors-{{ announcement.id }}" {% if announcement.total_reactions == 0 %}style="display: none;"{% endif %}>
+                                <div class="reactor-avatars">
+                                    <!-- Avatars will be populated by JavaScript -->
+                                </div>
+                                <div class="reactor-text">
+                                    <span class="latest-reactor"></span>
+                                    <span class="remaining-count" data-tooltip-id="tooltip-{{ announcement.id }}"></span>
+                                </div>
+                                
+                                <!-- Tooltip for reactor list -->
+                                <div class="reactors-tooltip" id="tooltip-{{ announcement.id }}">
+                                    <div class="tooltip-content">
+                                        <!-- Will be populated by JavaScript -->
                                     </div>
-                                    <div class="reactor-text">
-                                        <span class="latest-reactor"></span>
-                                        <span class="remaining-count" data-tooltip-id="tooltip-{{ announcement.id }}"></span>
-                                    </div>
-                                    
-                                    <!-- Tooltip for reactor list -->
-                                    <div class="reactors-tooltip" id="tooltip-{{ announcement.id }}">
-                                        <div class="tooltip-content">
-                                            <!-- Will be populated by JavaScript -->
-                                        </div>
-                                    </div>
-                                {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -151,45 +149,6 @@
             </div>
             {% endfor %}
         </div>
-
-        {% if page_obj.has_other_pages %}
-        <div class="pagination announcement-pagination">
-            <div class="pagination-info">
-                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} announcements
-            </div>
-            <div class="pagination-controls">
-                {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="pagination-btn">
-                    <i class="fas fa-chevron-left"></i>
-                </a>
-                {% else %}
-                <button class="pagination-btn" disabled>
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                {% endif %}
-
-                <div id="pageNumbers">
-                    {% for num in page_obj.paginator.page_range %}
-                        {% if page_obj.number == num %}
-                        <span class="pagination-btn active">{{ num }}</span>
-                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                        <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="pagination-btn">{{ num }}</a>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-
-                {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="pagination-btn">
-                    <i class="fas fa-chevron-right"></i>
-                </a>
-                {% else %}
-                <button class="pagination-btn" disabled>
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
     </div>
 </div>
 
@@ -296,9 +255,9 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div class="modal" id="deleteConfirmModal">
+<div class="modal modal-md" id="deleteConfirmModal">
     <div class="modal-overlay"></div>
-    <div class="modal-content modal-sm">
+    <div class="modal-content">
         <div class="modal-header">
             <h4>Confirm Delete</h4>
             <button class="modal-close" id="closeDeleteConfirm">

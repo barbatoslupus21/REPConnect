@@ -104,16 +104,18 @@ class LeaveRequest(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.control_number:
-            year = timezone.now().year
-            count = LeaveRequest.objects.filter(date_prepared__year=year).count() + 1
-            self.control_number = f"LV-{year}-{count:03d}"
-        
+            last_request = LeaveRequest.objects.order_by('-control_number').first()
+            if last_request and last_request.control_number.isdigit():
+                self.control_number = str(int(last_request.control_number) + 1)
+            else:
+                self.control_number = "1000"
+
         if self.date_from and self.date_to:
             working_days = self.calculate_working_days(self.date_from, self.date_to)
-            self.days_requested = working_days  # Allow 0 working days
-            
+            self.days_requested = working_days
+
         super().save(*args, **kwargs)
-    
+
     def calculate_working_days(self, start_date, end_date):
         working_days = 0
         current_date = start_date

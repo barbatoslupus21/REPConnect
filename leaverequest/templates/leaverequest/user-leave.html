@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="page-content" id="page-content">
-    <div class="page-header">
+    <header class="page-header">
         <div class="page-header-content">
             <h2>Leave Management</h2>
             <p>Manage your leave requests and track balances</p>
@@ -20,7 +20,7 @@
                 Apply for Leave
             </button>
         </div>
-    </div>
+    </header>
 
     <!-- Main Content Tabs -->
     <div class="leave-section">
@@ -187,13 +187,13 @@
                                     <div class="activity-item status-{{ leave.status }}">
                                         <div class="reminder-icon status-{{ leave.status }}">
                                             {% if leave.status == 'approved' %}
-                                                <i class="fas fa-check"></i>
+                                                <i class="fa fa-check-circle"></i>
                                             {% elif leave.status == 'disapproved' %}
-                                                <i class="fas fa-times"></i>
+                                                <i class="fa fa-times-circle"></i>
                                             {% elif leave.status == 'routing' %}
                                                 <i class="fas fa-clock"></i>
                                             {% else %}
-                                                <i class="fas fa-calendar"></i>
+                                                <i class="fa fa-ban"></i>
                                             {% endif %}
                                         </div>
                                         <div class="activity-content">

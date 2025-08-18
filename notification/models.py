@@ -7,6 +7,7 @@ class Notification(models.Model):
         ('disapproved', 'Disapproved'),
         ('general', 'General'),
         ('announcement', 'Announcement'),
+        ('approval', 'For Approval')
     ]
     
     title = models.CharField(max_length=200)
@@ -17,6 +18,7 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     module = models.CharField(max_length=20, default='overview')
     created_at = models.DateTimeField(auto_now_add=True)
+    for_all = models.BooleanField(default=False)
     
     class Meta:
         ordering = ['-created_at']

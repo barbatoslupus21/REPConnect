@@ -62,6 +62,7 @@
     <hr class="employee-info-divider">
 
     <!-- Leave Balance Information -->
+    {% if leave_request.status != 'disapproved' %}
     <div class="detail-section">
         <h4>Leave Balance Information</h4>
         <div class="balance-info">
@@ -127,6 +128,7 @@
     </div>
 
     <hr class="employee-info-divider">
+    {% endif %}
 
     <!-- Approval Timeline Section -->
     <div class="detail-section">

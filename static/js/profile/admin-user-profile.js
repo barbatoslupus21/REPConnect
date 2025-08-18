@@ -1741,6 +1741,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupModal('activateBtn', 'activateModal', 'closeActivateModal', 'cancelActivate');
     setupModal('unlockBtn', 'unlockModal', 'closeUnlockModal', 'cancelUnlock');
     setupModal('approvalBtn', 'approvalModal', 'closeApprovalModal', 'cancelApproval');
+    setupModal('resetBtn', 'resetPasswordModal', 'closeResetPasswordModal', 'cancelResetPassword');
 
     // Handle Activate/Deactivate/Lock/Unlock actions
     const confirmDeactivate = document.getElementById('confirmDeactivate');
@@ -1881,6 +1882,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     showToast(data.message || 'Failed to disapprove', 'error');
                 }
+            });
+        });
+    }
+
+    // Handle Reset Password action
+    const confirmResetPassword = document.getElementById('confirmResetPassword');
+    if (confirmResetPassword && employeeId) {
+        confirmResetPassword.addEventListener('click', function() {
+            fetch(`/profile/admin/employee/${employeeId}/reset-password/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrfToken() }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    document.getElementById('resetPasswordModal').classList.remove('show');
+                } else {
+                    showToast(data.message || 'Failed to reset password', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('An error occurred while resetting password', 'error');
             });
         });
     }

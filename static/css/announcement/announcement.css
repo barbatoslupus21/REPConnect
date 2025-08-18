@@ -320,11 +320,13 @@
     margin-top: 12px;
     border-radius: 8px;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
 }
 
 .post-image img {
-    width: 100%;
-    height: auto;
+    width: auto;
+    max-height: 800px !important;
     display: block;
 }
 
@@ -521,6 +523,7 @@
     max-width: 250px;
     white-space: normal;
     margin-bottom: 4px;
+    min-height: 40px;
 }
 
 .reactors-tooltip.show {
@@ -542,19 +545,45 @@
 }
 
 .tooltip-content {
-    max-height: 150px;
+    max-height: 200px;
+    min-height: 20px;
     overflow-y: auto;
+    padding: 2px 0;
+}
+
+/* Custom scrollbar for tooltip */
+.tooltip-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.tooltip-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tooltip-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+}
+
+.tooltip-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .tooltip-reactor {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 0;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tooltip-reactor:last-child {
+    border-bottom: none;
 }
 
 .tooltip-reactor .emoji {
     font-size: 12px;
+    min-width: 16px;
 }
 
 /* Pagination */
@@ -909,11 +938,23 @@
     .latest-reactor {
         font-size: var(--font-size-xs);
     }
+
+    .post-image img {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+    }
 }
 
 @media (max-width: 480px) {
     .facebook-style-container {
         padding: 8px;
         width: 100%;
+    }
+
+    .post-image img {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
     }
 }

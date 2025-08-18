@@ -1,90 +1,266 @@
 {% extends "main.html" %}
 {% load static %}
+{% load dashboard_extras %}
+{% csrf_token %}
 
 {% block title %}REPConnect - Overview{% endblock title %}
 {% block pagetitle %}Company Overview{% endblock %}
 
 {% block extra_css %}
-{% comment %} <link rel="stylesheet" href="{% static 'css/calendar/calendar.css' %}"> {% endcomment %}
+<link rel="stylesheet" href="{% static 'css/dashboard/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/announcement/announcement.css' %}">
 {% endblock %}
 
 {% block content %}
 <div class="page-content" id="page-content">
-    <h3>Company Overview</h3>
 
-    <!-- Test Modern Statistics Cards -->
-    <div class="modern-stats-grid">
-        <div class="modern-stat-card">
-            <div class="modern-stat-header">
-                <div class="modern-stat-icon blue">
-                    <i class="fas fa-users"></i>
-                </div>
+    <!-- User Greeting Section -->
+    <div class="user-greeting-section">
+        <div class="greeting-icon-container">
+            <div class="greeting-icon waving active" id="wavingIcon">
+                👋
             </div>
-            <div class="modern-stat-label">Total Employees</div>
-            <div class="modern-stat-value">1,234</div>
-            <div class="modern-stat-change positive">
-                <span class="modern-stat-change-icon">
-                    <i class="fas fa-arrow-up"></i>
-                </span>
-                8.2%
-                <span class="modern-stat-change-text">vs prev. month</span>
+            <div class="greeting-icon time-icon hidden" id="timeIcon" data-time="{{ time_greeting }}">
+                {% if time_greeting == 'morning' %}
+                    ☀️
+                {% elif time_greeting == 'afternoon' %}
+                    ☀️
+                {% else %}
+                    🌙
+                {% endif %}
+            </div>
+        </div>
+        <div class="greeting-content">
+            <h2>Welcome back, {{ request.user.firstname }}!</h2>
+            <p class="greeting-message">
+                {% if time_greeting == 'morning' %}
+                    Good morning! Ready to make today amazing?
+                {% elif time_greeting == 'afternoon' %}
+                    Good afternoon! Hope you're having a productive day!
+                {% else %}
+                    Good evening! Time to wrap up another great day!
+                {% endif %}
+            </p>
+            {% if is_birthday %}
+            <div class="birthday-message">
+                <span class="birthday-icon">🎉</span>
+                Happy Birthday! Wishing you an amazing year ahead filled with success and happiness!
+                <span class="birthday-icon">🎂</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="overview-layout">
+        <!-- Left Column - Announcements Feed -->
+        <div class="first-column">
+            <div class="announcements-section">
+                <!-- Announcements Feed -->
+                <div class="announcements-feed" id="announcementsFeed">
+                    {% for announcement in announcements %}
+                    <div class="post-card" data-id="{{ announcement.id }}">
+                        <div class="post-header">
+                            <div class="post-author">
+                                <div class="author-avatar">
+                                    {% if announcement.author.avatar %}
+                                    <img src="{{ announcement.author.avatar.url }}" alt="{{ announcement.author.full_name }}">
+                                    {% else %}
+                                    <div class="avatar-placeholder">
+                                        {{ announcement.author.firstname.0 }}{{ announcement.author.lastname.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="author-info">
+                                    <h4 class="author-name">{{ announcement.author.full_name }} <span class="post-status">posted an announcement</span></h4>
+                                    <span class="post-time" data-time="{{ announcement.created_at|date:'c' }}">
+                                        {{ announcement.created_at|date:"F d, Y at g:i A" }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="post-content">
+                            <p class="post-text">{{ announcement.get_highlighted_content|safe|linebreaksbr }}</p>
+                            {% if announcement.image %}
+                            <div class="post-image">
+                                <img src="{% static announcement.image %}" alt="Post image" loading="lazy">
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="post-footer">
+                            <div class="reactions-container">
+                                <div class="reaction-section">
+                                    <!-- Main Reaction Button -->
+                                    <div class="main-reaction-wrapper">
+                                        <button class="main-reaction-btn" data-announcement="{{ announcement.id }}">
+                                            {% if announcement.user_reaction %}
+                                                {% for emoji_code, emoji_symbol in emoji_choices %}
+                                                    {% if emoji_code == announcement.user_reaction %}
+                                                        <span class="reaction-icon active" data-emoji="{{ emoji_code }}">{{ emoji_symbol }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <i class="fas fa-thumbs-up reaction-icon"></i>
+                                            {% endif %}
+                                        </button>
+                                        
+                                        <!-- Reactions Popover -->
+                                        <div class="reactions-popover" id="popover-{{ announcement.id }}">
+                                            {% for emoji_code, emoji_symbol in emoji_choices %}
+                                            <button class="popover-reaction-btn" 
+                                                    data-emoji="{{ emoji_code }}" 
+                                                    data-announcement="{{ announcement.id }}">
+                                                <span class="emoji">{{ emoji_symbol }}</span>
+                                            </button>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Reactors Display -->
+                                    <div class="reactors-display" id="reactors-{{ announcement.id }}" {% if announcement.total_reactions == 0 %}style="display: none;"{% endif %}>
+                                        <div class="reactor-avatars">
+                                            <!-- Avatars will be populated by JavaScript -->
+                                        </div>
+                                        <div class="reactor-text">
+                                            <span class="latest-reactor"></span>
+                                            <span class="remaining-count" data-tooltip-id="tooltip-{{ announcement.id }}"></span>
+                                        </div>
+                                        
+                                        <!-- Tooltip for reactor list -->
+                                        <div class="reactors-tooltip" id="tooltip-{{ announcement.id }}">
+                                            <div class="tooltip-content">
+                                                <!-- Will be populated by JavaScript -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="no-announcements">
+                        <i class="fas fa-bullhorn"></i>
+                        <p>No announcements yet.</p>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 
-        <div class="modern-stat-card">
-            <div class="modern-stat-header">
-                <div class="modern-stat-icon green">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-            </div>
-            <div class="modern-stat-label">Active Projects</div>
-            <div class="modern-stat-value">42</div>
-            <div class="modern-stat-change positive">
-                <span class="modern-stat-change-icon">
-                    <i class="fas fa-arrow-up"></i>
-                </span>
-                15%
-                <span class="modern-stat-change-text">vs prev. month</span>
-            </div>
-        </div>
+        {% comment %} <div class="second-column">
+        </div> {% endcomment %}
 
-        <div class="modern-stat-card">
-            <div class="modern-stat-header">
-                <div class="modern-stat-icon orange">
-                    <i class="fas fa-clock"></i>
+        <!-- Right Column -->
+        <div class="third-column">
+                <!-- Mini Calendar -->
+                <div class="calendar-section">
+                    <div class="mini-calendar" id="miniCalendar">
+                        <!-- Calendar will be populated by JavaScript -->
+                    </div>
                 </div>
-            </div>
-            <div class="modern-stat-label">Pending Tasks</div>
-            <div class="modern-stat-value">156</div>
-            <div class="modern-stat-change negative">
-                <span class="modern-stat-change-icon">
-                    <i class="fas fa-arrow-down"></i>
-                </span>
-                3.1%
-                <span class="modern-stat-change-text">vs prev. week</span>
-            </div>
-        </div>
 
-        <div class="modern-stat-card">
-            <div class="modern-stat-header">
-                <div class="modern-stat-icon red">
-                    <i class="fas fa-exclamation-triangle"></i>
+                <!-- Profile Completion -->
+                <div class="profile-completion-content">
+                    <div class="completion-circle">
+                        <svg class="progress-ring" width="80" height="80">
+                                <circle cx="40" cy="40" r="32" 
+                                        fill="none" stroke="#e4e6ea" stroke-width="6"></circle>
+                                <circle class="progress-ring-circle" 
+                                        cx="40" cy="40" r="32" 
+                                        fill="none" stroke="#1877f2" stroke-width="6"
+                                        stroke-linecap="round"
+                                        stroke-dasharray="0 201">
+                                </circle>
+                        </svg>
+                        <div class="completion-percentage">{{ profile_completion }}%</div>
+                    </div>
+                        
+                    <div class="completion-details">
+                        <h5>Complete your profile</h5>
+                        <p>Add missing information to help colleagues find and connect with you.</p>
+                    </div>
+
+                    {% if profile_completion < 100 %}
+                    <a href="{% url 'user_profile' %}" class="view-full-link">Complete Profile</a>
+                    {% endif %}
                 </div>
-            </div>
-            <div class="modern-stat-label">Issues</div>
-            <div class="modern-stat-value">7</div>
-            <div class="modern-stat-change negative">
-                <span class="modern-stat-change-icon">
-                    <i class="fas fa-arrow-down"></i>
-                </span>
-                12%
-                <span class="modern-stat-change-text">vs prev. week</span>
-            </div>
+
+                <!-- Upcoming Leaves -->
+                {% if upcoming_leaves %}
+                <div class="upcoming-leaves-section">
+                    <div class="section-header">
+                        <h4>Upcoming Leaves</h4>
+                        <a href="{% url 'user_leave' %}" class="view-full-link">View All</a>
+                    </div>
+                    <div class="upcoming-leaves-list">
+                        {% for leave in upcoming_leaves %}
+                        <div class="leave-item">
+                            <div class="leave-icon">
+                                <i class="fas fa-calendar-times"></i>
+                            </div>
+                            <div class="leave-content">
+                                <div class="leave-type">{{ leave.leave_type.name }}</div>
+                                <div class="leave-dates">
+                                    {{ leave.date_from|date:"M d" }} 
+                                    {% if leave.date_from != leave.date_to %}
+                                        - {{ leave.date_to|date:"M d" }}
+                                    {% endif %}
+                                </div>
+                                <div class="leave-days">{{ leave.days_requested }} day{{ leave.days_requested|floatformat:0|add:"0"|pluralize }}</div>
+                            </div>
+                            <div class="leave-status">
+                                <span class="status-badge approved">{{ leave.status|title }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Notifications -->
+                <div class="notifications-section">
+                    <div class="section-header">
+                        <h4>Recent Notifications</h4>
+                        <a href="{% url 'notification_view' %}" class="view-full-link">View All</a>
+                    </div>
+                    <div class="notifications-list">
+                        {% for notification in notifications %}
+                        <div class="notification-item {% if not notification.is_read %}unread{% endif %}">
+                            <div class="notification-icon">
+                                {% if notification.notification_type == 'approved' %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% elif notification.notification_type == 'disapproved' %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% elif notification.notification_type == 'announcement' %}
+                                    <i class="fas fa-bullhorn text-primary"></i>
+                                {% else %}
+                                    <i class="fas fa-bell text-info"></i>
+                                {% endif %}
+                            </div>
+                            <div class="notification-content">
+                                <div class="notification-title">{{ notification.title }}</div>
+                                <div class="notification-message">{{ notification.message|truncatechars:100 }}</div>
+                                <div class="notification-time">{{ notification.created_at|timesince }} ago</div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="no-notifications">
+                            <i class="fas fa-bell-slash"></i>
+                            <p>No notifications yet.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
         </div>
     </div>
 </div>
+
+
+<div class="toast-container" id="toastContainer"></div>
 {% endblock content %}
 
 {% block extra_js %}
-{% comment %} <script src="{% static 'js/calendar/calendar.js' %}"></script> {% endcomment %}
+<script src="{% static 'js/dashboard/dashboard.js' %}"></script>
 {% endblock %}

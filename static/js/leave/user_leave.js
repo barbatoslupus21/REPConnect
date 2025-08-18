@@ -284,12 +284,12 @@ class LeaveUserInterface {
     }
 
     initializeDateInputs() {
-        const today = new Date().toISOString().split('T')[0];
+        // Allow users to select any date (including past dates)
+        // Removed the min date restriction to allow filing leaves for past dates
         const dateInputs = document.querySelectorAll('#applyLeaveModal input[type="date"]');
         
-        dateInputs.forEach(input => {
-            input.min = today;
-        });
+        // No longer setting min date restriction
+        // Users can now select dates before today
     }
 
     initializeTabs() {

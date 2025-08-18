@@ -6,6 +6,8 @@ from django.contrib import messages
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta, datetime
+from userlogin.models import EmployeeLogin
+from notification.models import Notification
 from .models import Device, Ticket, DeviceType, TicketCategory
 from .forms import DeviceForm, TicketForm, TicketUpdateForm, TicketReviewForm, DeviceUpdateForm
 import json
@@ -362,11 +364,22 @@ def add_device(request):
 @login_required
 @require_http_methods(["POST"])
 def create_ticket(request):
+    mis_personnel = EmployeeLogin.objects.filter(mis_admin=True).first()
     form = TicketForm(request.POST, user=request.user)
     if form.is_valid():
         ticket = form.save(commit=False)
         ticket.requestor = request.user
         ticket.save()
+
+        Notification.objects.create(
+            title="New Ticket Created",
+            message=f"{request.user.firstname} {request.user.lastname} has created a new ticket.",
+            notification_type="approval",
+            sender=request.user,
+            recipient=mis_personnel,
+            for_all=True,
+            module="ticketing/admin"
+        )
         return JsonResponse({
             'status': 'success',
             'message': 'Ticket created successfully',
@@ -470,6 +483,30 @@ def review_ticket(request, ticket_id):
         ticket.reviewed_by = request.user
         ticket.reviewed_at = timezone.now()
         ticket.save()
+
+        if ticket.status == 'Approved':
+            notification_title = "Ticket Approved"
+            notification_message = f"Your Ticket {ticket.ticket_number} has been approved by the MIS."
+            notification_type = "approved"
+        elif ticket.status == 'Disapproved':
+            notification_title = "Ticket Disapproved"
+            notification_message = f"Your Ticket {ticket.ticket_number} has been disapproved by the MIS."
+            notification_type = "disapproved"
+        else:
+            notification_title = "Ticket Updated"
+            notification_message = f"Your Ticket {ticket.ticket_number} has been updated by the MIS."
+            notification_type = "general"
+
+        Notification.objects.create(
+            title=notification_title,
+            message=notification_message,
+            notification_type=notification_type,
+            sender=request.user,
+            recipient=ticket.requestor,
+            for_all=False,
+            module="ticketing"
+        )
+        
         return JsonResponse({
             'status': 'success',
             'message': 'Ticket reviewed successfully'

@@ -20,7 +20,7 @@ class AnnouncementForm(forms.ModelForm):
         }
         labels = {
             'content': 'Content',
-            'image': 'Upload Image (Optional)'
+            'image': 'Upload Image (Optional - Max 10MB)'
         }
     
     def clean_content(self):
@@ -32,8 +32,9 @@ class AnnouncementForm(forms.ModelForm):
     def clean_image(self):
         image = self.cleaned_data.get('image')
         if image:
-            if image.size > 5 * 1024 * 1024:
-                raise forms.ValidationError('Image file size must be less than 5MB.')
+            # Increase file size limit to 10MB
+            if image.size > 10 * 1024 * 1024:
+                raise forms.ValidationError('Image file size must be less than 10MB.')
             valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
             import os
             ext = os.path.splitext(image.name)[1].lower()

@@ -28,4 +28,20 @@ urlpatterns = [
     path('api/ojtrates/', views.api_ojtrates, name='api_ojtrates'),
     path('api/ojtrates/<int:ojtrate_id>/', views.api_ojtrate_detail, name='api_ojtrate_detail'),
     path('api/ojtrates/<int:ojtrate_id>/rates/', views.api_ojtrate_rates, name='api_ojtrate_rates'),
+    
+    # API endpoints for leave (LeaveType, SundayException, LeaveReason)
+    path('api/leavetypes/', views.api_leavetypes, name='api_leavetypes'),
+    path('api/leavetypes/<int:leavetype_id>/', views.api_leavetype_detail, name='api_leavetype_detail'),
+    path('api/leavetypes/<int:leavetype_id>/reasons/', views.api_leavetype_reasons, name='api_leavetype_reasons'),
+    path('api/leavetypes/<int:leavetype_id>/reasons/<int:reason_id>/', views.api_leavetype_reason_detail, name='api_leavetype_reason_detail'),
+    
+    path('api/sundayexceptions/', views.api_sundayexceptions, name='api_sundayexceptions'),
+    path('api/sundayexceptions/<int:sundayexception_id>/', views.api_sundayexception_detail, name='api_sundayexception_detail'),
+    
+    # API endpoints for ticketing (DeviceType, TicketCategory)
+    path('api/devicetypes/', views.api_devicetypes, name='api_devicetypes'),
+    path('api/devicetypes/<int:devicetype_id>/', views.api_devicetype_detail, name='api_devicetype_detail'),
+    
+    path('api/ticketcategories/', views.api_ticketcategories, name='api_ticketcategories'),
+    path('api/ticketcategories/<int:ticketcategory_id>/', views.api_ticketcategory_detail, name='api_ticketcategory_detail'),
 ]

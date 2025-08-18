@@ -228,6 +228,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const announcementId = btn.dataset.announcement;
             const popover = document.getElementById(`popover-${announcementId}`);
             
+            if (!popover) {
+                console.error('Popover not found for announcement:', announcementId);
+                return;
+            }
+            
             // Hide other popovers
             document.querySelectorAll('.reactions-popover').forEach(p => {
                 if (p !== popover) {
@@ -271,19 +276,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Tooltip handlers
+    // Tooltip handlers - improved version
     document.addEventListener('mouseenter', function(e) {
-        if (e.target.classList.contains('remaining-count')) {
+        if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
             const tooltipId = e.target.dataset.tooltipId;
             const tooltip = document.getElementById(tooltipId);
             if (tooltip) {
-                tooltip.classList.add('show');
+                // Small delay to prevent flickering
+                setTimeout(() => {
+                    tooltip.classList.add('show');
+                }, 100);
             }
         }
     }, true);
 
     document.addEventListener('mouseleave', function(e) {
-        if (e.target.classList.contains('remaining-count')) {
+        if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
             const tooltipId = e.target.dataset.tooltipId;
             const tooltip = document.getElementById(tooltipId);
             if (tooltip) {
@@ -292,16 +300,57 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, true);
 
+    // Also handle hover on the entire reactor text area
+    document.addEventListener('mouseenter', function(e) {
+        if (e.target && e.target.classList && e.target.classList.contains('reactor-text')) {
+            const remainingCount = e.target.querySelector('.remaining-count');
+            if (remainingCount) {
+                const tooltipId = remainingCount.dataset.tooltipId;
+                const tooltip = document.getElementById(tooltipId);
+                if (tooltip) {
+                    setTimeout(() => {
+                        tooltip.classList.add('show');
+                    }, 100);
+                }
+            }
+        }
+    }, true);
+
+    document.addEventListener('mouseleave', function(e) {
+        if (e.target && e.target.classList && e.target.classList.contains('reactor-text')) {
+            const remainingCount = e.target.querySelector('.remaining-count');
+            if (remainingCount) {
+                const tooltipId = remainingCount.dataset.tooltipId;
+                const tooltip = document.getElementById(tooltipId);
+                if (tooltip) {
+                    tooltip.classList.remove('show');
+                }
+            }
+        }
+    }, true);
+
     async function handleReaction(emoji, announcementId) {
         try {
+            const csrfToken = getCookie('csrftoken');
+            
+            if (!csrfToken) {
+                throw new Error('CSRF token not found');
+            }
+            
             const response = await fetch(`/announcement/react/${announcementId}/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: `emoji=${emoji}`
+                body: `emoji=${encodeURIComponent(emoji)}`
             });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const data = await response.json();
             
@@ -313,14 +362,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     popover.classList.remove('show');
                     currentPopover = null;
                 }
+                showToast('Reaction updated successfully!', 'success');
+            } else {
+                throw new Error(data.error || 'Unknown error occurred');
             }
         } catch (error) {
-            showToast('Failed to update reaction.', 'error');
+            console.error('Reaction error details:', error);
+            showToast('Failed to update reaction. Please try again.', 'error');
         }
     }
 
     function updateReactionUI(announcementId, data) {
         const card = document.querySelector(`.post-card[data-id="${announcementId}"]`);
+        if (!card) {
+            console.error('Post card not found for announcement:', announcementId);
+            return;
+        }
+        
         const mainBtn = card.querySelector('.main-reaction-btn');
         const reactorDisplay = card.querySelector(`#reactors-${announcementId}`);
         
@@ -341,9 +399,20 @@ document.addEventListener('DOMContentLoaded', function() {
             reactionIcon.outerHTML = `<i class="fas fa-thumbs-up reaction-icon"></i>`;
         }
         
-        // Update reactors display
-        if (data.total_reactions > 0 && data.reactors) {
+        // Always update reactors display
+        if (data.total_reactions > 0 && data.reactors && data.reactors.length > 0) {
+            // Ensure the reactors display container exists
+            if (!reactorDisplay.querySelector('.reactor-avatars')) {
+                reactorDisplay.innerHTML = `
+                    <div class="reactor-avatars"></div>
+                    <div class="reactor-text">
+                        <span class="latest-reactor"></span>
+                        <span class="remaining-count" data-tooltip-id="tooltip-${announcementId}"></span>
+                    </div>
+                `;
+            }
             updateReactorsDisplay(announcementId, data.reactors, data.total_reactions);
+            reactorDisplay.style.display = 'flex';
         } else {
             reactorDisplay.style.display = 'none';
         }
@@ -351,6 +420,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateReactorsDisplay(announcementId, reactors, totalReactions) {
         const reactorDisplay = document.querySelector(`#reactors-${announcementId}`);
+        
+        if (!reactorDisplay) {
+            console.error('Reactor display not found for announcement:', announcementId);
+            return;
+        }
         
         if (totalReactions === 0) {
             reactorDisplay.style.display = 'none';
@@ -361,70 +435,85 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show first 5 reactor avatars
         const avatarsContainer = reactorDisplay.querySelector('.reactor-avatars');
-        avatarsContainer.innerHTML = '';
-        
-        const displayReactors = reactors.slice(0, 5);
-        displayReactors.forEach(reactor => {
-            const avatar = document.createElement('div');
-            avatar.className = 'reactor-avatar';
+        if (avatarsContainer) {
+            avatarsContainer.innerHTML = '';
             
-            if (reactor.avatar) {
-                avatar.innerHTML = `<img src="${reactor.avatar}" alt="${reactor.name}">`;
-            } else {
-                const initials = reactor.name.split(' ').map(n => n[0]).join('').toUpperCase();
-                avatar.innerHTML = `<div class="avatar-placeholder">${initials}</div>`;
-            }
-            
-            avatarsContainer.appendChild(avatar);
-        });
+            const displayReactors = reactors.slice(0, 5);
+            displayReactors.forEach(reactor => {
+                const avatar = document.createElement('div');
+                avatar.className = 'reactor-avatar';
+                
+                if (reactor.avatar) {
+                    avatar.innerHTML = `<img src="${reactor.avatar}" alt="${reactor.name}">`;
+                } else {
+                    const initials = reactor.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    avatar.innerHTML = `<div class="avatar-placeholder">${initials}</div>`;
+                }
+                
+                avatarsContainer.appendChild(avatar);
+            });
+        }
         
         // Update text
         const latestReactor = reactorDisplay.querySelector('.latest-reactor');
         const remainingCount = reactorDisplay.querySelector('.remaining-count');
         
-        if (reactors.length > 0) {
+        if (reactors.length > 0 && latestReactor && remainingCount) {
             latestReactor.textContent = reactors[0].name;
             
             if (totalReactions > 1) {
                 const remaining = totalReactions - 1;
-                remainingCount.textContent = `and ${remaining} ${remaining === 1 ? 'person' : 'people'} reacted to this announcement`;
+                remainingCount.textContent = ` and ${remaining} ${remaining === 1 ? 'other person' : 'other people'} reacted to this announcement`;
                 remainingCount.style.display = 'inline';
-                
-                // Update tooltip
-                updateReactorsTooltip(announcementId, reactors);
             } else {
-                remainingCount.textContent = 'reacted to this announcement';
+                remainingCount.textContent = ' reacted to this announcement';
                 remainingCount.style.display = 'inline';
             }
+            
+            // Always update tooltip when there are reactors
+            updateReactorsTooltip(announcementId, reactors);
         }
     }
 
     function updateReactorsTooltip(announcementId, reactors) {
         const tooltip = document.getElementById(`tooltip-${announcementId}`);
+        if (!tooltip) {
+            console.error('Tooltip not found for announcement:', announcementId);
+            return;
+        }
+        
         const tooltipContent = tooltip.querySelector('.tooltip-content');
+        if (!tooltipContent) {
+            console.error('Tooltip content not found for announcement:', announcementId);
+            return;
+        }
         
         tooltipContent.innerHTML = '';
         
-        reactors.forEach(reactor => {
-            const reactorDiv = document.createElement('div');
-            reactorDiv.className = 'tooltip-reactor';
-            
-            const emojiMap = {
-                'like': '👍',
-                'love': '❤️', 
-                'laugh': '😂',
-                'wow': '😮',
-                'sad': '😢',
-                'angry': '😡'
-            };
-            
-            reactorDiv.innerHTML = `
-                <span class="emoji">${emojiMap[reactor.reaction] || '👍'}</span>
-                <span>${reactor.name}</span>
-            `;
-            
-            tooltipContent.appendChild(reactorDiv);
-        });
+        if (reactors && reactors.length > 0) {
+            reactors.forEach(reactor => {
+                const reactorDiv = document.createElement('div');
+                reactorDiv.className = 'tooltip-reactor';
+                
+                const emojiMap = {
+                    'like': '👍',
+                    'love': '❤️', 
+                    'laugh': '😂',
+                    'wow': '😮',
+                    'sad': '😢',
+                    'angry': '😡'
+                };
+                
+                reactorDiv.innerHTML = `
+                    <span class="emoji">${emojiMap[reactor.reaction] || '👍'}</span>
+                    <span>${reactor.name}</span>
+                `;
+                
+                tooltipContent.appendChild(reactorDiv);
+            });
+        } else {
+            tooltipContent.innerHTML = '<div class="tooltip-reactor">No reactions yet</div>';
+        }
     }
 
     // Load initial reactor data for each announcement
@@ -437,6 +526,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Initialize reactions after DOM is ready
+    initializeReactions();
+
     async function loadReactorData(announcementId) {
         try {
             const response = await fetch(`/announcement/reactors/${announcementId}/`);
@@ -448,6 +540,11 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Failed to load reactor data:', error);
         }
+    }
+
+    function initializeReactions() {
+        // This function is now automatically called when the page loads
+        console.log('Reactions initialized successfully');
     }
 
 
@@ -498,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle image removal
     document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-image-btn')) {
+        if (e.target && e.target.classList && e.target.classList.contains('remove-image-btn')) {
             // Find the correct preview and input for both Create and Edit modals
             const preview = e.target.closest('.image-preview-container');
             let input = null;

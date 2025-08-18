@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const createEmployeeForm = document.getElementById('create-employee-form');
     const saveEmployeeBtn = document.getElementById('save-employee-btn');
     const confirmActionBtn = document.getElementById('confirm-action-btn');
+    
+    // Modal form elements
+    const departmentSelect = document.getElementById('departmentSelect');
+    const lineSelect = document.getElementById('lineSelect');
+    const positionSelect = document.getElementById('positionSelect');
 
     let currentPage = 1;
     let searchTimeout;
@@ -34,7 +39,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (createEmployeeBtn) {
         createEmployeeBtn.addEventListener('click', function() {
+            // Reset form and initialize dropdowns when modal opens
             createEmployeeForm.reset();
+            
+            // Initialize dropdowns
+            fetchDepartments();
+            fetchPositions();
+            
+            // Reset line dropdown to initial state
+            const lineSelect = document.getElementById('lineSelect');
+            if (lineSelect) {
+                lineSelect.innerHTML = '<option value="">Select Line</option>';
+                lineSelect.disabled = true;
+            }
+            
             showModal(createEmployeeModal);
         });
     }
@@ -116,10 +134,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        if (e.target.classList.contains('view-employee-btn')) {
+        if (e.target.classList.contains('view-employee-btn') || e.target.closest('.view-employee-btn')) {
             e.stopPropagation();
             e.preventDefault();
-            const employeeId = e.target.dataset.employeeId;
+            const btn = e.target.classList.contains('view-employee-btn') ? e.target : e.target.closest('.view-employee-btn');
+            const employeeId = btn.dataset.employeeId;
             viewEmployee(employeeId);
             return;
         }
@@ -1148,35 +1167,57 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    const departmentSelect = document.getElementById('departmentSelect');
-    const lineSelect = document.getElementById('lineSelect');
-    const positionSelect = document.getElementById('positionSelect');
-
     function fetchDepartments() {
-        fetch('/api/departments/')
+        fetch('/api/api/departments/')
             .then(res => res.json())
             .then(data => {
-                departmentSelect.innerHTML = '<option value="">Select Department</option>';
-                data.departments.forEach(dep => {
-                    departmentSelect.innerHTML += `<option value="${dep.id}">${dep.name}</option>`;
-                });
+                if (departmentSelect) {
+                    departmentSelect.innerHTML = '<option value="">Select Department</option>';
+                    data.departments.forEach(dep => {
+                        departmentSelect.innerHTML += `<option value="${dep.id}">${dep.name}</option>`;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching departments:', error);
             });
     }
 
     function fetchLines(departmentId) {
-        fetch(`/api/lines/?department_id=${departmentId}`)
+        if (!departmentId) {
+            if (lineSelect) {
+                lineSelect.innerHTML = '<option value="">Select Line</option>';
+                lineSelect.disabled = true;
+            }
+            return;
+        }
+        
+        fetch(`/api/api/departments/${departmentId}/lines/`)
             .then(res => res.json())
             .then(data => {
-                lineSelect.innerHTML = '<option value="">Select Line</option>';
-                data.lines.forEach(line => {
-                    lineSelect.innerHTML += `<option value="${line.id}">${line.name}</option>`;
-                });
-                lineSelect.disabled = false;
+                if (lineSelect) {
+                    lineSelect.innerHTML = '<option value="">Select Line</option>';
+                    if (data.success && data.lines && data.lines.length > 0) {
+                        data.lines.forEach(line => {
+                            lineSelect.innerHTML += `<option value="${line.id}">${line.name}</option>`;
+                        });
+                        lineSelect.disabled = false;
+                    } else {
+                        lineSelect.disabled = true;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching lines:', error);
+                if (lineSelect) {
+                    lineSelect.innerHTML = '<option value="">Select Line</option>';
+                    lineSelect.disabled = true;
+                }
             });
     }
 
     function fetchPositions() {
-        fetch('/api/positions/')
+        fetch('/api/api/positions/')
             .then(res => res.json())
             .then(data => {
                 positionSelect.innerHTML = '<option value="">Select Position</option>';
@@ -1186,24 +1227,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    if (createEmployeeBtn) {
-        createEmployeeBtn.addEventListener('click', function () {
-            fetchDepartments();
-            fetchPositions();
-            lineSelect.innerHTML = '<option value="">Select Line</option>';
-            lineSelect.disabled = true;
-        });
-    }
-
     if (departmentSelect) {
         departmentSelect.addEventListener('change', function () {
             const depId = departmentSelect.value;
-            if (depId) {
-                fetchLines(depId);
-            } else {
-                lineSelect.innerHTML = '<option value="">Select Line</option>';
-                lineSelect.disabled = true;
-            }
+            fetchLines(depId);
         });
     }
 
@@ -1373,5 +1400,167 @@ document.addEventListener('DOMContentLoaded', function() {
         tourBtn.addEventListener('click', function() {
             window.startProductTour();
         });
+    }
+
+    // Reset Password functionality
+    const resetPasswordModal = document.getElementById('resetPasswordModal');
+    let currentEmployeeData = null;
+
+    // Handle clicks on reset password buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('#reset-password-btn')) {
+            e.preventDefault();
+            
+            // Get employee data from the button's data attributes or closest table row
+            const btn = e.target.closest('#reset-password-btn');
+            const employeeId = btn.getAttribute('data-employee-id');
+            const employeeName = btn.getAttribute('data-employee-name');
+            const employeeIdNumber = btn.getAttribute('data-employee-idnumber');
+            
+            if (employeeId && employeeName && employeeIdNumber) {
+                currentEmployeeData = {
+                    id: employeeId,
+                    name: employeeName,
+                    idnumber: employeeIdNumber
+                };
+                
+                showResetPasswordModal();
+            }
+        }
+    });
+
+    function showResetPasswordModal() {
+        if (currentEmployeeData && resetPasswordModal) {
+            // Update modal content with employee details
+            const resetDetails = document.getElementById('resetPasswordDetails');
+            const employeeIdDisplay = document.getElementById('employeeIdDisplay');
+            
+            if (resetDetails) {
+                resetDetails.textContent = `Employee: ${currentEmployeeData.name} (ID: ${currentEmployeeData.idnumber})`;
+            }
+            
+            if (employeeIdDisplay) {
+                employeeIdDisplay.textContent = currentEmployeeData.idnumber;
+            }
+            
+            // Show the modal
+            resetPasswordModal.classList.add('show');
+        }
+    }
+
+    // Handle modal close actions
+    if (resetPasswordModal) {
+        const closeBtn = document.getElementById('closeResetPasswordModal');
+        const cancelBtn = document.getElementById('cancelResetPasswordBtn');
+        const confirmBtn = document.getElementById('confirmResetPasswordBtn');
+        const overlay = resetPasswordModal.querySelector('.modal-overlay');
+
+        // Close modal events
+        [closeBtn, cancelBtn, overlay].forEach(element => {
+            if (element) {
+                element.addEventListener('click', function() {
+                    resetPasswordModal.classList.remove('show');
+                    currentEmployeeData = null;
+                });
+            }
+        });
+
+        // Confirm reset password
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function() {
+                if (currentEmployeeData) {
+                    resetEmployeePassword(currentEmployeeData.id, currentEmployeeData.idnumber);
+                }
+            });
+        }
+    }
+
+    function resetEmployeePassword(employeeId, employeeIdNumber) {
+        const newPassword = `Repco_${employeeIdNumber}`;
+        
+        fetch(`/profile/admin/employee/${employeeId}/reset-password/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                new_password: newPassword
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close modal
+                resetPasswordModal.classList.remove('show');
+                currentEmployeeData = null;
+                
+                // Show success toast
+                showToast(`Password successfully reset to: ${newPassword}`, 'success');
+            } else {
+                showToast(data.message || 'Failed to reset password', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error resetting password:', error);
+            showToast('An error occurred while resetting password', 'error');
+        });
+    }
+
+    // Toast notification function
+    function showToast(message, type = 'info') {
+        // Create toast element if it doesn't exist
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                pointer-events: none;
+            `;
+            document.body.appendChild(toastContainer);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.style.cssText = `
+            background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            pointer-events: auto;
+            max-width: 400px;
+        `;
+        
+        toast.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
+
+        toastContainer.appendChild(toast);
+
+        // Trigger animation
+        setTimeout(() => {
+            toast.style.transform = 'translateX(0)';
+        }, 100);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }, 5000);
     }
 });

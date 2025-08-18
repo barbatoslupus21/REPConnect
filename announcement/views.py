@@ -10,6 +10,7 @@ from django.conf import settings
 import os
 from PIL import Image
 from .models import Announcement, AnnouncementReaction
+from notification.models import Notification
 from .forms import AnnouncementForm
 
 
@@ -55,7 +56,7 @@ def announcement_list(request):
 @login_required
 @require_POST
 def create_announcement(request):
-    if not request.user.hr_admin:
+    if not hasattr(request.user, 'hr_admin') or not request.user.hr_admin:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
     
     form = AnnouncementForm(request.POST, request.FILES)
@@ -71,10 +72,29 @@ def create_announcement(request):
                 announcement.image = image_path
         
         announcement.save()
+
+        try:
+            Notification.objects.create(
+                title="New Announcement",
+                message=f"New announcement: {announcement.content[:30]}{'...' if len(announcement.content) > 30 else ''}",
+                notification_type="announcement",
+                sender=request.user,
+                recipient=request.user,
+                for_all=True,
+                module="announcement"
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error creating notification: {e}")
+
         messages.success(request, 'Announcement posted successfully!')
         return JsonResponse({'success': True, 'message': 'Announcement created successfully'})
     else:
-        errors = {field: error[0] for field, error in form.errors.items()}
+        errors = {}
+        for field, error_list in form.errors.items():
+            errors[field] = [str(error) for error in error_list]
+        
         return JsonResponse({'success': False, 'errors': errors}, status=400)
 
 

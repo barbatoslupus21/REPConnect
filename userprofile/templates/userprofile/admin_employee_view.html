@@ -31,6 +31,9 @@
             {% endif %}
             <button type="button" class="btn btn-error" id="deleteBtn"><i class="fas fa-trash"></i> Delete</button>
             {% endif %}
+
+            <button type="button" class="btn btn-primary" id="resetBtn"><i class="fa fa-refresh"></i> Reset Password</button>
+
         </div>
     </div>
     <div class="profile-container">
@@ -670,6 +673,23 @@
             <button class="btn btn-outline" id="cancelApproval">Cancel</button>
             <button class="btn btn-success" id="confirmApprove">Approve</button>
             <button class="btn btn-error" id="confirmDisapprove">Disapprove</button>
+        </div>
+    </div>
+</div>
+<div class="modal modal-md" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Reset Password</h5>
+            <button class="modal-close" id="closeResetPasswordModal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to reset this employee's password?</p>
+            <p><strong>New password will be:</strong> <code>Repco_{{ employee.idnumber }}</code></p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" id="cancelResetPassword">Cancel</button>
+            <button class="btn btn-primary" id="confirmResetPassword">Reset Password</button>
         </div>
     </div>
 </div>

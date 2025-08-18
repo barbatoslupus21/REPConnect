@@ -5,6 +5,42 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/profile/profile.css' %}">
+    <style>
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+        }
+        .action-buttons .btn-icon {
+            padding: 8px;
+            min-width: 36px;
+        }
+        .modal .warning-icon, .modal .info-note {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        .modal .warning-icon {
+            font-size: 48px;
+            color: #f59e0b;
+        }
+        .modal .info-note {
+            background: #f3f4f6;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .modal .confirmation-content {
+            text-align: center;
+        }
+        .modal .confirmation-content p {
+            margin: 10px 0;
+        }
+        .toast {
+            font-family: inherit;
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
@@ -100,18 +136,23 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <button class="btn btn-icon view-employee-btn" data-employee-id="{{ employee.id }}" data-employee-name="{{ employee.firstname }} {{ employee.lastname }}">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-icon view-employee-btn" data-employee-id="{{ employee.id }}" data-employee-name="{{ employee.firstname }} {{ employee.lastname }}" title="View Employee">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-icon" id="reset-password-btn" data-employee-id="{{ employee.id }}" data-employee-name="{{ employee.firstname }} {{ employee.lastname }}" data-employee-idnumber="{{ employee.idnumber }}" title="Reset Password">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="7" class="text-center">
-                                    <div class="table-no-data">
-                                        <i class="fas fa-users empty-icon"></i>
-                                        <h5 class="table-no-data-title">No employees found</h5>
-                                        <p class="table-no-data-desc">Start by creating your first employee</p>
+                                <td colspan="9" class="text-center">
+                                    <div class="empty-state">
+                                        <i class="fa fa-search"></i>
+                                        <h5>No employees found</h5>
+                                        <p>No employees match your search criteria.</p>
                                     </div>
                                 </td>
                             </tr>
@@ -163,7 +204,7 @@
     <div class="modal-overlay"></div>
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Create New Employee</h5>
+                    <h4 class="modal-title">Create New Employee</h4>
                     <button type="button" class="modal-close">
                         <i class="fas fa-times"></i>
                     </button>
@@ -199,18 +240,27 @@
                                     <label class="form-label">Department</label>
                                     <select name="department" class="form-input" id="departmentSelect" required>
                                         <option value="">Select Department</option>
+                                        {% for department in departments %}
+                                            <option value="{{ department.id }}">{{ department.department_name }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Line</label>
                                     <select name="line" class="form-input" id="lineSelect" disabled required>
                                         <option value="">Select Line</option>
+                                        {% for line in lines %}
+                                            <option value="{{ line.id }}">{{ line.line_name }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Position</label>
                                     <select name="position" class="form-input" id="positionSelect" required>
                                         <option value="">Select Position</option>
+                                        {% for position in positions %}
+                                            <option value="{{ position.id }}">{{ position.position }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -269,7 +319,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content modal-xl">
                 <div class="modal-header">
-                    <h5 class="modal-title">Employee Profile</h5>
+                    <h4 class="modal-title">Employee Profile</h4>
             <button type="button" class="modal-close">
                 <i class="fas fa-times"></i>
             </button>
@@ -292,10 +342,10 @@
     <div class="modal-overlay"></div>
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Confirm Action</h5>
-            <button type="button" class="modal-close">
-                <i class="fas fa-times"></i>
-            </button>
+                    <h4 class="modal-title">Confirm Action</h4>
+                    <button type="button" class="modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
                 <div class="modal-body">
                     <p id="confirm-message"></p>
@@ -311,7 +361,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h5 class="modal-title">Deactivate Employee</h5>
+            <h4 class="modal-title">Deactivate Employee</h5>
             <button type="button" class="modal-close">
                 <i class="fas fa-times"></i>
             </button>
@@ -330,7 +380,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h5 class="modal-title">Import Employees</h5>
+            <h4 class="modal-title">Import Employees</h4>
             <button class="modal-close" id="closeImportModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -384,7 +434,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content modal-lg">
         <div class="modal-header">
-            <h5 class="modal-title">Edit Employee</h5>
+            <h4 class="modal-title">Edit Employee</h4>
             <button class="modal-close" id="closeEditEmployeeModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -440,7 +490,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content modal-md">
         <div class="modal-header">
-            <h5 class="modal-title">Confirm Deletion</h5>
+            <h4 class="modal-title">Confirm Deletion</h5>
             <button class="modal-close" id="closeDeleteEmployeeModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -473,7 +523,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Importing Employees</h3>
+            <h4>Importing Employees</h4>
             <!-- No close button - prevent closing during import -->
         </div>
         <div class="modal-body">
@@ -530,7 +580,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Import Results</h3>
+            <h4>Import Results</h4>
             <button class="modal-close" id="closeImportResultsModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -609,7 +659,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content ">
         <div class="modal-header">
-            <h5 class="modal-title">Export Employees</h5>
+            <h4 class="modal-title">Export Employees</h5>
             <button class="modal-close" id="closeExportEmployeesModal">
                 <i class="fas fa-times"></i>
             </button>
@@ -654,6 +704,39 @@
                 Export
             </button>
             <button class="btn btn-outline" id="cancelExportEmployeesBtn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Confirmation Modal -->
+<div class="modal modal-md" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 class="modal-title">Reset Password</h4>
+            <button class="modal-close" id="closeResetPasswordModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="confirmation-content">
+                <i class="fas fa-key warning-icon"></i>
+                <p>Are you sure you want to reset this employee's password?</p>
+                <p class="reset-details" id="resetPasswordDetails"></p>
+                <div class="info-note">
+                    <i class="fas fa-info-circle"></i>
+                    <span>The new password will be: <strong>Repco_<span id="employeeIdDisplay"></span></strong></span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="confirmResetPasswordBtn">
+                <i class="fas fa-key"></i>
+                Reset Password
+            </button>
+            <button class="btn btn-outline" id="cancelResetPasswordBtn">
+                Cancel
+            </button>
         </div>
     </div>
 </div>

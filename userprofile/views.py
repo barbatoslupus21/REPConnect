@@ -90,10 +90,16 @@ def admin_employees(request):
     paginator = Paginator(employees, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    departments = Department.objects.all()
+    positions = Position.objects.all()
+    lines = Line.objects.all()
 
     context = {
         'employees': page_obj,
         'search_query': search_query,
+        'departments': departments,
+        'positions': positions,
+        'lines': lines,
     }
 
     return render(request, 'userprofile/admin-profile.html', context)
@@ -334,7 +340,7 @@ def admin_reset_password(request, employee_id):
 
     if request.method == 'POST':
         employee = get_object_or_404(EmployeeLogin, id=employee_id)
-        new_password = f"Repco{employee.idnumber}"
+        new_password = f"Repco_{employee.idnumber}"
         employee.password = make_password(new_password)
         employee.save()
         return JsonResponse({'success': True, 'message': f'Password reset successfully. New password: {new_password}'})

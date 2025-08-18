@@ -3127,13 +3127,13 @@
     border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
-.status-approve {
+.status-approved {
     background: rgba(16, 185, 129, 0.1);
     color: var(--leave-approved-color);
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-.status-disapprove {
+.status-disapproved {
     background: rgba(239, 68, 68, 0.1);
     color: var(--leave-disapproved-color);
     border: 1px solid rgba(239, 68, 68, 0.3);
@@ -3980,17 +3980,39 @@
     color: #155724;
 }
 
+[data-theme="dark"] .activity-item.status-approved {
+    background: #15572415;
+    border: 0.5px solid #155724;
+}
+
 .activity-item.status-disapproved {
     background: #fbeaea;
     color: #721c24;
 }
+
+[data-theme="dark"] .activity-item.status-disapproved {
+    background: #721c2514;
+    border: 0.5px solid #721c24;
+}
+
 .activity-item.status-routing {
     background: #fffbe6;
     color: #a77d02;
 }
+
+[data-theme="dark"] .activity-item.status-routing {
+    background: #a77e0212;
+    border: 0.5px solid #a77d02;
+}
+
 .activity-item.status-cancelled {
     background: #f4f4f4;
     color: #6c757d;
+}
+
+[data-theme="dark"] .activity-item.status-cancelled {
+    background: #6c757d13;
+    border: 0.5px solid #6c757d;
 }
 
 .reminder-icon {
@@ -4000,7 +4022,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.9rem;
+    font-size: 1.2rem;
     flex-shrink: 0;
     background: transparent;
     border: none;

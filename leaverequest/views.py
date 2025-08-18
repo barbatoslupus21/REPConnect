@@ -12,7 +12,7 @@ from userlogin.models import EmployeeLogin
 from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction, LeaveReason
 from .forms import LeaveRequestForm, LeaveApprovalForm, LeaveSearchForm
 from django.db.models import Case, When, IntegerField, Max
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 from generalsettings.models import Department, Line, Position
 import calendar
@@ -23,6 +23,7 @@ from django.conf import settings
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.chart import LineChart, Reference
+from notification.models import Notification
 
 @login_required(login_url="user-login")
 def leave_dashboard(request):
@@ -230,6 +231,16 @@ def apply_leave(request):
                 comments=approval_comments,
                 action_at=timezone.now()
             )
+
+            Notification.objects.create(
+                title="Leave Request Submitted",
+                message=f"{request.user.firstname} {request.user.lastname} has submitted a leave request for your approval.",
+                notification_type="approval",
+                sender=request.user,
+                recipient=approver,
+                for_all=False,
+                module="leave"
+            )
             
             messages.success(request, f'Leave request {leave_request.control_number} submitted successfully!')
             
@@ -384,7 +395,6 @@ def cancel_leave(request, control_number):
 
 @login_required(login_url="user-login")
 def approver_dashboard(request):
-    """Dashboard for approvers"""
     pending_approvals = LeaveRequest.objects.filter(
         current_approver=request.user,
         status='routing'
@@ -477,6 +487,13 @@ def process_approval(request, control_number):
         comments = data.get('comments', '')
         next_approver = get_next_approver(leave_request_obj, request.user)
 
+        if action == 'approve' and leave_request_obj.status == 'disapproved':
+            leave_status = 'disapproved'
+        elif action == 'approve' and leave_request_obj.status == 'routing':
+            leave_status = 'routing'
+        else:
+            leave_status = 'approved'
+
         if action == 'approve':
             approval_action.status = 'approved'
             approval_action.action = 'approved'
@@ -486,6 +503,7 @@ def process_approval(request, control_number):
 
             if next_approver:
                 leave_request_obj.current_approver = next_approver
+                leave_request_obj.status = leave_status
                 message = 'Leave request approved!'
 
                 LeaveApprovalAction.objects.create(
@@ -497,9 +515,20 @@ def process_approval(request, control_number):
                     comments='',
                     action_at=timezone.now()
                 )
+
+                Notification.objects.create(
+                    title="Leave Approval",
+                    message=f"{leave_request_obj.employee.firstname} {leave_request_obj.employee.lastname} leave request is waiting for your approval.",
+                    notification_type="approval",
+                    sender=request.user,
+                    recipient=next_approver,
+                    for_all=False,
+                    module="leave"
+                )
+                
             else:
                 leave_request_obj.current_approver = None
-                leave_request_obj.status = 'approved'
+                leave_request_obj.status = leave_status
                 message = 'Leave request fully approved!'
 
         elif action == 'disapprove':
@@ -519,11 +548,34 @@ def process_approval(request, control_number):
                     approver=next_approver,
                     sequence=next_sequence,
                     status='routing',
-                    action='routing',
+                    action='submitted',
                     comments='',
                     action_at=timezone.now()
                 )
 
+                start_date_fmt = leave_request_obj.date_from.strftime("%b %d, %Y")
+                end_date_fmt = leave_request_obj.date_to.strftime("%b %d, %Y")
+
+                Notification.objects.create(
+                    title="Leave Disapproved",
+                    message=f"Your leave request for {start_date_fmt} to {end_date_fmt} has been disapproved.",
+                    notification_type="approval",
+                    sender=request.user,
+                    recipient=leave_request_obj.employee,
+                    for_all=False,
+                    module="leave"
+                )
+
+                Notification.objects.create(
+                    title="Leave Disapproved",
+                    message=f"{request.user.firstname} {request.user.lastname} has disapproved the leave request submitted by {leave_request_obj.employee.firstname} {leave_request_obj.employee.lastname}. Your approval is required next.",
+                    notification_type="approval",
+                    sender=request.user,
+                    recipient=next_approver,
+                    for_all=False,
+                    module="leave"
+                )
+                
         else:
             return JsonResponse({'success': False, 'message': 'Invalid action.'})
 
@@ -1334,8 +1386,22 @@ def admin_approve_leave(request, control_number):
         approval_action.action_at = timezone.now()
         approval_action.save()
         
-        leave_request.status = 'approved'
-        leave_request.save()
+        if leave_request.status != "disapproved":
+            leave_request.status = 'approved'
+            leave_request.save()
+
+            start_date_fmt = leave_request.date_from.strftime("%b %d, %Y")
+            end_date_fmt = leave_request.date_to.strftime("%b %d, %Y")
+
+            Notification.objects.create(
+                title="Leave Approved",
+                message=f"Your leave request for {start_date_fmt} to {end_date_fmt} has been approved.",
+                notification_type="approval",
+                sender=request.user,
+                recipient=leave_request.employee,
+                for_all=False,
+                module="leave"
+            )
         
         return JsonResponse({
             'success': True,
@@ -1382,7 +1448,6 @@ def admin_disapprove_leave(request, control_number):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-
 @login_required(login_url="user-login")
 @require_POST
 def hr_admin_process_approval(request, control_number):
@@ -1408,20 +1473,27 @@ def hr_admin_process_approval(request, control_number):
         if not approval_action:
             return JsonResponse({'error': 'No pending approval found for this user'}, status=400)
         
-        approval_action.action = action
-        approval_action.status = action
-        approval_action.action_at = timezone.now()
+        # Convert action to proper model format
+        action_value = 'approved' if action == 'approve' else 'disapproved'
+        status_value = 'approved' if action == 'approve' else 'disapproved'
         
-        if action == 'approve':
+        approval_action.action = action_value
+        approval_action.status = status_value
+        approval_action.action_at = timezone.now()
+
+        if action == 'approve' and leave_request.status != 'approved':
             updated_comments = process_leave_approval_with_balance_check(leave_request, comments)
             approval_action.comments = updated_comments
+
+            leave_request.status = 'approved'
+            leave_request.save()
         else:
             approval_action.comments = comments
             
         approval_action.save()
         
-        leave_request.status = action
-        leave_request.save()
+        # leave_request.status = action
+        # leave_request.save()
         
         send_leave_decision_email(leave_request, action == 'approve', approval_action.comments)
         
@@ -1432,7 +1504,6 @@ def hr_admin_process_approval(request, control_number):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
 
 def process_leave_approval_with_balance_check(leave_request, original_comments):
     employee = leave_request.employee
@@ -1499,7 +1570,6 @@ def process_leave_approval_with_balance_check(leave_request, original_comments):
         else:
             return error_comment
 
-
 def deduct_leave_balance(leave_request):
     employee = leave_request.employee
     leave_type = leave_request.leave_type
@@ -1560,11 +1630,12 @@ def deduct_leave_balance(leave_request):
     else:
         print(f"Successfully deducted {total_days} days for {employee.full_name} - {leave_type.name}")
 
-
 def send_leave_decision_email(leave_request, is_approved, comments):
     try:
         employee = leave_request.employee
-        subject = f"Leave Request {leave_request.control_number} - {'Approved' if is_approved else 'Disapproved'}"
+        # Check the actual leave request status to determine the final decision
+        final_decision_approved = leave_request.status == 'approved'
+        subject = f"Leave Request {leave_request.control_number} - {'Approved' if final_decision_approved else 'Disapproved'}"
         
         context = {
             'employee_name': employee.full_name,
@@ -1574,12 +1645,12 @@ def send_leave_decision_email(leave_request, is_approved, comments):
             'date_to': leave_request.date_to,
             'days_requested': leave_request.days_requested,
             'reason': leave_request.reason,
-            'is_approved': is_approved,
+            'is_approved': final_decision_approved,
             'comments': comments,
             'decision_date': timezone.now().date(),
         }
         
-        if is_approved:
+        if final_decision_approved:
             message = f"""
 Dear {employee.full_name},
 
@@ -1629,7 +1700,6 @@ REPConnect
         
     except Exception as e:
         print(f"Email notification failed: {str(e)}")
-
 
 @login_required(login_url="user-login")
 def hr_admin_approval_detail(request, control_number):
