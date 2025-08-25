@@ -15,18 +15,15 @@
                 <h2>Personnel Request Form (PRF)</h2>
                 <p>Submit and manage your personnel request forms</p>
             </div>
-            {% if prfs %}
             <div class="page-actions">
                 <button class="btn btn-primary" onclick="openModal('submitPRFModal')">
                     <i class="fas fa-plus"></i>
                     New PRF Request
                 </button>
             </div>
-            {% endif %}
         </header>
 
         {% if prfs %}
-        <div class="card">
             <div class="table-actions table-actions-bar">
                 <div class="table-actions-left">
                     <form class="search-box">
@@ -65,16 +62,16 @@
                     </button>
                 </div>
             </div>
-            <div class="table-container no-table-border">
+            <div class="common-table-container no-table-border">
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>PRF Type</th>
-                            <th>Category</th>
-                            <th>Purpose</th>
+                            <th class="hide-column">Category</th>
+                            <th class="hide-column">Purpose</th>
                             <th>Control Number</th>
                             <th>Status</th>
-                            <th>Date Submitted</th>
+                            <th class="hide-column">Date Submitted</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -86,10 +83,10 @@
                                     {{ prf.get_prf_type_display }}
                                 </div>
                             </td>
-                            <td>
+                            <td class="hide-column">
                                 <span class="prf-category-badge">{{ prf.get_prf_category_display }}</span>
                             </td>
-                            <td>
+                            <td class="hide-column">
                                 <div class="prf-purpose-cell">
                                     {{ prf.purpose|truncatechars:80 }}
                                 </div>
@@ -102,27 +99,19 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="status-badge status-{{ prf.status }}">
-                                    {% if prf.status == 'approved' %}
-                                        <i class="fas fa-check"></i>
-                                    {% elif prf.status == 'disapproved' %}
-                                        <i class="fas fa-times"></i>
-                                    {% else %}
-                                        <i class="fas fa-clock"></i>
-                                    {% endif %}
+                                <span class="status-pill status-{% if prf.get_status_display == 'Approved' %}green{% elif prf.get_status_display == 'Disapproved' %}red{% elif prf.get_status_display == 'Pending' %}yellow{% else %}gray{% endif %}">
                                     {{ prf.get_status_display }}
                                 </span>
                             </td>
-                            <td>
+                            <td class="hide-column">
                                 <div class="date-cell">
                                     <i class="fas fa-calendar"></i>
                                     {{ prf.created_at|date:"M d, Y" }}
                                 </div>
                             </td>
                             <td>
-                                <button class="btn btn-outline btn-sm" {% if forloop.first %}id="tour-view-btn"{% endif %} onclick="viewPRFDetail({{ prf.id }})">
+                                <button class="btn btn-icon" {% if forloop.first %}id="tour-view-btn"{% endif %} onclick="viewPRFDetail({{ prf.id }})">
                                     <i class="fas fa-eye"></i>
-                                    View
                                 </button>
                             </td>
                         </tr>
@@ -130,7 +119,7 @@
                         <tr class="no-data-row" style="display:none;">
                             <td colspan="7">
                                 <div class="empty-state table-no-data">
-                                    <div class="empty-icon"><i class="fas fa-search"></i></div>
+                                    <i class="fas fa-search"></i>
                                     <div class="table-no-data-title">No data found.</div>
                                     <div class="table-no-data-desc">Try adjusting your filter or search.</div>
                                 </div>
@@ -153,20 +142,11 @@
                     </button>
                 </div>
             </div>
-        </div>
         {% else %}
-        <div class="card" style="display: flex; align-items: center; justify-content: center; min-height: 400px;">
-            <div class="empty-state" style="text-align: center;">
-                <div class="empty-icon">
-                    <i class="fas fa-file-alt"></i>
-                </div>
+        <div class="empty-state" style="text-align: center;">
+                <i class="fas fa-file-alt"></i>
                 <h3>No PRF Requests Yet</h3>
                 <p>You haven't submitted any PRF requests. Click the button above to submit your first request.</p>
-                <button class="btn btn-primary" onclick="openModal('submitPRFModal')">
-                    <i class="fas fa-plus"></i>
-                    Submit First Request
-                </button>
-            </div>
         </div>
         {% endif %}
     </div>
@@ -175,7 +155,7 @@
         <div class="modal-overlay"></div>
         <div class="modal-content modal-md">
             <div class="modal-header">
-                <h3>Submit PRF Request</h3>
+                <h4>Submit PRF Request</h4>
                 <button class="modal-close" onclick="closeModal('submitPRFModal')">
                     <i class="fas fa-times"></i>
                 </button>
@@ -215,7 +195,7 @@
         <div class="modal-overlay"></div>
         <div class="modal-content modal-md">
             <div class="modal-header details-header">
-                <h3>PRF Request Details</h3>
+                <h4>PRF Request Details</h4>
                 <button class="modal-close" onclick="closeModal('prfDetailModal')">
                     <i class="fas fa-times"></i>
                 </button>
@@ -243,6 +223,33 @@
                     <div class="details-label">Purpose:</div>
                     <div class="details-value" id="details-purpose"></div>
                 </div>
+                <div class="details-section details-details" id="emergency-loan-details" style="display: none;">
+                    <div class="details-label">Emergency Loan Details:</div>
+                    <div class="emergency-loan-info">
+                        <div class="details-grid">
+                            <div>
+                                <div class="details-label">Amount:</div>
+                                <div class="details-value" id="emergency-amount"></div>
+                            </div>
+                            <div>
+                                <div class="details-label">Cut-Off Period:</div>
+                                <div class="details-value" id="emergency-cutoff"></div>
+                            </div>
+                            <div>
+                                <div class="details-label">Starting Date:</div>
+                                <div class="details-value" id="emergency-start-date"></div>
+                            </div>
+                            <div>
+                                <div class="details-label">Deduction per Cut-Off:</div>
+                                <div class="details-value" id="emergency-deduction"></div>
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <div class="details-label">Employee Name:</div>
+                                <div class="details-value" id="emergency-employee-name"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="details-section details-details" id="details-remarks-row">
                     <div class="details-label">Admin Remarks:</div>
                     <div class="details-value" id="details-remarks"></div>
@@ -255,8 +262,132 @@
         </div>
     </div>
 
+    <!-- Emergency Loan Modal -->
+    <div id="emergencyLoanModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h4>Emergency Loan Request</h4>
+                <button class="modal-close" onclick="closeModal('emergencyLoanModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="emergencyLoanForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Amount <span class="required">*</span></label>
+                        <select class="form-input" id="emergency_amount" name="amount" required>
+                            <option value="">Select Amount</option>
+                            <option value="2000">₱2,000</option>
+                            <option value="3000">₱3,000</option>
+                            <option value="4000">₱4,000</option>
+                            <option value="5000">₱5,000</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Number of Cut-Off <span class="required">*</span></label>
+                        <select class="form-input" id="emergency_cutoff" name="number_of_cutoff" required disabled>
+                            <option value="">Select Amount First</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Starting Date <span class="required">*</span></label>
+                        <input type="date" class="form-input" id="emergency_start_date" name="starting_date" required>
+                    </div>
+                    
+                    <!-- Agreement Text -->
+                    <div class="agreement-section" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <h4 style="margin-bottom: 10px; color: #495057;">Agreement</h4>
+                        <p id="agreement-text" style="line-height: 1.6; color: #6c757d; font-size: 14px;">
+                            This is to authorize Finance and Accounting Department to deduct from my salary the amount of 
+                            <strong id="deduction-amount">₱0.00</strong> per payroll starting 
+                            <strong id="start-date-display">___________</strong> payroll period.
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Full Name Confirmation <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="employee_full_name" name="employee_full_name" 
+                               placeholder="Enter your full name to confirm" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('emergencyLoanModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="emergency-loan-submit" disabled>
+                        <i class="fas fa-check"></i>
+                        Confirm Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Emergency Loan Error Modal -->
+    <div id="emergencyLoanErrorModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Existing Emergency Loan</h4>
+                <button class="modal-close" onclick="closeModal('emergencyLoanErrorModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-alert">
+                    <i class="fas fa-exclamation-triangle loan-alert-icon"></i>
+                    <div class="loan-alert-content">
+                        <h4 class="loan-alert-title">Notice</h4>
+                        <p>
+                            You have an active Emergency Loan with a remaining balance of 
+                            <strong id="existing-balance" class="loan-alert-balance">₱0.00</strong>.
+                        </p>
+                        <p>
+                            You can apply for a new Emergency Loan when your remaining balance is equal to or less than one monthly deduction payment.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('emergencyLoanErrorModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Loan Confirmation Modal -->
+    <div id="emergencyLoanSuccessModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Request Submitted Successfully</h4>
+                <button class="modal-close" onclick="closeModal('emergencyLoanSuccessModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <div>
+                        <h4>Emergency Loan Request Submitted</h4>
+                        <p><strong>Control Number:</strong> <span id="generated-control-number"></span></p>
+                        <p><strong>Amount:</strong> <span id="confirmed-amount"></span></p>
+                        <p><strong>Deduction per Cut-off:</strong> <span id="confirmed-deduction"></span></p>
+                        <p><strong>Starting Date:</strong> <span id="confirmed-start-date"></span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeModal('emergencyLoanSuccessModal'); location.reload();">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/intro.js/minified/intro.min.js"></script>
     <script>
+    window.USER_FULL_NAME = "{{ request.user.firstname }} {{ request.user.lastname }}";
     window.PRF_FILTER_CHOICES = {
         status: [
             {value: 'all', label: 'All'},
@@ -417,6 +548,7 @@
                 document.getElementById('details-type').textContent = data.prf_type;
                 document.getElementById('details-purpose').textContent = data.purpose;
                 document.getElementById('details-control-number').textContent = data.control_number;
+                
                 // Status badge logic
                 const statusSpan = document.getElementById('details-status-badge');
                 statusSpan.className = `status-badge status-${data.status.toLowerCase()}`;
@@ -424,9 +556,26 @@
                 if (data.status.toLowerCase() === 'approved') icon = '<i class="fas fa-check"></i>';
                 else if (data.status.toLowerCase() === 'disapproved') icon = '<i class="fas fa-times"></i>';
                 statusSpan.innerHTML = `${icon} ${data.status}`;
+                
                 document.getElementById('details-remarks').textContent = data.admin_remarks;
                 document.getElementById('details-date').textContent = data.created_at;
                 document.getElementById('details-created').textContent = data.created_at;
+                
+                // Handle Emergency Loan details
+                const emergencyLoanSection = document.getElementById('emergency-loan-details');
+                if (data.emergency_loan) {
+                    // Show Emergency Loan section and populate data
+                    emergencyLoanSection.style.display = 'block';
+                    document.getElementById('emergency-amount').textContent = data.emergency_loan.amount_display;
+                    document.getElementById('emergency-cutoff').textContent = data.emergency_loan.cutoff_display;
+                    document.getElementById('emergency-start-date').textContent = data.emergency_loan.starting_date_display;
+                    document.getElementById('emergency-deduction').textContent = data.emergency_loan.deduction_per_cutoff_display;
+                    document.getElementById('emergency-employee-name').textContent = data.emergency_loan.employee_full_name;
+                } else {
+                    // Hide Emergency Loan section for non-emergency loan PRFs
+                    emergencyLoanSection.style.display = 'none';
+                }
+                
                 const controlRow = document.getElementById('details-remarks-row');
                 const remarksRow = document.getElementById('details-remarks-row');
                 controlRow.style.display = data.control_number === 'N/A' ? 'none' : 'grid';

@@ -87,57 +87,59 @@
         </div>
     </div>
 
-    <div class="chart-card-container">
-        <div class="chart-header">
-            <h3>Finance Overview</h3>
-            <div class="chart-controls">
-                <div class="chart-filters">
-                    <button class="filter-btn active" data-period="month">This Month</button>
-                    <button class="filter-btn" data-period="quarter">This Quarter</button>
-                    <button class="filter-btn" data-period="year">This Year</button>
-                </div>
-                
-                <div class="chart-type-filters">
-                    <button class="chart-type-btn active" data-type="line">
-                        <i class="fas fa-chart-line"></i>
+    <div class="overview-two-column">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Finance Overview</h3>
+                <div class="chart-controls">
+                    <div class="chart-filters">
+                        <button class="filter-btn active" data-period="month">This Month</button>
+                        <button class="filter-btn" data-period="quarter">This Quarter</button>
+                        <button class="filter-btn" data-period="year">This Year</button>
+                    </div>
+                    
+                    <div class="chart-type-filters">
+                        <button class="chart-type-btn active" data-type="line">
+                            <i class="fas fa-chart-line"></i>
+                        </button>
+                        <button class="chart-type-btn" data-type="bar">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
+                    </div>
+                    <button id="filterBtn" class="btn btn-action" type="button">
+                        <i class="fas fa-filter"></i> Filter
                     </button>
-                    <button class="chart-type-btn" data-type="bar">
-                        <i class="fas fa-chart-bar"></i>
-                    </button>
-                </div>
-                <button id="filterBtn" class="btn btn-action" type="button">
-                    <i class="fas fa-filter"></i> Filter
-                </button>
-                <div id="filterPopover" class="filter-popover">
-                    <form class="filter-popover-content" onsubmit="applyFilter(event)">
-                        <div class="filter-section">
-                            <label class="filter-label">Filter By</label>
-                            <select class="filter-field-select" id="filterCategorySelect" onchange="updateFilterOptions()">
-                                <option value="">Select Category</option>
-                                <option value="loans" selected>Loans</option>
-                                <option value="allowances">Allowances</option>
-                            </select>
-                        </div>
-                        
-                        <div class="filter-section" id="filterTypeSection" style="display: none;">
-                            <label class="filter-label">Type</label>
-                            <div class="filter-type-options" id="filterTypeOptions">
-                                <!-- Dynamic options will be loaded here -->
+                    <div id="filterPopover" class="filter-popover">
+                        <form class="filter-popover-content" onsubmit="applyFilter(event)">
+                            <div class="filter-section">
+                                <label class="filter-label">Filter By</label>
+                                <select class="filter-field-select" id="filterCategorySelect" onchange="updateFilterOptions()">
+                                    <option value="">Select Category</option>
+                                    <option value="loans" selected>Loans</option>
+                                    <option value="allowances">Allowances</option>
+                                </select>
                             </div>
-                        </div>
-                        
-                        <div class="filter-popover-actions">
-                            <button type="button" class="btn btn-outline btn-sm" onclick="closeFilterPopover()">
-                                Cancel
-                            </button>
-                            <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
-                        </div>
-                    </form>
+                            
+                            <div class="filter-section" id="filterTypeSection" style="display: none;">
+                                <label class="filter-label">Type</label>
+                                <div class="filter-type-options" id="filterTypeOptions">
+                                    <!-- Dynamic options will be loaded here -->
+                                </div>
+                            </div>
+                            
+                            <div class="filter-popover-actions">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="closeFilterPopover()">
+                                    Cancel
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="chart-container">
-            <canvas id="financeChart"></canvas>
+            <div class="chart-container">
+                <canvas id="financeChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -227,7 +229,6 @@
         </div>
         <!-- Employee List Table -->
         <div class="common-table-container" id="employeeTableContainer">
-            {% load static %}
             <table class="data-table">
                 <thead>
                     <tr>
@@ -268,7 +269,10 @@
                 {% endfor %}
                 </tbody>
             </table>
-            <div class="pagination" id="paginationContainer">
+            
+        </div>
+
+        <div class="pagination" id="paginationContainer">
                 <div class="pagination-info">
                     Showing <span id="startRecord">{{ employee_page_obj.start_index }}</span> to <span id="endRecord">{{ employee_page_obj.end_index }}</span> of <span id="totalRecords">{{ employee_page_obj.paginator.count }}</span> entries
                 </div>
@@ -301,8 +305,7 @@
                         </span>
                     {% endif %}
                 </div>
-            </div> 
-        </div>
+        </div> 
 </div>
 
 <!-- Regular/Probationary Import Modal -->

@@ -26,6 +26,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from io import BytesIO
 from .models import Payslip, Loan, Allowance, OJTPayslipData, AllowanceType, LoanType, LoanDeduction, Savings, OJTRate
 from .forms import PayslipUploadForm, EmployeeSearchForm, EmailSelectionForm, SavingsUploadForm
+from notification.models import Notification
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET
 from userlogin.models import EmployeeLogin
@@ -33,6 +34,14 @@ from .models import Payslip
 from django.core.files.storage import default_storage
 from decimal import Decimal
 from django.db import transaction, models
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus.frames import Frame
+from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+import os
 
 @login_required(login_url="user-login")
 def finance_dashboard(request):
@@ -283,6 +292,7 @@ def user_finance(request):
         'now': now,
         'employment_type': employment_type,
         'payslips': payslips,
+        'ojtpayslips': OJTPayslipData.objects.filter(employee=user).order_by('-created_at'),
         'allowances': allowances,
         'loans': loans,
         'savings': savings_sorted,
@@ -305,7 +315,6 @@ def user_finance(request):
 # OJT Payslip Upload
 @login_required(login_url="user-login")
 def ojt_payslip_upload(request):
-    """Handle OJT payslip uploads (Excel files only)"""
     if not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Permission denied'})
 
@@ -341,6 +350,17 @@ def ojt_payslip_upload(request):
                 'created': created,
                 'updated': updated
             })
+        
+        # Create notification for successful upload
+        if created > 0 or updated > 0:
+            Notification.objects.create(
+                title="OJT Payslip Upload",
+                message=f"Payslip for OJT has been uploaded for cut-off period {cut_off}.",
+                sender=request.user,
+                recipient=request.user,
+                module="finance",
+                for_all=True
+            )
             
         return JsonResponse({
             'success': True, 
@@ -535,6 +555,7 @@ def ojt_payslip_details(request, payslip_id):
 def ajax_ojt_payslip_details(request, payslip_id):
     try:
         payslip = OJTPayslipData.objects.get(id=payslip_id)
+        current_user = request.user
         
         # Get OJT rates for the "main" site
         try:
@@ -557,6 +578,19 @@ def ajax_ojt_payslip_details(request, payslip_id):
                 'legal_rate': '0.00',
                 'sat_off_rate': '0.00',
             }
+        
+        # Get line name from current user's employment info
+        try:
+            if hasattr(current_user, 'employment_info') and current_user.employment_info:
+                if hasattr(current_user.employment_info, 'line') and current_user.employment_info.line:
+                    line_name = current_user.employment_info.line.line_name
+                else:
+                    line_name = '-'
+            else:
+                line_name = '-'
+        except Exception as e:
+            print(f"Error getting line info: {e}")
+            line_name = '-'
         
         data = {
             'cut_off': str(payslip.cut_off),
@@ -581,6 +615,13 @@ def ajax_ojt_payslip_details(request, payslip_id):
             'net_ojt_share': str(payslip.net_ojt_share),
             'ot_pay_allowance': str(payslip.ot_pay_allowance),
             'total_allow': str(payslip.total_allow),
+            'total_allowance': str(payslip.total_allowance),
+            'grand_total': str(payslip.grand_total),
+            'employee': {
+                'idnumber': current_user.idnumber or '-',
+                'full_name': f"{current_user.firstname or ''} {current_user.lastname or ''}".strip() or '-',
+                'line': line_name
+            }
         }
         
         # Add rate data to the response
@@ -589,6 +630,20 @@ def ajax_ojt_payslip_details(request, payslip_id):
         return JsonResponse({'success': True, 'payslip': data})
     except OJTPayslipData.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Payslip not found'}, status=404)
+    except Exception as e:
+
+        # Add rate data to the response
+        data.update(rates_data)
+        
+        return JsonResponse({'success': True, 'payslip': data})
+    except OJTPayslipData.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Payslip not found'}, status=404)
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in ajax_ojt_payslip_details: {str(e)}")
+        return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
     
 # REGULAR Payslip Upload
 @login_required(login_url="user-login")
@@ -657,6 +712,17 @@ def regular_payslip_upload(request):
             except Exception as e:
                 errors.append({'filename': file.name, 'error': str(e)})
                 processed += 1
+
+        # Create notification for successful upload
+        if success_count > 0:
+            Notification.objects.create(
+                title="Regular Payslip Upload",
+                message=f"Regular payslip has been uploaded for cutoff Period: {cutoff_date}.",
+                sender=request.user,
+                recipient=request.user,
+                module="finance",
+                for_all=True
+            )
 
         return JsonResponse({
             'success': True,
@@ -731,7 +797,6 @@ def download_failed_payslips(request):
     return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=400)
 
 def ajax_employee_payslips(request, employee_id):
-    """AJAX endpoint to return filtered payslips table for an employee."""
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
     try:
@@ -789,6 +854,18 @@ def loan_principal_upload(request):
                         'stacked': stacked,
                         'not_uploaded_rows': not_uploaded_rows
                     })
+                
+                # Create notification for successful upload
+                if created > 0 or updated > 0 or stacked > 0:
+                    Notification.objects.create(
+                        title="Principal Balance Upload",
+                        message=f"New principal loan balance has been successfully uploaded.",
+                        sender=request.user,
+                        recipient=request.user,
+                        module="finance",
+                        for_all=True
+                    )
+                
                 return JsonResponse({
                     'success': True,
                     'created': created,
@@ -843,6 +920,17 @@ def loan_deduction_upload(request):
                         'processed': processed,
                         'added_deductions': added_deductions
                     })
+                
+                # Create notification for successful upload
+                if processed > 0:
+                    Notification.objects.create(
+                        title="Deduction Upload",
+                        message=f"Loan deductions has been successfully uploaded for cutoff period {cutoff_date}.",
+                        sender=request.user,
+                        recipient=request.user,
+                        module="finance",
+                        for_all=True
+                    )
                     
                 return JsonResponse({
                     'success': True, 
@@ -1387,6 +1475,17 @@ def allowances_upload(request):
                     'errors': error_details
                 }, content_type='application/json')
             else:
+                # Create notification for successful upload
+                if success_count > 0:
+                    Notification.objects.create(
+                        title="Allowances Upload",
+                        message=f"New allowances have been successfully uploaded.",
+                        sender=request.user,
+                        recipient=request.user,
+                        module="finance",
+                        for_all=True
+                    )
+                
                 return JsonResponse({
                     'success': True,
                     'message': f'Successfully uploaded {success_count} allowance file(s)',
@@ -2686,6 +2785,17 @@ def savings_upload(request):
                     for error in errors[:5]:  # Show first 5 errors
                         messages.error(request, error)
                 
+                # Create notification for successful upload
+                if success_count > 0:
+                    Notification.objects.create(
+                        title="Savings Upload",
+                        message=f"New savings has been successfully uploaded.",
+                        sender=request.user,
+                        recipient=request.user,
+                        module="finance",
+                        for_all=True
+                    )
+                
                 return JsonResponse({
                     'success': True,
                     'message': f'Processed {success_count + error_count} records. {success_count} successful, {error_count} failed.',
@@ -2745,3 +2855,266 @@ def withdraw_savings(request, savings_id):
         return JsonResponse({'success': False, 'message': 'Savings record not found'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
+
+@login_required(login_url="user-login")
+def send_ojt_payslip_email(request, payslip_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        email = data.get('email')
+        
+        if not email:
+            return JsonResponse({'success': False, 'message': 'Email address is required'})
+        
+        payslip = OJTPayslipData.objects.get(id=payslip_id, employee=request.user)
+        
+        pdf_content = generate_ojt_payslip_pdf(payslip)
+        
+        subject = f"OJT Payslip - {payslip.cut_off}"
+        message = f"""
+Dear {request.user.firstname} {request.user.lastname},
+
+Please find attached your OJT payslip for the period: {payslip.cut_off}
+
+Thank you for your hard work and dedication.
+
+Best regards,
+RYONAN ELECTRIC PHILIPPINES CORPORATION
+Finance Department
+        """
+        
+        email_msg = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email],
+        )
+        
+        # Attach PDF
+        filename = f"OJT_Payslip_{request.user.idnumber}_{payslip.cut_off.replace('/', '_')}.pdf"
+        email_msg.attach(filename, pdf_content, 'application/pdf')
+        
+        email_msg.send()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'OJT payslip sent successfully to {email}'
+        })
+        
+    except OJTPayslipData.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'OJT payslip not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error sending email: {str(e)}'})
+
+def generate_ojt_payslip_pdf(payslip):
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Company header exactly like modal
+    logo_path = os.path.join(settings.STATIC_ROOT or settings.STATICFILES_DIRS[0], 'images', 'icon', 'ryonanlogo.png')
+    
+    try:
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=0.8*inch, height=0.8*inch)
+            
+            # Create header with logo on left and centered text
+            company_info = Paragraph("""
+                <para align=center>
+                <b>RYONAN ELECTRIC PHILIPPINES CORPORATION</b><br/>
+                105 East Main Avenue, Special Export Processing Zone<br/>
+                Laguna, Technopark, Biñan, Laguna
+                </para>
+            """, ParagraphStyle('CompanyInfo', fontSize=12, fontName='Helvetica', alignment=TA_CENTER))
+            
+            header_data = [[logo, company_info]]
+            header_table = Table(header_data, colWidths=[1*inch, 5*inch])
+            header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+        else:
+            # Fallback without logo - center everything
+            company_info = Paragraph("""
+                <para align=center>
+                <b>RYONAN ELECTRIC PHILIPPINES CORPORATION</b><br/>
+                105 East Main Avenue, Special Export Processing Zone<br/>
+                Laguna, Technopark, Biñan, Laguna
+                </para>
+            """, ParagraphStyle('CompanyInfo', fontSize=12, fontName='Helvetica', alignment=TA_CENTER))
+            
+            header_table = Table([[company_info]], colWidths=[6*inch])
+            header_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]))
+    except:
+        # Fallback without logo - center everything
+        company_info = Paragraph("""
+            <para align=center>
+            <b>RYONAN ELECTRIC PHILIPPINES CORPORATION</b><br/>
+            105 East Main Avenue, Special Export Processing Zone<br/>
+            Laguna, Technopark, Biñan, Laguna
+            </para>
+        """, ParagraphStyle('CompanyInfo', fontSize=12, fontName='Helvetica', alignment=TA_CENTER))
+        
+        header_table = Table([[company_info]], colWidths=[6*inch])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+    
+    elements.append(header_table)
+    elements.append(Spacer(1, 20))
+    
+    # Employee info grid (2x2) exactly like modal
+    try:
+        if hasattr(payslip.employee, 'employment_info') and payslip.employee.employment_info:
+            if hasattr(payslip.employee.employment_info, 'line') and payslip.employee.employment_info.line:
+                line_name = payslip.employee.employment_info.line.line_name
+            else:
+                line_name = '-'
+        else:
+            line_name = '-'
+    except Exception:
+        line_name = '-'
+    
+    employee_data = [
+        ['ID Number:', payslip.employee.idnumber or '-', 'Cut-Off:', payslip.cut_off],
+        ['Name:', f"{payslip.employee.firstname} {payslip.employee.lastname}", 'Line:', line_name]
+    ]
+    
+    employee_table = Table(employee_data, colWidths=[1.2*inch, 2.3*inch, 1.2*inch, 2.3*inch])
+    employee_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    
+    elements.append(employee_table)
+    elements.append(Spacer(1, 20))
+    
+    # Payslip sections exactly like modal - no peso signs
+    regular_day_data = [
+        ['Regular Day', ''],
+        ['REGULAR # of Days Work', f"{payslip.regular_day}"],
+        ['ALLOWANCE/DAY', f"{float(payslip.allowance_day):,.2f}"],
+        ['Total:', f"{float(payslip.regular_day) * float(payslip.allowance_day):,.2f}"],
+        ['REG ND ALLOWANCE', f"{float(payslip.nd_allowance):,.2f}"],
+        ['GRAND TOTAL', f"{float(payslip.grand_total):,.2f}"],
+        ['BASIC ALLOW.SCHOOL SHARE', f"{float(payslip.basic_school_share):,.2f}"],
+        ['BASIC ALLOW. OJT SHARE', f"{float(payslip.basic_ojt_share):,.2f}"],
+        ['DEDUCTION', f"{float(payslip.deduction):,.2f}"],
+        ['NET BASIC ALLOW. OJT SHARE', f"{float(payslip.net_ojt_share):,.2f}"],
+    ]
+    
+    allowances_data = [
+        ['Allowances', ''],
+        ['RICE ALLOWANCE', f"{float(payslip.rice_allowance):,.2f}"],
+        ['Reg OT ALLOWANCE', f"{float(payslip.ot_allowance):,.2f}"],
+        ['REG ND OT ALLOWANCE', f"{float(payslip.nd_ot_allowance):,.2f}"],
+        ['SPECIAL HOLIDAY', f"{float(payslip.special_holiday):,.2f}"],
+        ['LEGAL HOLIDAY', f"{float(payslip.legal_holiday):,.2f}"],
+        ['SAT-OFF ALLOWANCE', f"{float(payslip.satoff_allowance):,.2f}"],
+        ['RD OT', f"{float(payslip.rd_ot):,.2f}"],
+        ['PERFECT ATTENDANCE', f"{float(payslip.perfect_attendance):,.2f}"],
+        ['ADJUSTMENT', f"{float(payslip.adjustment):,.2f}"],
+        ['DEDUCTION 2', f"{float(payslip.deduction_2):,.2f}"],
+        ['NET OJT OT PAY ALLOWANCE', f"{float(payslip.ot_pay_allowance):,.2f}"],
+    ]
+    
+    # Create side-by-side tables exactly like modal
+    sections_data = []
+    max_rows = max(len(regular_day_data), len(allowances_data))
+    
+    for i in range(max_rows):
+        row = []
+        if i < len(regular_day_data):
+            row.extend(regular_day_data[i])
+        else:
+            row.extend(['', ''])
+        
+        row.append('')  # Spacer column
+        
+        if i < len(allowances_data):
+            row.extend(allowances_data[i])
+        else:
+            row.extend(['', ''])
+        
+        sections_data.append(row)
+    
+    sections_table = Table(sections_data, colWidths=[2.3*inch, 1.2*inch, 0.2*inch, 2.3*inch, 1.2*inch])
+    sections_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (1, -1), 0.5, colors.black),
+        ('GRID', (3, 0), (4, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),   # Labels left-aligned
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),  # Values right-aligned
+        ('ALIGN', (3, 0), (3, -1), 'LEFT'),   # Labels left-aligned
+        ('ALIGN', (4, 0), (4, -1), 'RIGHT'),  # Values right-aligned
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        
+        # Header rows styling exactly like modal
+        ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (3, 0), (4, 0), 'Helvetica-Bold'),
+        ('BACKGROUND', (0, 0), (1, 0), colors.lightgrey),
+        ('BACKGROUND', (3, 0), (4, 0), colors.lightgrey),
+        
+        # Highlight NET BASIC ALLOW. OJT SHARE and NET OJT OT PAY ALLOWANCE like modal
+        ('FONTNAME', (0, 9), (1, 9), 'Helvetica-Bold'),  # NET BASIC ALLOW. OJT SHARE
+        ('BACKGROUND', (0, 9), (1, 9), colors.lightyellow),
+        ('FONTNAME', (3, 11), (4, 11), 'Helvetica-Bold'),  # NET OJT OT PAY ALLOWANCE
+        ('BACKGROUND', (3, 11), (4, 11), colors.lightyellow),
+    ]))
+    
+    elements.append(sections_table)
+    elements.append(Spacer(1, 20))
+    
+    # Total allowance - Right aligned without table, like image 1
+    net_basic_ojt_share = float(payslip.net_ojt_share) if payslip.net_ojt_share else 0.0
+    net_ojt_ot_pay_allowance = float(payslip.ot_pay_allowance) if payslip.ot_pay_allowance else 0.0
+    total_allowance_value = net_basic_ojt_share + net_ojt_ot_pay_allowance
+    
+    # Create right-aligned total allowance paragraph
+    total_allowance_style = ParagraphStyle(
+        'TotalAllowance',
+        fontSize=16,
+        fontName='Helvetica-Bold',
+        alignment=TA_RIGHT,
+        spaceBefore=10,
+        spaceAfter=10
+    )
+    
+    total_allowance_text = f"TOTAL ALLOWANCE: {total_allowance_value:,.2f}"
+    total_allowance_para = Paragraph(total_allowance_text, total_allowance_style)
+    
+    elements.append(total_allowance_para)
+    
+    # Build PDF
+    doc.build(elements)
+    
+    pdf_content = buffer.getvalue()
+    buffer.close()
+    
+    return pdf_content

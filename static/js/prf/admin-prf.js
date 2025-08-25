@@ -120,24 +120,24 @@ class AdminPRFDashboard {
 
     updateTableContent(data) {
         const tableBody = document.getElementById('tableBody');
-        const noDataMessage = document.getElementById('noDataMessage');
-        const noDataDescription = document.getElementById('noDataDescription');
 
         if (data.has_results) {
             // Update table body
             tableBody.innerHTML = data.table_data.map(prf => this.createTableRow(prf)).join('');
-            noDataMessage.style.display = 'none';
         } else {
             // Show no data message
-            tableBody.innerHTML = '';
-            noDataMessage.style.display = 'block';
-
-            // Update no data description
-            if (data.search) {
-                noDataDescription.textContent = `No results found for "${data.search}". Try adjusting your search terms.`;
-            } else {
-                noDataDescription.textContent = 'No PRF requests match your current filters. Try adjusting your search criteria.';
-            }
+            const searchText = data.search ? `No results found for "${data.search}". Try adjusting your search terms.` : 'No PRF requests match your current filters.';
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center">
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-alt"></i>
+                            <h5>No PRF Requests Found</h5>
+                            <p>${searchText}</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
         }
 
         // Update pagination
@@ -161,30 +161,44 @@ class AdminPRFDashboard {
         let actionButton = '';
         const status = (prf.status || '').toLowerCase().trim();
         if (status === 'pending') {
-            actionButton = `<button class=\"btn btn-outline btn-sm\" onclick=\"viewAdminPRFDetail(${prf.id})\" title=\"Approval\">\n                <i class=\"fas fa-cog\"></i>\n                Approval\n            </button>`;
+            actionButton = `<button class="btn btn-primary btn-sm" onclick="viewAdminPRFDetail(${prf.id})" title="View Details">
+                <i class="fa fa-check"></i>
+                Review
+            </button>`;
         } else {
-            actionButton = `<button class=\"btn btn-outline btn-sm\" onclick=\"viewAdminPRFDetail(${prf.id})\" title=\"View\">\n                <i class=\"fas fa-eye\"></i>\n                View\n            </button>`;
+            actionButton = `<button class="btn btn-icon" onclick="viewAdminPRFDetail(${prf.id})" title="View Details">
+                <i class="fa fa-eye"></i>
+            </button>`;
         }
         return `
             <tr>
                 <td>
-                    <label class=\"standard-checkbox\">
-                        <input type=\"checkbox\" class=\"row-checkbox\" value=\"${prf.id}\" onchange=\"updateBulkDeleteButton()\">
-                        <span class=\"checkmark\"></span>
+                    <label class="standard-checkbox">
+                        <input type="checkbox" class="row-checkbox" value="${prf.id}" onchange="updateBulkDeleteButton()">
+                        <span class="checkmark"></span>
                     </label>
                 </td>
+                <td>${prf.prf_control_number}</td>
                 <td>
-                    <div class=\"employee-info\">\n                        <strong>${prf.employee_username}</strong>\n                        <small>${prf.employee_firstname} ${prf.employee_lastname}</small>\n                    </div>
+                    <div class="employee-info">
+                        <strong>${prf.employee_username}</strong>
+                        <small>${prf.employee_firstname} ${prf.employee_lastname}</small>
+                    </div>
                 </td>
                 <td>
-                    <div class=\"prf-type-info\">\n                        <strong>${prf.prf_type_display}</strong>\n                        <small>${prf.prf_category_display}</small>\n                    </div>
+                    <div class="prf-type-info">
+                        <strong>${prf.prf_type_display}</strong>
+                        <small>${prf.prf_category_display}</small>
+                    </div>
                 </td>
                 <td>${purposeTruncated}</td>
-                <td>
-                    <span class=\"status-badge status-${prf.status}\">\n                        ${prf.status_display}\n                    </span>
+                <td style="text-align: center;">
+                    <span class="status-pill status-${prf.status === 'approved' ? 'green' : prf.status === 'disapproved' ? 'red' : prf.status === 'cancelled' ? 'gray' : 'yellow'}">
+                        ${prf.status_display}
+                    </span>
                 </td>
                 <td>${prf.created_at}</td>
-                <td>
+                <td style="text-align: center;">
                     ${actionButton}
                 </td>
             </tr>
@@ -1074,27 +1088,39 @@ function switchChartType(type) {
 async function viewAdminPRFDetail(prfId) {
     window.currentDetailPRFId = prfId;
     try {
-        const response = await fetch(`/prf/admin/detail/${prfId}/`, {
+        const response = await fetch(`/prf/admin/detail/${prfId}/?_t=${Date.now()}`, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
             }
         });
         if (response.ok) {
             const data = await response.json();
+            console.log('=== FULL API RESPONSE OBJECT ===');
+            console.log('Response keys:', Object.keys(data));
+            console.log('prf_type_value:', data.prf_type_value);
+            console.log('emergency_loan:', data.emergency_loan);
+            console.log('Raw response:', data);
+            console.log('===============================');
+            
             const set = (id, value) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = value;
             };
+            
             set('details-requestor', `${data.employee_firstname || ''} ${data.employee_lastname || ''}`.trim());
             set('details-idnumber', data.employee_idnumber || '');
             set('details-category', data.prf_category);
             set('details-type', data.prf_type);
+            set('details-prf-number', data.prf_control_number || 'N/A');
             set('details-purpose', data.purpose);
             set('details-created', data.created_at);
             set('details-remarks', data.admin_remarks);
             set('details-control', data.control_number || '');
             const controlRow = document.getElementById('details-control-row');
             if (controlRow) controlRow.style.display = data.control_number ? '' : 'none';
+            
             // Status badge logic
             const statusSpan = document.getElementById('details-status-badge');
             if (statusSpan) {
@@ -1104,9 +1130,51 @@ async function viewAdminPRFDetail(prfId) {
                 else if (data.status.toLowerCase() === 'disapproved') icon = '<i class="fas fa-times"></i>';
                 statusSpan.innerHTML = `${icon} ${data.status_display}`;
             }
+            
+            // Handle Emergency Loan details
+            const emergencyLoanSection = document.getElementById('emergency-loan-details');
+            console.log('=== Emergency Loan Debug ===');
+            console.log('PRF Type Value:', data.prf_type_value);
+            console.log('Emergency Loan Data:', data.emergency_loan);
+            console.log('Is Emergency Loan PRF?', data.prf_type_value === 'emergency_loan');
+            console.log('Has Emergency Loan Data?', !!data.emergency_loan);
+            
+            if (emergencyLoanSection) {
+                // Only show for Emergency Loan PRFs that have emergency loan data
+                if (data.prf_type_value === 'emergency_loan' && data.emergency_loan) {
+                    console.log('✅ Showing Emergency Loan section - This is an Emergency Loan PRF with data');
+                    
+                    // Show Emergency Loan section with proper styling
+                    emergencyLoanSection.style.display = 'block';
+                    emergencyLoanSection.style.background = '#f8f9fa';
+                    emergencyLoanSection.style.border = '1px solid #dee2e6';
+                    emergencyLoanSection.style.padding = '1rem';
+                    emergencyLoanSection.style.margin = '1rem 0';
+                    emergencyLoanSection.style.borderRadius = '0.375rem';
+                    
+                    // Populate Emergency Loan data
+                    set('emergency-control-number', data.control_number || 'N/A');
+                    set('emergency-amount', `₱${parseFloat(data.emergency_loan.amount).toLocaleString()}`);
+                    set('emergency-number-of-cutoff', data.emergency_loan.number_of_cutoff.toString());
+                    set('emergency-starting-date', data.emergency_loan.starting_date);
+                    
+                    console.log('Emergency Loan data populated successfully');
+                } else {
+                    console.log('❌ Hiding Emergency Loan section - Either not Emergency Loan PRF or no data available');
+                    console.log('  - PRF Type:', data.prf_type_value);
+                    console.log('  - Has Emergency Loan Data:', !!data.emergency_loan);
+                    
+                    // Hide Emergency Loan section for non-emergency loan PRFs or PRFs without emergency loan data
+                    emergencyLoanSection.style.display = 'none';
+                }
+            } else {
+                console.log('❌ Emergency Loan section element not found in DOM!');
+            }
+            
             // Hide remarks if not present
             const remarksRow = document.getElementById('details-remarks-row');
             if (remarksRow) remarksRow.style.display = data.admin_remarks ? '' : 'none';
+            
             openModal('prfDetailModal');
             const approveBtn = document.getElementById('approveBtn');
             const disapproveBtn = document.getElementById('disapproveBtn');
@@ -1316,6 +1384,21 @@ function submitPRFAction(action, remarks) {
     const prfId = window.currentDetailPRFId;
     if (!prfId) return;
     
+    // Disable action buttons to prevent double submission
+    const approveBtn = document.getElementById('approveBtn');
+    const disapproveBtn = document.getElementById('disapproveBtn');
+    const originalApproveText = approveBtn ? approveBtn.innerHTML : '';
+    const originalDisapproveText = disapproveBtn ? disapproveBtn.innerHTML : '';
+    
+    if (approveBtn) {
+        approveBtn.disabled = true;
+        approveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    }
+    if (disapproveBtn) {
+        disapproveBtn.disabled = true;
+        disapproveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    }
+    
     fetch('/prf/admin/process-action/', {
         method: 'POST',
         headers: {
@@ -1328,15 +1411,43 @@ function submitPRFAction(action, remarks) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            // Close all modals
             closeModal('disapprovalRemarksModal');
+            closeModal('prfDetailModal');
+            
+            // Show success message
             window.adminDashboard.showToast(data.message, 'success');
-            window.adminDashboard.loadTableData(window.adminDashboard.currentPage, false);
+            
+            // Refresh the entire page to ensure all data is updated
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500); // Wait 1.5 seconds to show the toast message
         } else {
             window.adminDashboard.showToast(data.message || 'Action failed', 'error');
+            
+            // Re-enable buttons on error
+            if (approveBtn) {
+                approveBtn.disabled = false;
+                approveBtn.innerHTML = originalApproveText;
+            }
+            if (disapproveBtn) {
+                disapproveBtn.disabled = false;
+                disapproveBtn.innerHTML = originalDisapproveText;
+            }
         }
     })
     .catch(() => {
         window.adminDashboard.showToast('Action failed', 'error');
+        
+        // Re-enable buttons on error
+        if (approveBtn) {
+            approveBtn.disabled = false;
+            approveBtn.innerHTML = originalApproveText;
+        }
+        if (disapproveBtn) {
+            disapproveBtn.disabled = false;
+            disapproveBtn.innerHTML = originalDisapproveText;
+        }
     });
 }
 

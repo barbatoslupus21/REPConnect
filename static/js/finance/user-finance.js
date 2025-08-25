@@ -988,6 +988,428 @@ function startUserFinanceTour() {
 // Make tour function globally available
 window.startUserFinanceTour = startUserFinanceTour;
 
+// Toast notification system using existing style.css classes
+function showToast(type, message, duration = 5000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = message;
+
+    container.appendChild(toast);
+
+    // Auto remove after duration
+    setTimeout(() => {
+        removeToast(toast);
+    }, duration);
+}
+
+function removeToast(toast) {
+    if (toast && toast.parentNode) {
+        toast.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }
+}
+
+// OJT Payslip functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // View OJT Payslip Details
+    document.body.addEventListener('click', function(e) {
+        const btn = e.target.closest('.view-ojtpayslip-btn');
+        if (btn) {
+            const payslipId = btn.getAttribute('data-payslip-id');
+            const modal = document.getElementById('ojtPayslipDetailsModal');
+            
+            if (modal && payslipId) {
+                modal.classList.add('show');
+                loadOJTPayslipDetails(payslipId);
+            }
+        }
+    });
+
+    // Send OJT Payslip Email
+    document.body.addEventListener('click', function(e) {
+        const btn = e.target.closest('.send-ojtpayslip-email-btn');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const payslipId = btn.getAttribute('data-payslip-id');
+            const userEmail = btn.getAttribute('data-user-email');
+            const workEmail = btn.getAttribute('data-work-email');
+            const cutoffDate = btn.getAttribute('data-cutoff-date');
+            
+            showOJTEmailConfirmationModal(payslipId, userEmail, workEmail, cutoffDate);
+        }
+    });
+
+    // Print OJT Payslip
+    document.getElementById('printOjtPayslip')?.addEventListener('click', function() {
+        printOJTPayslip();
+    });
+
+    // Close OJT modal
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal-overlay') || e.target.closest('.modal-close')) {
+            const modal = e.target.closest('.modal');
+            if (modal && (modal.id === 'ojtPayslipDetailsModal' || modal.id === 'ojtEmailConfirmationModal')) {
+                modal.classList.remove('show');
+            }
+        }
+    });
+
+    // OJT Email Confirmation
+    const confirmOJTEmailBtn = document.getElementById('confirm-ojt-email-send');
+    if (confirmOJTEmailBtn) {
+        confirmOJTEmailBtn.addEventListener('click', function() {
+            sendOJTPayslipEmailConfirmed();
+        });
+    }
+});
+
+function loadOJTPayslipDetails(payslipId) {
+    console.log('Loading OJT payslip details for ID:', payslipId);
+    
+    fetch(`/finance/ajax/ojt-payslip-details/${payslipId}/`)
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Full response data:', data);
+            
+            if (data.success) {
+                populateOJTPayslipModal(data.payslip);
+                // Remove success toast as requested
+            } else {
+                console.error('Server error:', data.error);
+                showToast('error', data.error || 'Failed to load payslip details');
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            showToast('error', 'Failed to load payslip details. Please try again.');
+        });
+}
+
+function populateOJTPayslipModal(payslip) {
+    console.log('Populating modal with payslip data:', payslip);
+    
+    try {
+        // Employee info
+        const employeeData = payslip.employee || {};
+        console.log('Employee data:', employeeData);
+        
+        // Safely populate employee information
+        const setElementText = (id, value) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value || '-';
+                console.log(`Set ${id} to:`, value || '-');
+            } else {
+                console.warn(`Element with ID '${id}' not found`);
+            }
+        };
+
+        // Employee basic info
+        setElementText('ojt-id-number', employeeData.idnumber);
+        setElementText('ojt-cutoff', payslip.cut_off);
+        setElementText('ojt-name', employeeData.full_name);
+        setElementText('ojt-line', employeeData.line);
+
+        // Regular Day section
+        setElementText('ojt-regular-days', payslip.regular_day);
+        setElementText('ojt-allowance-day', payslip.allowance_day);
+        
+        // Calculate regular total
+        const regularDays = parseFloat(payslip.regular_day || 0);
+        const allowanceDay = parseFloat(payslip.allowance_day || 0);
+        const regularTotal = regularDays * allowanceDay;
+        setElementText('ojt-regular-total', regularTotal.toFixed(2));
+        
+        // Regular Day fields
+        setElementText('ojt-reg-nd-allowance', payslip.nd_allowance);
+        setElementText('ojt-grand-total', payslip.grand_total);
+        setElementText('ojt-basic-school-share', payslip.basic_school_share);
+        setElementText('ojt-basic-ojt-share', payslip.basic_ojt_share);
+        setElementText('ojt-deduction', payslip.deduction);
+        setElementText('ojt-net-basic-share', payslip.net_ojt_share);
+
+        // Allowances section
+        setElementText('ojt-rice-allowance', payslip.rice_allowance);
+        setElementText('ojt-reg-ot-allowance', payslip.ot_allowance);
+        setElementText('ojt-reg-nd-ot-allowance', payslip.nd_ot_allowance);
+        setElementText('ojt-special-holiday', payslip.special_holiday);
+        setElementText('ojt-legal-holiday', payslip.legal_holiday);
+        setElementText('ojt-sat-off-allowance', payslip.satoff_allowance);
+        setElementText('ojt-rd-ot', payslip.rd_ot);
+        setElementText('ojt-perfect-attendance', payslip.perfect_attendance);
+        setElementText('ojt-adjustment', payslip.adjustment);
+        setElementText('ojt-deduction-2', payslip.deduction_2);
+        setElementText('ojt-net-ot-pay-allowance', payslip.ot_pay_allowance);
+
+        // Total allowance calculation - sum of NET OJT OT PAY ALLOWANCE + NET BASIC ALLOW. OJT SHARE
+        const netBasicOjtShare = parseFloat(payslip.net_ojt_share || 0);
+        const netOjtOtPayAllowance = parseFloat(payslip.ot_pay_allowance || 0);
+        const totalAllowanceValue = netBasicOjtShare + netOjtOtPayAllowance;
+        
+        const formattedTotal = `₱ ${totalAllowanceValue.toLocaleString('en-US', {
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2
+        })}`;
+        setElementText('ojt-total-allowance-display', formattedTotal);
+        
+        console.log('Modal populated successfully');
+        
+    } catch (error) {
+        console.error('Error populating modal:', error);
+        showToast('error', 'Failed to populate payslip details');
+    }
+}
+
+// Global variables for OJT email confirmation
+let currentOJTPayslipId = null;
+let currentOJTEmail = null;
+
+function showOJTEmailConfirmationModal(payslipId, userEmail, workEmail, cutoffDate) {
+    // Store current payslip data
+    currentOJTPayslipId = payslipId;
+    
+    // Determine which email to use
+    const emails = [];
+    if (userEmail && userEmail !== 'None') emails.push(userEmail);
+    if (workEmail && workEmail !== 'None' && workEmail !== userEmail) emails.push(workEmail);
+    
+    if (emails.length === 0) {
+        showToast('warning', 'No email address found. Please update your profile.');
+        return;
+    }
+    
+    // For now, use the first available email (you can enhance this later for multiple email selection)
+    currentOJTEmail = emails[0];
+    
+    // Update modal content
+    const emailDisplay = document.getElementById('ojt-confirmation-email');
+    const cutoffDisplay = document.getElementById('ojt-confirmation-cutoff');
+    
+    if (emailDisplay) emailDisplay.textContent = currentOJTEmail;
+    if (cutoffDisplay) cutoffDisplay.textContent = cutoffDate;
+    
+    // Show modal
+    const modal = document.getElementById('ojtEmailConfirmationModal');
+    if (modal) {
+        modal.classList.add('show');
+    }
+}
+
+function sendOJTPayslipEmailConfirmed() {
+    if (!currentOJTPayslipId || !currentOJTEmail) {
+        showToast('error', 'Missing payslip information. Please try again.');
+        return;
+    }
+    
+    // Close confirmation modal
+    const confirmationModal = document.getElementById('ojtEmailConfirmationModal');
+    if (confirmationModal) {
+        confirmationModal.classList.remove('show');
+    }
+    
+    // Show email loader
+    const loader = document.getElementById('emailLoader');
+    if (loader) loader.style.display = 'flex';
+    
+    // Send email
+    sendOJTPayslipEmail(currentOJTPayslipId, currentOJTEmail);
+    
+    // Reset variables
+    currentOJTPayslipId = null;
+    currentOJTEmail = null;
+}
+
+function sendOJTPayslipEmail(payslipId, email) {
+    fetch(`/finance/ojt-payslip/send/${payslipId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            email: email
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide email loader
+        const loader = document.getElementById('emailLoader');
+        if (loader) loader.style.display = 'none';
+        
+        if (data.success) {
+            showToast('success', `OJT payslip has been sent to ${email}`);
+        } else {
+            showToast('error', data.error || 'Failed to send email');
+        }
+    })
+    .catch(error => {
+        // Hide email loader
+        const loader = document.getElementById('emailLoader');
+        if (loader) loader.style.display = 'none';
+        
+        console.error('Error sending email:', error);
+        showToast('error', 'Failed to send email. Please try again.');
+    });
+}
+
+function printOJTPayslip() {
+    const modal = document.getElementById('ojtPayslipDetailsModal');
+    const printContent = modal.querySelector('.payslip-container');
+    
+    if (printContent) {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>OJT Payslip</title>
+                <style>
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        margin: 20px; 
+                        font-size: 12px;
+                    }
+                    .payslip-container { width: 100%; }
+                    .payslip-header { margin-bottom: 20px; }
+                    .company-info { 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center;
+                        margin-bottom: 20px;
+                    }
+                    .company-logo { 
+                        width: 60px; 
+                        height: 60px; 
+                        margin-right: 15px; 
+                    }
+                    .company-details h1 { 
+                        margin: 0; 
+                        font-size: 16px; 
+                        font-weight: bold;
+                    }
+                    .company-details p { 
+                        margin: 5px 0 0 0; 
+                        font-size: 10px; 
+                    }
+                    .employee-info-grid { 
+                        display: grid; 
+                        grid-template-columns: 1fr 1fr; 
+                        gap: 10px; 
+                        margin-bottom: 20px;
+                        border: 1px solid #000;
+                    }
+                    .employee-info-grid > div {
+                        display: flex;
+                        padding: 8px;
+                        border-right: 1px solid #000;
+                        border-bottom: 1px solid #000;
+                    }
+                    .employee-info-grid > div:nth-child(2n) {
+                        border-right: none;
+                    }
+                    .employee-info-grid > div:nth-last-child(-n+2) {
+                        border-bottom: none;
+                    }
+                    .info-label { 
+                        font-weight: bold; 
+                        margin-right: 10px;
+                        min-width: 80px;
+                    }
+                    .info-value { 
+                        flex: 1;
+                    }
+                    .section-row { 
+                        display: flex; 
+                        gap: 20px; 
+                        margin-bottom: 20px; 
+                    }
+                    .section { 
+                        flex: 1; 
+                        border: 1px solid #000; 
+                    }
+                    .section h3 { 
+                        margin: 0; 
+                        padding: 10px; 
+                        background: #f0f0f0; 
+                        font-size: 14px; 
+                        text-align: center;
+                        border-bottom: 1px solid #000;
+                    }
+                    .section-content { padding: 10px; }
+                    .field { 
+                        display: flex; 
+                        justify-content: space-between; 
+                        margin-bottom: 5px; 
+                        padding: 2px 0;
+                    }
+                    .field.total { 
+                        border-top: 1px solid #000; 
+                        font-weight: bold; 
+                        padding-top: 5px;
+                    }
+                    .total-allowance { 
+                        text-align: center; 
+                        font-size: 16px; 
+                        font-weight: bold; 
+                        border: 2px solid #000; 
+                        padding: 15px; 
+                        margin-top: 20px;
+                    }
+                    hr { 
+                        margin: 10px 0; 
+                        border: none; 
+                        border-top: 1px solid #000; 
+                    }
+                    @media print {
+                        body { margin: 0; }
+                        .payslip-container { page-break-inside: avoid; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${printContent.outerHTML}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.close();
+    }
+}
+
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 // Export for potential external use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = EmployeeFinanceModule;

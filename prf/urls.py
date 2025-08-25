@@ -15,4 +15,10 @@ urlpatterns = [
     path('admin/detail/<int:pk>/', views.admin_prf_detail, name='admin_prf_detail'),
     path('admin/process-action/', views.process_prf_action, name='process_prf_action'),
     path('cancel-prf/', views.cancel_prf_request, name='cancel_prf_request'),
+    
+    # Emergency Loan URLs
+    path('emergency-loan/cutoff-choices/', views.get_cutoff_choices, name='get_cutoff_choices'),
+    path('emergency-loan/check-existing/', views.check_existing_emergency_loan, name='check_existing_emergency_loan'),
+    path('emergency-loan/submit/', views.submit_emergency_loan, name='submit_emergency_loan'),
+    path('emergency-loan/details/<int:prf_id>/', views.get_emergency_loan_details, name='get_emergency_loan_details'),
 ]

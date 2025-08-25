@@ -182,66 +182,130 @@
                 </div>
             </div>
             <div class="user-section-content">
-                {% if payslips %}
-                    <div class="user-finance-table" id="payslipsTableContainer" style="display: flex; flex-direction: column;">
-                        <table class="data-table" data-tour="payslips-table" data-intro="<b>Payslips Table</b><br>Access all your payslips with cutoff dates, file information, and download/email options." data-step="6">
-                            <thead>
-                                <tr>
-                                    <th>Cutoff Date</th>
-                                    <th class="payslip-hide-mobile">File Name</th>
-                                    <th class="center-align" style="text-align: center !important;">Status</th>
-                                    <th style="text-align: center !important;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for payslip in payslips %}
+                {% if  request.user.employment_info.employment_type != 'OJT' %}
+                    {% if payslips %}
+                        <div class="user-finance-table" id="payslipsTableContainer" style="display: flex; flex-direction: column;">
+                            <table class="data-table" data-tour="payslips-table" data-intro="<b>Payslips Table</b><br>Access all your payslips with cutoff dates, file information, and download/email options." data-step="6">
+                                <thead>
                                     <tr>
-                                        <td>{{ payslip.cutoff_date|date:"F j, Y" }}</td>
-                                        <td class="payslip-hide-mobile">
-                                            <span class="file-name">{{ payslip.file_path.name }}</span>
-                                        </td>
-                                        <td class="center-align"  style="text-align: center !important;">
-                                            {% if payslip.is_send_to_mail %}
-                                                <span class="status-badge status-connected">
-                                                    <i class="fas fa-check-circle"></i> Sent to mail
-                                                </span>
-                                            {% else %}
-                                                <span class="status-badge status-importing">
-                                                    <i class="fas fa-spinner fa-spin"></i> Not yet sent
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td style="text-align: center !important;">
-                                            <button type="button" class="btn btn-icon send-payslip-email-btn"
-                                                data-payslip-id="{{ payslip.id }}"
-                                                data-employee-id="{{ payslip.employee.id }}"
-                                                data-cutoff-date="{{ payslip.cutoff_date }}"
-                                                data-user-email="{{ request.user.email }}"
-                                                data-work-email="{{ request.user.personal_info.work_email }}"
-                                                title="Send Payslip to Email"
-                                                data-tour="email-payslip-btn" data-intro="<b>Email Payslip</b><br>Send your payslip directly to your email address for easy access and record keeping." data-step="7">
-                                                <i class="fas fa-envelope"></i>
-                                            </button>
-                                        </td>
+                                        <th>Cutoff Date</th>
+                                        <th class="payslip-hide-mobile">File Name</th>
+                                        <th class="center-align" style="text-align: center !important;">Status</th>
+                                        <th style="text-align: center !important;">Action</th>
                                     </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="4" style="text-align: center;" class="table-no-data">
-                                            <div class="empty-icon"><i class="fas fa-search"></i></div>
-                                            <div class="table-no-data-title">No payslip found</div>
-                                            <div class="table-no-data-desc">Try adjusting your search or filters.</div>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {% for payslip in payslips %}
+                                        <tr>
+                                            <td>{{ payslip.cutoff_date|date:"F j, Y" }}</td>
+                                            <td class="payslip-hide-mobile">
+                                                <span class="file-name">{{ payslip.file_path.name }}</span>
+                                            </td>
+                                            <td class="center-align"  style="text-align: center !important;">
+                                                {% if payslip.is_send_to_mail %}
+                                                    <span class="status-badge status-connected">
+                                                        <i class="fas fa-check-circle"></i> Sent to mail
+                                                    </span>
+                                                {% else %}
+                                                    <span class="status-badge status-importing">
+                                                        <i class="fas fa-spinner fa-spin"></i> Not yet sent
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td style="text-align: center !important;">
+                                                <button type="button" class="btn btn-icon send-payslip-email-btn"
+                                                    data-payslip-id="{{ payslip.id }}"
+                                                    data-employee-id="{{ payslip.employee.id }}"
+                                                    data-cutoff-date="{{ payslip.cutoff_date }}"
+                                                    data-user-email="{{ request.user.email }}"
+                                                    data-work-email="{{ request.user.personal_info.work_email }}"
+                                                    title="Send Payslip to Email"
+                                                    data-tour="email-payslip-btn" data-intro="<b>Email Payslip</b><br>Send your payslip directly to your email address for easy access and record keeping." data-step="7">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="4" style="text-align: center;" class="table-no-data">
+                                                <div class="empty-icon"><i class="fas fa-search"></i></div>
+                                                <div class="table-no-data-title">No payslip found</div>
+                                                <div class="table-no-data-desc">Try adjusting your search or filters.</div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
+                            <div class="empty-title">No Payslips Found</div>
+                            <div class="empty-desc">No payslips have been uploaded for this employee yet.</div>
+                        </div>
+                    {% endif %}
                 {% else %}
-                    <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
-                        <div class="empty-title">No Payslips Found</div>
-                        <div class="empty-desc">No payslips have been uploaded for this employee yet.</div>
-                    </div>
+                    {% if ojtpayslips %}
+                        <div class="user-finance-table" id="payslipsTableContainer" style="display: flex; flex-direction: column;">
+                            <table class="data-table" data-tour="payslips-table" data-intro="<b>Payslips Table</b><br>Access all your payslips with cutoff dates, file information, and download/email options." data-step="6">
+                                <thead>
+                                    <tr>
+                                        <th>Cutoff Date</th>
+                                        <th class="payslip-hide-mobile">Regular Day</th>
+                                        <th>Net OJT Share</th>
+                                        <th>OT Pay Allowance</th>
+                                        <th>Total Allowance</th>
+                                        <th style="text-align: center !important;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for payslip in ojtpayslips %}
+                                        <tr>
+                                            <td>{{ payslip.cut_off }}</td>
+                                            <td class="payslip-hide-mobile">
+                                                {{ payslip.regular_day }}
+                                            </td>
+                                            <td>₱ {{ payslip.net_ojt_share|floatformat:2 }}</td>
+                                            <td>₱ {{ payslip.ot_pay_allowance|floatformat:2 }}</td>
+                                            <td>₱ {{ payslip.total_allowance|floatformat:2 }}</td>
+                                            <td style="text-align: center !important;">
+                                                <button type="button" class="btn btn-sm btn-icon view-ojtpayslip-btn"
+                                                    data-payslip-id="{{ payslip.id }}"
+                                                    data-employee-id="{{ payslip.employee.id }}"
+                                                    data-cutoff-date="{{ payslip.cut_off }}"
+                                                    title="View OJT Payslip Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-icon send-ojtpayslip-email-btn"
+                                                    data-payslip-id="{{ payslip.id }}"
+                                                    data-employee-id="{{ payslip.employee.id }}"
+                                                    data-cutoff-date="{{ payslip.cut_off }}"
+                                                    data-user-email="{{ request.user.email }}"
+                                                    data-work-email="{{ request.user.personal_info.work_email }}"
+                                                    title="Send OJT Payslip to Email">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="6" style="text-align: center;" class="table-no-data">
+                                                <div class="empty-icon"><i class="fas fa-search"></i></div>
+                                                <div class="table-no-data-title">No payslip found</div>
+                                                <div class="table-no-data-desc">Try adjusting your search or filters.</div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
+                            <div class="empty-title">No Payslips Found</div>
+                            <div class="empty-desc">No payslips have been uploaded for this employee yet.</div>
+                        </div>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -409,10 +473,195 @@
     </div>
 </div>
 
+<!-- OJT Email Confirmation Modal -->
+<div id="ojtEmailConfirmationModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Send OJT Payslip</h4>
+            <button class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="ojt-email-confirmation-form">
+                <div class="confirmation-message">
+                    <p>Send your OJT payslip to your email address?</p>
+                    
+                    <div class="email-info">
+                        <div class="email-display">
+                            <i class="fas fa-at"></i>
+                            <span id="ojt-confirmation-email">{{ request.user.email }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline modal-close">Cancel</button>
+            <button class="btn btn-primary" id="confirm-ojt-email-send">
+                <i class="fas fa-envelope"></i>
+                Send Payslip
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Email Loader -->
 <div class="loader-container" id="emailLoader" style="display: none;">
   <div class="payslip-email-loader"></div>
   <p>Sending Payslip.....</p>
+</div>
+
+<!-- OJT Payslip Details Modal -->
+<div id="ojtPayslipDetailsModal" class="modal modal-lg">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>OJT Payslip Details</h3>
+            <button class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="ojtPayslipDetailsBody">
+            <div class="payslip-container">
+                <div class="payslip-header">
+                    <div class="company-info">
+                        <img src="{% static 'images/icon/ryonanlogo.png' %}" alt="Ryonan Logo" class="company-logo">
+                        <div class="company-details">
+                            <h1>RYONAN ELECTRIC PHILIPPINES CORPORATION</h1>
+                            <p>105 East Main Avenue, Special Export Processing Zone<br>
+                            Laguna, Technopark, Biñan, Laguna</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="payslip-content">
+                    <div class="employee-info-grid">
+                            <div>
+                                <div class="info-label">ID Number:</div>
+                                <div class="info-value" id="ojt-id-number">-</div>
+                            </div>
+                            <div>
+                                <div class="info-label">Cut-Off:</div>
+                                <div class="info-value" id="ojt-cutoff">-</div>
+                            </div>
+                            <div>
+                                <div class="info-label">Name:</div>
+                                <div class="info-value" id="ojt-name">-</div>
+                            </div>
+                            <div>
+                                <div class="info-label">Line:</div>
+                                <div class="info-value" id="ojt-line">-</div>
+                            </div>
+                    </div>
+
+                    <div class="payslip-sections">
+                        <div class="section-row">
+                            <div class="section regular-day">
+                                <h3>Regular Day</h3>
+                                <div class="section-content">
+                                    <div class="field">
+                                        <span class="field-label">REGULAR # of Days Work</span>
+                                        <span class="field-value" id="ojt-regular-days">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">ALLOWANCE/DAY</span>
+                                        <span class="field-value" id="ojt-allowance-day">-</span>
+                                    </div>
+                                    <div class="field total">
+                                        <span class="field-label">Total:</span>
+                                        <span class="field-value" id="ojt-regular-total">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">REG ND ALLOWANCE</span>
+                                        <span class="field-value" id="ojt-reg-nd-allowance">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">GRAND TOTAL</span>
+                                        <span class="field-value" id="ojt-grand-total">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">BASIC ALLOW.SCHOOL SHARE</span>
+                                        <span class="field-value" id="ojt-basic-school-share">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">BASIC ALLOW. OJT SHARE</span>
+                                        <span class="field-value" id="ojt-basic-ojt-share">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">DEDUCTION</span>
+                                        <span class="field-value" id="ojt-deduction">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">NET BASIC ALLOW. OJT SHARE</span>
+                                        <span class="field-value" id="ojt-net-basic-share">-</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="section allowances">
+                                <h3>Allowances</h3>
+                                <div class="section-content">
+                                    <div class="field">
+                                        <span class="field-label">RICE ALLOWANCE</span>
+                                        <span class="field-value" id="ojt-rice-allowance">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">Reg OT ALLOWANCE</span>
+                                        <span class="field-value" id="ojt-reg-ot-allowance">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">REG ND OT ALLOWANCE</span>
+                                        <span class="field-value" id="ojt-reg-nd-ot-allowance">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">SPECIAL HOLIDAY</span>
+                                        <span class="field-value" id="ojt-special-holiday">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">LEGAL HOLIDAY</span>
+                                        <span class="field-value" id="ojt-legal-holiday">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">SAT-OFF ALLOWANCE</span>
+                                        <span class="field-value" id="ojt-sat-off-allowance">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">RD OT</span>
+                                        <span class="field-value" id="ojt-rd-ot">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">PERFECT ATTENDANCE</span>
+                                        <span class="field-value" id="ojt-perfect-attendance">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">ADJUSTMENT</span>
+                                        <span class="field-value" id="ojt-adjustment">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">DEDUCTION 2</span>
+                                        <span class="field-value" id="ojt-deduction-2">-</span>
+                                    </div>
+                                    <div class="field">
+                                        <span class="field-label">NET OJT OT PAY ALLOWANCE</span>
+                                        <span class="field-value" id="ojt-net-ot-pay-allowance">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="total-allowance">
+                            <h2>TOTAL ALLOWANCE: <span id="ojt-total-allowance-display">-</span></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline modal-close">Close</button>
+        </div>
+    </div>
 </div>
 
 <!-- Loan Deductions Modal -->
@@ -428,6 +677,9 @@
         </div>
     </div>
 </div>
+
+<!-- Toast Notification Container -->
+<div id="toast-container" class="toast-container"></div>
 
 {% endblock content %}
 

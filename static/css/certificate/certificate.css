@@ -1739,3 +1739,57 @@
     padding-right: 0.5em;
   }
 }
+
+/* Email Confirmation Modal Styles */
+#emailConfirmationModal .modal-content {
+    max-width: 400px;
+}
+
+.email-confirmation-content {
+    text-align: center;
+}
+
+.confirmation-message {
+    padding: 0;
+}
+
+.confirmation-message p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.certificate-info {
+    background: var(--surface-light);
+    padding: 20px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.cert-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 12px;
+}
+
+.email-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.email-display i {
+    color: var(--primary-color);
+}
+
+#emailConfirmationModal .modal-footer {
+    gap: 12px;
+}
+
+#emailConfirmationModal .btn {
+    min-width: 100px;
+}

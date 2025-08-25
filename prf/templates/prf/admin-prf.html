@@ -5,8 +5,6 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/prf/prf.css' %}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/minified/introjs.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/themes/introjs-dark.min.css" id="introjs-dark-theme" disabled>
 {% endblock %}
 
 {% block content %}
@@ -88,32 +86,37 @@
             </div>
         </div>
 
-        <div class="chart-card-container">
-            <div class="chart-header">
-                <h3>PRF Requests Overview</h3>
-                <div class="chart-controls">
-                    <div class="chart-filters">
-                        <button class="filter-btn {% if request.GET.period == 'week' %}active{% endif %}" onclick="updateChartPeriod('week')">This Week</button>
-                        <button class="filter-btn {% if request.GET.period == 'month' or not request.GET.period %}active{% endif %}" onclick="updateChartPeriod('month')">This Month</button>
-                        <button class="filter-btn {% if request.GET.period == 'quarter' %}active{% endif %}" onclick="updateChartPeriod('quarter')">This Quarter</button>
+        <div class="overview-two-column">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>PRF Requests Overview</h3>
+                    <div class="chart-controls">
+                        <div class="chart-filters">
+                            <button class="filter-btn {% if request.GET.period == 'week' %}active{% endif %}" onclick="updateChartPeriod('week')">This Week</button>
+                            <button class="filter-btn {% if request.GET.period == 'month' or not request.GET.period %}active{% endif %}" onclick="updateChartPeriod('month')">This Month</button>
+                            <button class="filter-btn {% if request.GET.period == 'quarter' %}active{% endif %}" onclick="updateChartPeriod('quarter')">This Quarter</button>
+                        </div>
+                        
+                        <div class="chart-type-filters">
+                            <button class="chart-type-btn active" onclick="switchChartType('line')">
+                                <i class="fas fa-chart-line"></i>
+                            </button>
+                            <button class="chart-type-btn" onclick="switchChartType('bar')">
+                                <i class="fas fa-chart-bar"></i>
+                            </button>
+                        </div>
                     </div>
-                    
-                    <div class="chart-type-filters">
-                        <button class="chart-type-btn active" onclick="switchChartType('line')">
-                            <i class="fas fa-chart-line"></i>
-                        </button>
-                        <button class="chart-type-btn" onclick="switchChartType('bar')">
-                            <i class="fas fa-chart-bar"></i>
-                        </button>
+                </div>
+
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="prfChart"></canvas>
                     </div>
                 </div>
             </div>
-            <div class="chart-container">
-                <canvas id="prfChart"></canvas>
-            </div>
         </div>
 
-            <div class="table-actions table-actions-bar">
+        <div class="table-actions table-actions-bar">
                 <div class="table-actions-left">
                     <form class="search-box">
                         <input type="text" class="search-input" id="searchInput" placeholder="Search..." name="search" value="{{ search }}" />
@@ -162,14 +165,10 @@
                         <span class="tour-tooltip">Page Tour</span>
                     </button>
                 </div>
-            </div>
+        </div>
 
-            <div class="common-table-container no-table-border" id="tableContainer">
-                <div id="tableLoadingOverlay" class="table-loading-overlay" style="display: none;">
-                    <div class="loading-spinner"></div>
-                    <span>Loading...</span>
-                </div>
-                <table class="data-table admin-prf-table">
+        <div class="common-table-container" id="tableContainer">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>
@@ -178,16 +177,17 @@
                                     <span class="checkmark"></span>
                                 </label>
                             </th>
+                            <th>Control Number</th>
                             <th>Employee</th>
                             <th>PRF Type</th>
                             <th>Purpose</th>
-                            <th>Status</th>
-                            <th>Created</th>
-                            <th>Actions</th>
+                            <th style="text-align: center;">Status</th>
+                            <th>Created At</th>
+                            <th style="text-align: center;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
-                        {% for prf in page_obj %}
+                        {% for prf in prfs %}
                         <tr>
                             <td>
                                 <label class="standard-checkbox">
@@ -195,6 +195,7 @@
                                     <span class="checkmark"></span>
                                 </label>
                             </td>
+                            <td>{{ prf.prf_control_number }}</td>
                             <td>
                                 <div class="employee-info">
                                     <strong>{{ prf.employee.username }}</strong>
@@ -208,38 +209,41 @@
                                 </div>
                             </td>
                             <td>{{ prf.purpose|truncatechars:50 }}</td>
-                            <td>
-                                <span class="status-badge status-{{ prf.status }}">
+                            <td style="text-align: center;">
+                                <span class="status-pill status-{% if prf.status == 'approved' %}green{% elif prf.status == 'disapproved' %}red {% elif prf.status == 'cancelled' %}gray{% else %}yellow{% endif %}">
                                     {{ prf.get_status_display }}
                                 </span>
                             </td>
                             <td>{{ prf.created_at|date:"M d, Y" }}</td>
-                            <td>
-                                <button class="btn btn-outline btn-sm" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
-                                    <i class="fas fa-cog"></i>
-                                </button>
+                            <td style="text-align: center;">
+                                {% if prf.status == 'pending' %}
+                                    <button class="btn btn-primary btn-sm" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
+                                        <i class="fa fa-check"></i>
+                                        Review
+                                    </button>
+                                {% else %}
+                                    <button class="btn btn-icon" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
+                                        <i class="fa fa-eye"></i>
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <div class="empty-state">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <h5>No PRF Requests Found</h5>
+                                    <p>No PRF requests match your current filters.</p>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+        </div>
 
-                <div id="noDataMessage" class="table-no-data" style="display: {% if page_obj|length == 0 %}block{% else %}none{% endif %};">
-                    <div class="empty-icon">
-                        <i class="fas fa-search"></i>
-                    </div>
-                    <div class="table-no-data-title">No PRF requests found</div>
-                    <div class="table-no-data-desc" id="noDataDescription">
-                        {% if search %}
-                            No results found for "{{ search }}". Try adjusting your search terms.
-                        {% else %}
-                            No PRF requests match your current filters. Try adjusting your search criteria.
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="pagination" id="paginationContainer">
+        <div class="pagination" id="paginationContainer">
                 <div class="pagination-info">
                     Showing <span id="startRecord">{{ page_obj.start_index }}</span> to <span id="endRecord">{{ page_obj.end_index }}</span> of <span id="totalRecords">{{ page_obj.paginator.count }}</span> entries
                 </div>
@@ -272,7 +276,7 @@
                         </button>
                     {% endif %}
                 </div>
-            </div> 
+        </div> 
     </div>
 
     <div id="filterModal" class="modal modal-md">
@@ -376,6 +380,10 @@
                         <div class="details-label">Type:</div>
                         <div class="details-value" id="details-type"></div>
                     </div>
+                    <div>
+                        <div class="details-label">PRF Number:</div>
+                        <div class="details-value" id="details-prf-number"></div>
+                    </div>
                     <div id="details-control-row" style="display:none;">
                         <div class="details-label">Control Number:</div>
                         <div class="details-value" id="details-control"></div>
@@ -393,6 +401,32 @@
                     <div class="details-label">Purpose:</div>
                     <div class="details-value" id="details-purpose"></div>
                 </div>
+                
+                <!-- Emergency Loan Details Section -->
+                <div class="details-section details-details" id="emergency-loan-details" style="display: none;">
+                    <div class="section-header">
+                        <h4>Emergency Loan Details</h4>
+                    </div>
+                    <div class="details-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <div class="details-label">Control Number:</div>
+                            <div class="details-value" id="emergency-control-number"></div>
+                        </div>
+                        <div>
+                            <div class="details-label">Loan Amount:</div>
+                            <div class="details-value" id="emergency-amount"></div>
+                        </div>
+                        <div>
+                            <div class="details-label">Number of Cut-offs:</div>
+                            <div class="details-value" id="emergency-number-of-cutoff"></div>
+                        </div>
+                        <div>
+                            <div class="details-label">Starting Date:</div>
+                            <div class="details-value" id="emergency-starting-date"></div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="details-section details-details" id="details-remarks-row">
                     <div class="details-label">Admin Remarks:</div>
                     <div class="details-value" id="details-remarks"></div>

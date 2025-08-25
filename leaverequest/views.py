@@ -1487,6 +1487,12 @@ def hr_admin_process_approval(request, control_number):
 
             leave_request.status = 'approved'
             leave_request.save()
+        elif action == 'approve' and leave_request.status == 'approved':
+            # Additional logic: when action == 'approve' and leave_request.status == 'approved' 
+            # then update selected leave_request.status to approved (already approved, but ensure consistency)
+            approval_action.comments = comments
+            leave_request.status = 'approved'
+            leave_request.save()
         else:
             approval_action.comments = comments
             

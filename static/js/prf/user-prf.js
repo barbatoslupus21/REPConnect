@@ -17,21 +17,34 @@ class EmployeePRFManager {
     initializePagination() {
         this.allRows = Array.from(document.querySelectorAll('.prf-row'));
         this.filteredRows = [...this.allRows];
-        this.updatePagination();
-        this.showCurrentPage();
+        
+        // Only initialize pagination if pagination elements exist
+        if (document.getElementById('totalRecords')) {
+            this.updatePagination();
+            this.showCurrentPage();
+        }
     }
 
     updatePagination() {
         const totalRecords = this.filteredRows.length;
         const totalPages = Math.ceil(totalRecords / this.itemsPerPage);
         
-        document.getElementById('totalRecords').textContent = totalRecords;
+        // Check if pagination elements exist before trying to update them
+        const totalRecordsEl = document.getElementById('totalRecords');
+        const startRecordEl = document.getElementById('startRecord');
+        const endRecordEl = document.getElementById('endRecord');
+        
+        if (!totalRecordsEl || !startRecordEl || !endRecordEl) {
+            return; // Exit early if pagination elements don't exist
+        }
+        
+        totalRecordsEl.textContent = totalRecords;
         
         const startRecord = (this.currentPage - 1) * this.itemsPerPage + 1;
         const endRecord = Math.min(this.currentPage * this.itemsPerPage, totalRecords);
         
-        document.getElementById('startRecord').textContent = startRecord;
-        document.getElementById('endRecord').textContent = endRecord;
+        startRecordEl.textContent = startRecord;
+        endRecordEl.textContent = endRecord;
         
         this.updatePageButtons(totalPages);
         this.renderPageNumbers(totalPages);
@@ -41,12 +54,23 @@ class EmployeePRFManager {
         const prevBtn = document.getElementById('prevPage');
         const nextBtn = document.getElementById('nextPage');
         
+        // Check if pagination buttons exist before trying to update them
+        if (!prevBtn || !nextBtn) {
+            return; // Exit early if pagination buttons don't exist
+        }
+        
         prevBtn.disabled = this.currentPage <= 1;
         nextBtn.disabled = this.currentPage >= totalPages;
     }
 
     renderPageNumbers(totalPages) {
         const pageNumbersContainer = document.getElementById('pageNumbers');
+        
+        // Check if page numbers container exists before trying to update it
+        if (!pageNumbersContainer) {
+            return; // Exit early if page numbers container doesn't exist
+        }
+        
         pageNumbersContainer.innerHTML = '';
         
         const maxVisiblePages = 5;
@@ -234,11 +258,15 @@ class EmployeePRFManager {
         const controlNumberInput = document.getElementById('control_number');
         
         const loanTypes = [
-            'pagibig_loan', 'sss_loan', 'emergency_loan', 
-            'medical_loan', 'educational_loan', 'coop_loan'
+            'pagibig_loan', 'sss_loan', 'medical_loan', 'educational_loan', 'coop_loan'
         ];
 
-        if (loanTypes.includes(prfType)) {
+        // Emergency Loan doesn't require manual control number (auto-generated)
+        if (prfType === 'emergency_loan') {
+            controlNumberGroup.style.display = 'none';
+            controlNumberInput.required = false;
+            controlNumberInput.value = '';
+        } else if (loanTypes.includes(prfType)) {
             controlNumberGroup.style.display = 'block';
             controlNumberInput.required = true;
             this.animateFieldShow(controlNumberGroup);
@@ -316,15 +344,32 @@ class EmployeePRFManager {
             const data = await response.json();
 
             if (data.success) {
-                this.showToast(data.message, 'success');
-                form.reset();
-                closeModal('submitPRFModal');
-                
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
+                // Check if it's an Emergency Loan that needs the modal
+                if (data.show_emergency_loan_modal) {
+                    this.prfData = data.prf_data;
+                    closeModal('submitPRFModal');
+                    form.reset();
+                    this.showEmergencyLoanModal();
+                } else {
+                    this.showToast(data.message, 'success');
+                    form.reset();
+                    closeModal('submitPRFModal');
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
             } else {
-                this.showToast(data.message, 'error');
+                // Check if it's an existing Emergency Loan error
+                if (data.show_existing_loan_error && data.message === 'existing_emergency_loan') {
+                    closeModal('submitPRFModal');
+                    form.reset();
+                    // Show existing loan error modal
+                    document.getElementById('existing-balance').textContent = `₱${data.current_balance.toLocaleString()}`;
+                    openModal('emergencyLoanErrorModal');
+                } else {
+                    this.showToast(data.message, 'error');
+                }
             }
         } catch (error) {
             console.error('Error submitting PRF:', error);
@@ -393,6 +438,179 @@ class EmployeePRFManager {
                 }
             }, 300);
         }, 4000);
+    }
+
+    // Emergency Loan Methods
+    async showEmergencyLoanModal() {
+        // Since we already checked for existing loans during PRF submission,
+        // we can proceed directly to setting up the form
+        this.setupEmergencyLoanForm();
+        
+        // Set minimum date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('emergency_start_date').setAttribute('min', today);
+        
+        openModal('emergencyLoanModal');
+    }
+    
+    setupEmergencyLoanForm() {
+        const form = document.getElementById('emergencyLoanForm');
+        const amountSelect = document.getElementById('emergency_amount');
+        const cutoffSelect = document.getElementById('emergency_cutoff');
+        const startDateInput = document.getElementById('emergency_start_date');
+        const fullNameInput = document.getElementById('employee_full_name');
+        const submitBtn = document.getElementById('emergency-loan-submit');
+        
+        // Reset form
+        form.reset();
+        cutoffSelect.disabled = true;
+        cutoffSelect.innerHTML = '<option value="">Select Amount First</option>';
+        submitBtn.disabled = true;
+        
+        // Handle amount change
+        amountSelect.addEventListener('change', async (e) => {
+            const amount = e.target.value;
+            if (amount) {
+                const response = await fetch(`/prf/emergency-loan/cutoff-choices/?amount=${amount}`);
+                const data = await response.json();
+                
+                cutoffSelect.innerHTML = '<option value="">Select Cut-off</option>';
+                data.choices.forEach(choice => {
+                    cutoffSelect.innerHTML += `<option value="${choice.value}">${choice.text}</option>`;
+                });
+                cutoffSelect.disabled = false;
+            } else {
+                cutoffSelect.disabled = true;
+                cutoffSelect.innerHTML = '<option value="">Select Amount First</option>';
+            }
+            this.updateAgreementText();
+            this.validateEmergencyLoanForm();
+        });
+        
+        // Handle cutoff change
+        cutoffSelect.addEventListener('change', () => {
+            this.updateAgreementText();
+            this.validateEmergencyLoanForm();
+        });
+        
+        // Handle start date change
+        startDateInput.addEventListener('change', () => {
+            this.updateAgreementText();
+            this.validateEmergencyLoanForm();
+        });
+        
+        // Handle full name change
+        fullNameInput.addEventListener('input', () => {
+            this.validateEmergencyLoanForm();
+        });
+        
+        // Handle form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitEmergencyLoan();
+        });
+    }
+    
+    updateAgreementText() {
+        const amount = document.getElementById('emergency_amount').value;
+        const cutoff = document.getElementById('emergency_cutoff').value;
+        const startDate = document.getElementById('emergency_start_date').value;
+        
+        const deductionSpan = document.getElementById('deduction-amount');
+        const startDateSpan = document.getElementById('start-date-display');
+        
+        if (amount && cutoff) {
+            const deduction = (parseInt(amount) / parseInt(cutoff)).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'PHP'
+            });
+            deductionSpan.textContent = deduction;
+        } else {
+            deductionSpan.textContent = '₱0.00';
+        }
+        
+        if (startDate) {
+            const date = new Date(startDate);
+            const formattedDate = date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            startDateSpan.textContent = formattedDate;
+        } else {
+            startDateSpan.textContent = '___________';
+        }
+    }
+    
+    validateEmergencyLoanForm() {
+        const amount = document.getElementById('emergency_amount').value;
+        const cutoff = document.getElementById('emergency_cutoff').value;
+        const startDate = document.getElementById('emergency_start_date').value;
+        const fullName = document.getElementById('employee_full_name').value.trim();
+        const submitBtn = document.getElementById('emergency-loan-submit');
+        
+        // Check if all fields are filled and full name matches exactly
+        const expectedName = window.USER_FULL_NAME || '';
+        const nameMatches = fullName === expectedName;
+        const isValid = amount && cutoff && startDate && nameMatches;
+        
+        submitBtn.disabled = !isValid;
+    }
+    
+    async submitEmergencyLoan() {
+        const form = document.getElementById('emergencyLoanForm');
+        const submitBtn = document.getElementById('emergency-loan-submit');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+        submitBtn.disabled = true;
+        
+        try {
+            const formData = new FormData(form);
+            // Add PRF data to the form submission
+            if (this.prfData) {
+                formData.append('prf_data', JSON.stringify(this.prfData));
+            }
+            
+            const response = await fetch('/prf/emergency-loan/submit/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show success toast and refresh page
+                this.showToast('Emergency Loan request submitted successfully!', 'success');
+                closeModal('emergencyLoanModal');
+                
+                // Refresh page after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                if (data.message === 'loan_settled') {
+                    this.showToast('Your existing loan is settled. PRF submission cancelled.', 'info');
+                    closeModal('emergencyLoanModal');
+                } else if (data.message === 'existing_loan_error') {
+                    document.getElementById('existing-balance').textContent = `₱${data.current_balance.toLocaleString()}`;
+                    closeModal('emergencyLoanModal');
+                    openModal('emergencyLoanErrorModal');
+                } else {
+                    this.showToast(data.message || 'Failed to submit Emergency Loan request', 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Error submitting Emergency Loan:', error);
+            this.showToast('An error occurred while submitting your request', 'error');
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     }
 }
 
@@ -561,6 +779,13 @@ function cancelPRFRequest() {
     .catch(() => {
         window.prfManager.showToast('Failed to cancel request.', 'error');
     });
+}
+
+// Global function for pagination buttons
+function changePage(direction) {
+    if (window.prfManager) {
+        window.prfManager.changePage(direction);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

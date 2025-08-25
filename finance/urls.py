@@ -12,10 +12,12 @@ urlpatterns = [
     path('allowance/delete/<int:allowance_id>/', views.delete_allowance, name='delete_allowance'),
     path('employee/<int:employee_id>/ajax-payslips/', ajax_employee_payslips, name='ajax_employee_payslips'),
     path('', views.user_finance, name='user_finance'),
+    
     path('admin/', views.finance_dashboard, name='admin_finance'),
     path('payslips/ojt/upload/', views.ojt_payslip_upload, name='ojt_payslip_upload'),
     path('ojt-payslip/<int:payslip_id>/details/', views.ojt_payslip_details, name='ajax_ojt_payslip_details'),
     path('ajax/ojt-payslip-details/<int:payslip_id>/', views.ajax_ojt_payslip_details, name='ajax_ojt_payslip_details_new'),
+    path('ojt-payslip/send/<int:payslip_id>/', views.send_ojt_payslip_email, name='send_ojt_payslip_email'),
     path('payslips/upload/', views.regular_payslip_upload, name='upload_payslip'),
     path('payslip/send/<int:payslip_id>/', views.send_payslip, name='send_payslip'),
     path('payslip/delete/<int:payslip_id>/', views.delete_payslip, name='delete_payslip'),

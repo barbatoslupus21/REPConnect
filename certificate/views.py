@@ -251,12 +251,17 @@ def replace_certificate(request, certificate_id):
 
 @login_required
 def email_certificate(request, certificate_id):
+    import logging
+    logger = logging.getLogger(__name__)
+    
     certificate = get_object_or_404(Certificate, id=certificate_id, employee=request.user)
     
     if not request.user.email:
+        logger.error(f"No email address for user {request.user.username}")
         return JsonResponse({'success': False, 'error': 'No email address found in your profile'})
     
     try:
+        logger.info(f"Starting email process for certificate {certificate_id} to {request.user.email}")
         if certificate.is_pdf:
             attachment_path = certificate.certificate_file.path
             filename = f"{certificate.title}.pdf"
@@ -289,24 +294,93 @@ def email_certificate(request, certificate_id):
                 filename = f"{certificate.title}.pdf"
         
         subject = f'Your Certificate: {certificate.title}'
-        message = f'''
+        
+        # Create HTML email body with professional formatting
+        html_message = f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f8f9fa; padding: 30px 20px; border-radius: 0 0 10px 10px; }}
+                .certificate-info {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                .icon {{ font-size: 48px; margin-bottom: 15px; }}
+                .title {{ font-size: 24px; margin: 0; font-weight: bold; }}
+                .subtitle {{ font-size: 16px; margin: 10px 0 0 0; opacity: 0.9; }}
+                .cert-title {{ color: #667eea; font-size: 20px; font-weight: bold; margin-bottom: 10px; }}
+                .recipient {{ font-size: 18px; color: #495057; margin-bottom: 15px; }}
+                .footer {{ text-align: center; margin-top: 30px; color: #6c757d; font-size: 14px; }}
+                .highlight {{ background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 15px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="icon">🏆</div>
+                    <h1 class="title">Congratulations!</h1>
+                    <p class="subtitle">Your Certificate is Ready</p>
+                </div>
+                <div class="content">
+                    <div class="recipient">Dear {request.user.firstname or request.user.username},</div>
+                    
+                    <div class="certificate-info">
+                        <div class="cert-title">{certificate.title}</div>
+                        <p>We are pleased to share your certificate with you. This document recognizes your achievements and accomplishments.</p>
+                        
+                        <div class="highlight">
+                            <strong>📎 Attachment:</strong> Your certificate is attached to this email as a PDF document.
+                        </div>
+                    </div>
+                    
+                    <p>Please save this certificate for your records. You can also access it anytime through your dashboard.</p>
+                    
+                    <div class="footer">
+                        <p><strong>RYONAN ELECTRIC PHILIPPINES CORPORATION</strong><br>
+                        Human Resources Department<br>
+                        105 East Main Avenue, Special Export Processing Zone<br>
+                        Laguna, Technopark, Biñan, Laguna</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        '''
+        
+        # Plain text fallback
+        text_message = f'''
 Dear {request.user.firstname or request.user.username},
 
-Please find attached your certificate: {certificate.title}
+Congratulations! We are pleased to share your certificate: {certificate.title}
+
+This document recognizes your achievements and accomplishments. Please find your certificate attached to this email as a PDF document.
+
+Please save this certificate for your records. You can also access it anytime through your dashboard.
 
 Best regards,
-HR Department
+RYONAN ELECTRIC PHILIPPINES CORPORATION
+Human Resources Department
+105 East Main Avenue, Special Export Processing Zone
+Laguna, Technopark, Biñan, Laguna
         '''
         
         email = EmailMessage(
             subject=subject,
-            body=message,
+            body=text_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[request.user.email]
         )
         
+        # Set HTML content
+        email.content_subtype = 'html'
+        email.body = html_message
+        
         email.attach_file(attachment_path, mimetype='application/pdf')
         email.send()
+        
+        logger.info(f"Email sent successfully for certificate {certificate_id}")
         
         if not certificate.is_pdf and 'temp_file' in locals():
             os.unlink(attachment_path)
@@ -314,6 +388,7 @@ HR Department
         return JsonResponse({'success': True, 'message': 'Certificate sent to your email successfully!'})
         
     except Exception as e:
+        logger.error(f"Email sending failed for certificate {certificate_id}: {str(e)}")
         return JsonResponse({'success': False, 'error': f'Failed to send email: {str(e)}'})
 
 @xframe_options_sameorigin

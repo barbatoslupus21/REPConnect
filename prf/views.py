@@ -15,9 +15,10 @@ import json
 from calendar import monthrange
 from django.views.decorators.http import require_POST
 
-from .models import PRFRequest
-from .forms import PRFRequestForm, PRFFilterForm, PRFActionForm
+from .models import PRFRequest, EmergencyLoan
+from .forms import PRFRequestForm, PRFFilterForm, PRFActionForm, EmergencyLoanForm
 from notification.models import Notification
+from finance.models import Loan, LoanType
 
 def get_chart_data(request, period):
     """Generate chart data based on period and filters"""
@@ -113,7 +114,50 @@ def submit_prf_request(request):
             prf_request = form.save(commit=False)
             prf_request.employee = request.user
             
-            loan_types = ['pagibig_loan', 'sss_loan', 'emergency_loan', 'medical_loan', 'educational_loan', 'coop_loan']
+            # Emergency Loan specific validation - check for existing loan but don't create PRF yet
+            if prf_request.prf_type == 'emergency_loan':
+                # Check if user has existing Emergency Loan before proceeding
+                try:
+                    emergency_loan_type, created = LoanType.objects.get_or_create(
+                        loan_type="Emergency Loan",
+                        defaults={'description': 'Emergency loan for employees'}
+                    )
+                    
+                    existing_loan = Loan.objects.filter(
+                        employee=request.user,
+                        loan_type=emergency_loan_type,
+                        is_active=True
+                    ).first()
+                    
+                    # Check if existing loan balance is more than one monthly deduction
+                    if existing_loan and existing_loan.current_balance > existing_loan.monthly_deduction:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'existing_emergency_loan',
+                            'current_balance': float(existing_loan.current_balance),
+                            'show_existing_loan_error': True
+                        })
+                
+                except Exception as e:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error checking existing loans: {str(e)}'
+                    })
+                
+                # No existing loan found - show Emergency Loan modal without creating PRF yet
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Please complete Emergency Loan details.',
+                    'show_emergency_loan_modal': True,
+                    'prf_data': {
+                        'prf_category': prf_request.prf_category,
+                        'prf_type': prf_request.prf_type,
+                        'purpose': prf_request.purpose
+                    }
+                })
+            
+            # For other loan types, require control number
+            loan_types = ['pagibig_loan', 'sss_loan', 'medical_loan', 'educational_loan', 'coop_loan']
             if prf_request.prf_type in loan_types and not prf_request.control_number:
                 return JsonResponse({
                     'success': False,
@@ -176,7 +220,7 @@ def get_prf_types(request):
 def get_prf_detail(request, prf_id):
     prf = get_object_or_404(PRFRequest, id=prf_id, employee=request.user)
     
-    return JsonResponse({
+    data = {
         'id': prf.id,
         'prf_category': prf.get_prf_category_display(),
         'prf_type': prf.get_prf_type_display(),
@@ -186,7 +230,25 @@ def get_prf_detail(request, prf_id):
         'admin_remarks': prf.admin_remarks or 'No remarks',
         'created_at': prf.created_at.strftime('%B %d, %Y at %I:%M %p'),
         'updated_at': prf.updated_at.strftime('%B %d, %Y at %I:%M %p'),
-    })
+    }
+    
+    # Add Emergency Loan details if this is an Emergency Loan PRF
+    if prf.prf_type == 'emergency_loan' and hasattr(prf, 'emergency_loan'):
+        emergency_loan = prf.emergency_loan
+        data['emergency_loan'] = {
+            'amount': emergency_loan.amount,
+            'amount_display': f"₱{emergency_loan.amount:,}",
+            'number_of_cutoff': emergency_loan.number_of_cutoff,
+            'cutoff_display': f"{emergency_loan.number_of_cutoff} Cut-off{'s' if emergency_loan.number_of_cutoff > 1 else ''} ({emergency_loan.number_of_cutoff * 0.5} month{'s' if emergency_loan.number_of_cutoff > 1 else ''})",
+            'starting_date': emergency_loan.starting_date.isoformat(),
+            'starting_date_display': emergency_loan.formatted_starting_date,
+            'employee_full_name': emergency_loan.employee_full_name,
+            'deduction_per_cutoff': emergency_loan.deduction_per_cutoff,
+            'deduction_per_cutoff_display': f"₱{emergency_loan.deduction_per_cutoff:,.2f}",
+            'created_at': emergency_loan.created_at.strftime('%B %d, %Y at %I:%M %p'),
+        }
+    
+    return JsonResponse(data)
 
 @login_required
 def admin_dashboard(request):
@@ -225,6 +287,19 @@ def admin_dashboard(request):
         if filter_form.cleaned_data['end_date']:
             prfs = prfs.filter(created_at__date__lte=filter_form.cleaned_data['end_date'])
     
+    # Order by status (pending first) and then by creation date (newest first)
+    from django.db.models import Case, When, IntegerField
+    prfs = prfs.annotate(
+        status_order=Case(
+            When(status='pending', then=1),
+            When(status='approved', then=2),
+            When(status='disapproved', then=3),
+            When(status='cancelled', then=4),
+            default=5,
+            output_field=IntegerField()
+        )
+    ).order_by('status_order', '-created_at')
+    
     paginator = Paginator(prfs, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -249,6 +324,7 @@ def admin_dashboard(request):
 
     context = {
         'chart_data': json.dumps(chart_data),
+        'prfs': page_obj,
         'chart_title': chart_title,
         'page_obj': page_obj,
         'filter_form': filter_form,
@@ -340,6 +416,19 @@ def get_table_data_ajax(request):
                 elif condition == 'any':
                     prfs = prfs.exclude(**{f'{filter_field}__isnull': True}).exclude(**{f'{filter_field}__exact': ''})
 
+    # Order by status (pending first) and then by creation date (newest first)
+    from django.db.models import Case, When, IntegerField
+    prfs = prfs.annotate(
+        status_order=Case(
+            When(status='pending', then=1),
+            When(status='approved', then=2),
+            When(status='disapproved', then=3),
+            When(status='cancelled', then=4),
+            default=5,
+            output_field=IntegerField()
+        )
+    ).order_by('status_order', '-created_at')
+
     # Pagination
     paginator = Paginator(prfs, 10)
     page_number = request.GET.get('page', 1)
@@ -359,6 +448,7 @@ def get_table_data_ajax(request):
             'status': prf.status,
             'status_display': prf.get_status_display(),
             'created_at': prf.created_at.strftime('%b %d, %Y'),
+            'prf_control_number': prf.prf_control_number or 'N/A',
             'can_process': prf.status == 'pending'
         })
 
@@ -395,9 +485,41 @@ def process_prf_action(request):
     try:
         prf = PRFRequest.objects.select_related('employee').get(pk=prf_id)
         prf.status = action
+        prf.processed_by = request.user
         if remarks:
             prf.admin_remarks = remarks
         prf.save()
+        
+        # If this is an Emergency Loan PRF and it's approved, create a finance.Loan
+        if action == 'approved' and prf.prf_type == 'emergency_loan':
+            try:
+                emergency_loan = prf.emergency_loan
+                
+                # Get or create Emergency Loan type
+                emergency_loan_type, created = LoanType.objects.get_or_create(
+                    loan_type="Emergency Loan",
+                    defaults={'description': 'Emergency loan for employees'}
+                )
+                
+                # Calculate monthly deduction (loan amount / number of cutoffs)
+                monthly_deduction = emergency_loan.amount / emergency_loan.number_of_cutoff
+                
+                # Create the finance.Loan record
+                finance_loan = Loan.objects.create(
+                    employee=prf.employee,  # requestor
+                    loan_type=emergency_loan_type,  # emergency loan type
+                    principal_amount=emergency_loan.amount,  # loan amount
+                    current_balance=emergency_loan.amount,  # initially same as principal
+                    monthly_deduction=monthly_deduction  # loan amount / number of cutoffs
+                )
+                
+                print(f"Created finance loan for Emergency Loan PRF {prf.id}: Amount={emergency_loan.amount}, Monthly Deduction={monthly_deduction}")
+                
+            except EmergencyLoan.DoesNotExist:
+                print(f"Warning: Emergency Loan details not found for PRF {prf.id}")
+            except Exception as e:
+                print(f"Error creating finance loan for Emergency Loan PRF {prf.id}: {str(e)}")
+        
         # Notification
         Notification.objects.create(
             title=f"PRF Request {action.title()}",
@@ -418,19 +540,40 @@ def get_admin_prf_detail(request, prf_id):
     
     prf = get_object_or_404(PRFRequest, id=prf_id)
     
-    return JsonResponse({
+    data = {
         'id': prf.id,
         'employee': prf.employee.username,
+        'employee_firstname': prf.employee.firstname,
+        'employee_lastname': prf.employee.lastname,
+        'employee_idnumber': prf.employee.idnumber,
         'employee_name': f"{prf.employee.firstname} {prf.employee.lastname}",
         'prf_category': prf.get_prf_category_display(),
         'prf_type': prf.get_prf_type_display(),
+        'prf_type_value': prf.prf_type,
         'purpose': prf.purpose,
         'control_number': prf.control_number or 'N/A',
-        'status': prf.get_status_display(),
+        'prf_control_number': prf.prf_control_number or 'N/A',
+        'status': prf.status,
+        'status_display': prf.get_status_display(),
         'admin_remarks': prf.admin_remarks or '',
         'created_at': prf.created_at.strftime('%B %d, %Y at %I:%M %p'),
         'updated_at': prf.updated_at.strftime('%B %d, %Y at %I:%M %p'),
-    })
+    }
+    
+    # Add Emergency Loan details if this is an emergency loan PRF
+    if prf.prf_type == 'emergency_loan':
+        try:
+            emergency_loan = prf.emergency_loan
+            data['emergency_loan'] = {
+                'amount': str(emergency_loan.amount),
+                'number_of_cutoff': emergency_loan.number_of_cutoff,
+                'starting_date': emergency_loan.starting_date.strftime('%B %d, %Y') if emergency_loan.starting_date else '',
+            }
+        except Exception as e:
+            print(f"Error fetching emergency loan: {e}")
+            data['emergency_loan'] = None
+    
+    return JsonResponse(data)
 
 @login_required
 def export_prfs(request):
@@ -464,7 +607,7 @@ def export_prfs(request):
     
     # Headers for Sheet 1
     headers = [
-        'Date Requested', 'ID Number', 'Employee Name', 'PRF Category', 
+        'Date Requested', 'PRF Number', 'ID Number', 'Employee Name', 'PRF Category', 
         'PRF Type', 'Control Number', 'Purpose of Request', 'Status', 'Remarks'
     ]
     
@@ -483,15 +626,16 @@ def export_prfs(request):
     # Data for Sheet 1
     for row, prf in enumerate(prfs, 2):
         ws1.cell(row=row, column=1, value=prf.created_at.strftime('%Y-%m-%d'))
-        ws1.cell(row=row, column=2, value=prf.employee.idnumber or 'N/A')
-        ws1.cell(row=row, column=3, value=f"{prf.employee.firstname} {prf.employee.lastname}")
-        ws1.cell(row=row, column=4, value=prf.get_prf_category_display())
-        ws1.cell(row=row, column=5, value=prf.get_prf_type_display())
-        ws1.cell(row=row, column=6, value=prf.control_number or 'N/A')
-        ws1.cell(row=row, column=7, value=prf.purpose)
+        ws1.cell(row=row, column=2, value=prf.prf_control_number or 'N/A')
+        ws1.cell(row=row, column=3, value=prf.employee.idnumber or 'N/A')
+        ws1.cell(row=row, column=4, value=f"{prf.employee.firstname} {prf.employee.lastname}")
+        ws1.cell(row=row, column=5, value=prf.get_prf_category_display())
+        ws1.cell(row=row, column=6, value=prf.get_prf_type_display())
+        ws1.cell(row=row, column=7, value=prf.control_number or 'N/A')
+        ws1.cell(row=row, column=8, value=prf.purpose)
         
         # Status cell with color coding
-        status_cell = ws1.cell(row=row, column=8, value=prf.get_status_display())
+        status_cell = ws1.cell(row=row, column=9, value=prf.get_status_display())
         if prf.status == 'approved':
             status_cell.fill = green_fill
         elif prf.status == 'disapproved':
@@ -501,10 +645,10 @@ def export_prfs(request):
         elif prf.status == 'cancelled':
             status_cell.fill = orange_fill
         
-        ws1.cell(row=row, column=9, value=prf.admin_remarks or 'No remarks')
+        ws1.cell(row=row, column=10, value=prf.admin_remarks or 'No remarks')
         
         # Add borders to all cells
-        for col in range(1, 10):
+        for col in range(1, 11):
             ws1.cell(row=row, column=col).border = Border(
                 left=Side(style='thin'),
                 right=Side(style='thin'),
@@ -654,6 +798,96 @@ def export_prfs(request):
                 pass
         adjusted_width = min(max_length + 2, 50)
         ws2.column_dimensions[column_letter].width = adjusted_width
+
+    # Sheet 3: Emergency Loan (if Emergency Loan PRF type is selected)
+    if prf_type == 'emergency_loan':
+        emergency_prfs = prfs.filter(prf_type='emergency_loan')
+        emergency_loans = EmergencyLoan.objects.filter(prf_request__in=emergency_prfs).select_related('prf_request__employee')
+        
+        if emergency_loans.exists():
+            ws3 = wb.create_sheet("Emergency Loan")
+            
+            # Header
+            ws3.merge_cells('A1:L1')
+            header_cell = ws3.cell(row=1, column=1, value="RYONAN ELECTRIC PHILIPPINES")
+            header_cell.font = Font(bold=True, size=16)
+            header_cell.alignment = Alignment(horizontal='left', vertical='center')
+            
+            # Subheader
+            ws3.merge_cells('A2:L2')
+            date_range = f"Emergency Loan Summary for ({start_date if start_date else 'Start'} to {end_date if end_date else 'End'})"
+            subheader_cell = ws3.cell(row=2, column=1, value=date_range)
+            subheader_cell.font = Font(italic=True, size=12)
+            subheader_cell.alignment = Alignment(horizontal='left', vertical='center')
+            
+            # Headers for Emergency Loan sheet
+            emergency_headers = [
+                'PRF Number', 'Date', 'Id Number', 'Employee Name', 'Position', 
+                'Department', 'Purpose', 'Status', 'EL Control Number', 
+                'Emergency Loan Amount', 'Terms of Deduction', 'Start Deduction', 
+                'Deduction Per Cut-Off', 'Account Number'
+            ]
+            
+            # Yellow highlight fill for headers
+            yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+            
+            # Create headers with bold and yellow highlight
+            for col, header in enumerate(emergency_headers, 1):
+                cell = ws3.cell(row=4, column=col, value=header)
+                cell.font = Font(bold=True)
+                cell.fill = yellow_fill
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                cell.border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+            
+            # Data for Emergency Loan sheet
+            for row, loan in enumerate(emergency_loans, 5):
+                prf = loan.prf_request
+                employee = prf.employee
+                
+                ws3.cell(row=row, column=1, value=prf.prf_control_number or 'N/A')
+                ws3.cell(row=row, column=2, value=prf.created_at.strftime('%Y-%m-%d'))
+                ws3.cell(row=row, column=3, value=employee.idnumber or 'N/A')
+                ws3.cell(row=row, column=4, value=f"{employee.firstname} {employee.lastname}")
+                ws3.cell(row=row, column=5, value=employee.employment_info.position.position or 'N/A')
+                ws3.cell(row=row, column=6, value=employee.employment_info.department.department_name or 'N/A')
+                ws3.cell(row=row, column=7, value=prf.purpose)
+                ws3.cell(row=row, column=8, value=prf.get_status_display())
+                ws3.cell(row=row, column=9, value=prf.control_number or 'N/A')
+                ws3.cell(row=row, column=10, value=f"₱{loan.amount:,}")
+                ws3.cell(row=row, column=11, value=f"{loan.number_of_cutoff} Cut-offs")
+                ws3.cell(row=row, column=12, value=loan.starting_date.strftime('%Y-%m-%d') if loan.starting_date else 'N/A')
+                ws3.cell(row=row, column=13, value=f"₱{loan.deduction_per_cutoff:,.2f}")
+                ws3.cell(row=row, column=14, value=employee.employment_info.bank_account or 'N/A')
+
+                # Add borders and wrap text to all cells
+                for col in range(1, 15):
+                    cell = ws3.cell(row=row, column=col)
+                    cell.border = Border(
+                        left=Side(style='thin'),
+                        right=Side(style='thin'),
+                        top=Side(style='thin'),
+                        bottom=Side(style='thin')
+                    )
+                    cell.alignment = Alignment(wrap_text=True)
+            
+            # Auto-adjust column widths for emergency loan sheet
+            for col_num in range(1, 15):
+                column_letter = chr(64 + col_num)  # A, B, C, etc.
+                max_length = 0
+                for row in ws3.iter_rows(min_col=col_num, max_col=col_num):
+                    for cell in row:
+                        try:
+                            if cell.value and len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                adjusted_width = min(max_length + 2, 30)  # Smaller max width for better fit
+                ws3.column_dimensions[column_letter].width = adjusted_width
     
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -698,6 +932,7 @@ def admin_prf_detail(request, pk):
             'employee_lastname': prf.employee.lastname,
             'employee_idnumber': prf.employee.idnumber,
             'prf_type': prf.get_prf_type_display(),
+            'prf_type_value': prf.prf_type,  # Add the raw prf_type value
             'prf_category': prf.get_prf_category_display(),
             'purpose': prf.purpose,
             'status': prf.status,
@@ -705,8 +940,23 @@ def admin_prf_detail(request, pk):
             'created_at': prf.created_at.strftime('%b %d, %Y'),
             'updated_at': prf.updated_at.strftime('%b %d, %Y') if hasattr(prf, 'updated_at') and prf.updated_at else '',
             'control_number': getattr(prf, 'control_number', ''),
-            'admin_remarks': getattr(prf, 'admin_remarks', ''),
+            'prf_control_number': getattr(prf, 'prf_control_number', '') or 'N/A',
+            'admin_remarks': getattr(prf, 'admin_remarks', '') or '',
         }
+        
+        # Add Emergency Loan details if this is an emergency loan PRF
+        if prf.prf_type == 'emergency_loan':
+            try:
+                emergency_loan = prf.emergency_loan
+                data['emergency_loan'] = {
+                    'amount': str(emergency_loan.amount),
+                    'number_of_cutoff': emergency_loan.number_of_cutoff,
+                    'starting_date': emergency_loan.starting_date.strftime('%B %d, %Y') if emergency_loan.starting_date else '',
+                }
+            except Exception as e:
+                print(f"Error fetching emergency loan: {e}")
+                data['emergency_loan'] = None
+        
         return JsonResponse(data)
     except PRFRequest.DoesNotExist:
         return JsonResponse({'error': 'Not found'}, status=404)
@@ -727,3 +977,162 @@ def cancel_prf_request(request):
         return JsonResponse({'success': True, 'message': 'PRF request cancelled.'})
     except PRFRequest.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'PRF not found.'})
+
+
+# Emergency Loan Views
+@login_required
+def get_cutoff_choices(request):
+    """Get cut-off choices based on selected amount"""
+    amount = request.GET.get('amount')
+    if not amount:
+        return JsonResponse({'choices': []})
+    
+    try:
+        amount = int(amount)
+        choices = EmergencyLoan.get_cutoff_choices(amount)
+        choices_list = [{'value': choice[0], 'text': choice[1]} for choice in choices]
+        return JsonResponse({'choices': choices_list})
+    except ValueError:
+        return JsonResponse({'choices': []})
+
+@login_required
+def check_existing_emergency_loan(request):
+    """Check if user has an existing Emergency Loan"""
+    try:
+        # Get or create Emergency Loan type
+        emergency_loan_type, created = LoanType.objects.get_or_create(
+            loan_type="Emergency Loan",
+            defaults={'description': 'Emergency loan for employees'}
+        )
+        
+        # Check for existing active Emergency Loan
+        existing_loan = Loan.objects.filter(
+            employee=request.user,
+            loan_type=emergency_loan_type,
+            is_active=True
+        ).first()
+        
+        # Check if existing loan balance is more than one monthly deduction
+        if existing_loan and existing_loan.current_balance > existing_loan.monthly_deduction:
+            return JsonResponse({
+                'has_existing_loan': True,
+                'current_balance': float(existing_loan.current_balance),
+                'principal_amount': float(existing_loan.principal_amount),
+                'monthly_deduction': float(existing_loan.monthly_deduction)
+            })
+        else:
+            return JsonResponse({'has_existing_loan': False})
+            
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_POST
+def submit_emergency_loan(request):
+    """Submit complete Emergency Loan (PRF + EmergencyLoan + finance.Loan)"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST method required.'})
+    
+    try:
+        # Get PRF data from session or POST
+        prf_data = request.POST.get('prf_data')
+        if prf_data:
+            import json
+            prf_data = json.loads(prf_data)
+        else:
+            # Get from POST if not in session
+            prf_data = {
+                'prf_category': request.POST.get('prf_category', 'hr_payroll'),
+                'prf_type': 'emergency_loan',
+                'purpose': request.POST.get('purpose', 'Emergency Loan Request')
+            }
+        
+        # Create Emergency Loan form with POST data
+        form = EmergencyLoanForm(request.POST, user=request.user)
+        
+        if form.is_valid():
+            # Double-check for existing Emergency Loan
+            emergency_loan_type, created = LoanType.objects.get_or_create(
+                loan_type="Emergency Loan",
+                defaults={'description': 'Emergency loan for employees'}
+            )
+            
+            existing_loan = Loan.objects.filter(
+                employee=request.user,
+                loan_type=emergency_loan_type,
+                is_active=True
+            ).first()
+            
+            # Check if existing loan balance is more than one monthly deduction
+            if existing_loan and existing_loan.current_balance > existing_loan.monthly_deduction:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'existing_loan_error',
+                    'current_balance': float(existing_loan.current_balance)
+                })
+            
+            # Generate control number
+            control_number = EmergencyLoan.generate_control_number()
+            
+            # Create PRF Request
+            prf_request = PRFRequest.objects.create(
+                employee=request.user,
+                prf_category=prf_data['prf_category'],
+                prf_type=prf_data['prf_type'],
+                purpose=prf_data['purpose'],
+                control_number=control_number
+            )
+            
+            # Save Emergency Loan details
+            emergency_loan = form.save(commit=False)
+            emergency_loan.prf_request = prf_request
+            emergency_loan.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Emergency Loan request submitted successfully!',
+                'control_number': control_number,
+                'deduction_per_cutoff': emergency_loan.deduction_per_cutoff,
+                'formatted_starting_date': emergency_loan.formatted_starting_date,
+                'amount': f"₱{int(request.POST.get('amount')):,}"
+            })
+        else:
+            # Return form errors
+            errors = []
+            for field, error_list in form.errors.items():
+                for error in error_list:
+                    errors.append(f"{field}: {error}")
+            
+            return JsonResponse({
+                'success': False,
+                'message': 'Form validation errors',
+                'errors': errors
+            })
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'})
+
+@login_required
+def get_emergency_loan_details(request, prf_id):
+    try:
+        prf_request = PRFRequest.objects.get(id=prf_id, employee=request.user)
+        
+        if prf_request.prf_type != 'Emergency Loan':
+            return JsonResponse({'error': 'Not an Emergency Loan PRF'}, status=400)
+        
+        if not hasattr(prf_request, 'Emergency Loan'):
+            return JsonResponse({'error': 'Emergency Loan details not found'}, status=404)
+        
+        emergency_loan = prf_request.emergency_loan
+        
+        return JsonResponse({
+            'amount': emergency_loan.amount,
+            'number_of_cutoff': emergency_loan.number_of_cutoff,
+            'starting_date': emergency_loan.starting_date.isoformat(),
+            'deduction_per_cutoff': emergency_loan.deduction_per_cutoff,
+            'formatted_starting_date': emergency_loan.formatted_starting_date,
+            'employee_full_name': emergency_loan.employee_full_name
+        })
+        
+    except PRFRequest.DoesNotExist:
+        return JsonResponse({'error': 'PRF not found'}, status=404)

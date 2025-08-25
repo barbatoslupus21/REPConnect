@@ -1,12 +1,40 @@
 class EmployeeCertificateManager {
     constructor() {
         this.currentCertificateId = null;
+        this.currentCertificateTitle = null;
         this.init();
     }
 
     init() {
         this.setupEventListeners();
         this.showCongratulationsModal();
+    }
+
+    getCsrfToken() {
+        // Try to get from cookie first (Django default)
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        
+        if (cookieValue) {
+            return cookieValue;
+        }
+        
+        // Fallback to meta tag if available
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        if (metaTag) {
+            return metaTag.getAttribute('content');
+        }
+        
+        // Last fallback to hidden input
+        const hiddenInput = document.querySelector('[name="csrfmiddlewaretoken"]');
+        if (hiddenInput) {
+            return hiddenInput.value;
+        }
+        
+        console.error('CSRF token not found');
+        return '';
     }
 
     setupEventListeners() {
@@ -16,21 +44,47 @@ class EmployeeCertificateManager {
             }
             
             if (e.target.classList.contains('email-certificate')) {
-                this.emailCertificate(e.target.dataset.certificateId);
+                this.showEmailConfirmation(e.target.dataset.certificateId);
+            }
+            
+            // Handle modal close buttons
+            if (e.target.classList.contains('modal-close') || e.target.closest('.modal-close')) {
+                this.closeEmailConfirmationModal();
+                this.closeCertificateViewModal();
+                this.closeCongratulationsModal();
+            }
+            
+            // Handle modal overlay clicks
+            if (e.target.classList.contains('modal-overlay')) {
+                this.closeEmailConfirmationModal();
+                this.closeCertificateViewModal();
+                this.closeCongratulationsModal();
             }
         });
+
+        // Handle email confirmation
+        const confirmSendBtn = document.getElementById('confirm-send-email');
+        if (confirmSendBtn) {
+            confirmSendBtn.addEventListener('click', () => {
+                if (this.currentCertificateId) {
+                    this.closeEmailConfirmationModal();
+                    this.emailCertificate(this.currentCertificateId);
+                }
+            });
+        }
 
         const emailFromModal = document.getElementById('emailFromModal');
         if (emailFromModal) {
             emailFromModal.addEventListener('click', () => {
                 if (this.currentCertificateId) {
-                    this.emailCertificate(this.currentCertificateId);
+                    this.showEmailConfirmation(this.currentCertificateId);
                 }
             });
         }
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                this.closeEmailConfirmationModal();
                 this.closeCertificateViewModal();
                 this.closeCongratulationsModal();
             }
@@ -258,6 +312,8 @@ class EmployeeCertificateManager {
     }
 
     async emailCertificate(certificateId) {
+        console.log('Starting email certificate process for ID:', certificateId);
+        
         const loadingBtn = document.querySelector(`[data-certificate-id="${certificateId}"].email-certificate`);
         const originalContent = loadingBtn ? loadingBtn.innerHTML : '';
         
@@ -269,17 +325,48 @@ class EmployeeCertificateManager {
         this.showLoading();
 
         try {
-            const response = await fetch(`/certificates/email/${certificateId}/`, {
+            const csrfToken = this.getCsrfToken();
+            if (!csrfToken) {
+                throw new Error('CSRF token not found. Please refresh the page and try again.');
+            }
+
+            console.log('Making request to:', `/certificate/email/${certificateId}/`);
+            console.log('CSRF token found:', csrfToken ? 'Yes' : 'No');
+
+            // Create a controller for timeout handling
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+            const response = await fetch(`/certificate/email/${certificateId}/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/json'
-                }
+                },
+                signal: controller.signal
             });
 
+            clearTimeout(timeoutId);
+
+            console.log('Response status:', response.status, response.statusText);
+
+            if (!response.ok) {
+                let errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
+                if (response.status === 404) {
+                    errorMessage = 'Certificate not found or email endpoint unavailable.';
+                } else if (response.status === 403) {
+                    errorMessage = 'Access denied. Please refresh the page and try again.';
+                } else if (response.status === 500) {
+                    errorMessage = 'Server error occurred. Please try again later.';
+                }
+                throw new Error(errorMessage);
+            }
+
             const data = await response.json();
+            console.log('Response data:', data);
 
             if (data.success) {
+                console.log('Email sent successfully');
                 this.showNotification(data.message, 'success');
                 
                 if (loadingBtn) {
@@ -289,13 +376,28 @@ class EmployeeCertificateManager {
                     }, 2000);
                 }
             } else {
+                console.log('Email sending failed:', data.error);
                 this.showNotification(data.error, 'error');
                 if (loadingBtn) {
                     loadingBtn.innerHTML = originalContent;
                 }
             }
         } catch (error) {
-            this.showNotification('Network error occurred', 'error');
+            console.error('Email certificate error:', error);
+            
+            let errorMessage = 'Network error occurred';
+            
+            // Provide more specific error messages based on error type
+            if (error instanceof TypeError && error.message.includes('fetch')) {
+                errorMessage = 'Network connection failed. Please check your internet connection.';
+            } else if (error.name === 'AbortError') {
+                errorMessage = 'Request was cancelled. Please try again.';
+            } else if (error.message) {
+                errorMessage = `Network error: ${error.message}`;
+            }
+            
+            this.showNotification(errorMessage, 'error');
+            
             if (loadingBtn) {
                 loadingBtn.innerHTML = originalContent;
             }
@@ -304,6 +406,43 @@ class EmployeeCertificateManager {
             if (loadingBtn) {
                 loadingBtn.disabled = false;
             }
+        }
+    }
+
+    showEmailConfirmation(certificateId) {
+        // Get certificate title from the card
+        const certificateCard = document.querySelector(`[data-certificate-id="${certificateId}"]`);
+        const certificateTitle = certificateCard ? 
+            certificateCard.querySelector('.card-header h4').textContent : 
+            'Certificate';
+        
+        this.currentCertificateId = certificateId;
+        this.currentCertificateTitle = certificateTitle;
+        
+        // Update modal content
+        const titleElement = document.getElementById('confirm-cert-title');
+        if (titleElement) {
+            titleElement.textContent = certificateTitle;
+        }
+        
+        // Show modal
+        const modal = document.getElementById('emailConfirmationModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            // Add slight delay for smooth animation
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+        }
+    }
+
+    closeEmailConfirmationModal() {
+        const modal = document.getElementById('emailConfirmationModal');
+        if (modal) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300); // Match CSS transition duration
         }
     }
 
