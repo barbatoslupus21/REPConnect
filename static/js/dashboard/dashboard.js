@@ -227,6 +227,9 @@ function submitPost() {
 function initializeReactions() {
     let currentPopover = null;
     
+    // Initialize reactors display for all announcements on page load
+    initializeReactorsDisplay();
+    
     // Main reaction button click and hover handlers
     document.addEventListener('click', function(e) {
         if (e.target.closest('.main-reaction-btn')) {
@@ -311,6 +314,11 @@ async function handleReaction(emoji, announcementId) {
                 popover.classList.remove('show');
             }
             showToast('Reaction updated successfully!', 'success');
+            
+            // Refresh the reactors display to show updated data
+            setTimeout(() => {
+                loadReactors(announcementId);
+            }, 100);
         } else {
             throw new Error(data.error || 'Unknown error occurred');
         }
@@ -347,7 +355,7 @@ function updateReactionUI(announcementId, data) {
         reactionIcon.outerHTML = `<i class="fas fa-thumbs-up reaction-icon"></i>`;
     }
     
-    // Always update reactors display
+    // Update reactors display
     if (data.total_reactions > 0 && data.reactors && data.reactors.length > 0) {
         // Ensure the reactors display container exists
         if (!reactorDisplay.querySelector('.reactor-avatars')) {
@@ -356,6 +364,13 @@ function updateReactionUI(announcementId, data) {
                 <div class="reactor-text">
                     <span class="latest-reactor"></span>
                     <span class="remaining-count" data-tooltip-id="tooltip-${announcementId}"></span>
+                </div>
+                
+                <!-- Tooltip for reactor list -->
+                <div class="reactors-tooltip" id="tooltip-${announcementId}">
+                    <div class="tooltip-content">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
                 </div>
             `;
         }
@@ -442,52 +457,78 @@ function updateReactorsDisplay(announcementId, reactors, totalReactions) {
             updateReactorsTooltip(announcementId, reactors);
         }
     }
+}
 
-    function updateReactorsTooltip(announcementId, reactors) {
-        const tooltip = document.getElementById(`tooltip-${announcementId}`);
-        if (!tooltip) {
-            console.error('Tooltip not found for announcement:', announcementId);
-            return;
-        }
-        
-        const tooltipContent = tooltip.querySelector('.tooltip-content');
-        if (!tooltipContent) {
-            console.error('Tooltip content not found for announcement:', announcementId);
-            return;
-        }
-        
-        tooltipContent.innerHTML = '';
-        
-        if (reactors && reactors.length > 0) {
-            reactors.forEach(reactor => {
-                const reactorDiv = document.createElement('div');
-                reactorDiv.className = 'tooltip-reactor';
-                
-                const emojiMap = {
-                    'like': '👍',
-                    'love': '❤️', 
-                    'haha': '😄',
-                    'wow': '😮',
-                    'sad': '😢',
-                    'angry': '😠'
+function updateReactorsTooltip(announcementId, reactors) {
+    const tooltip = document.getElementById(`tooltip-${announcementId}`);
+    if (!tooltip) {
+        console.error('Tooltip not found for announcement:', announcementId);
+        return;
+    }
+    
+    const tooltipContent = tooltip.querySelector('.tooltip-content');
+    if (!tooltipContent) {
+        console.error('Tooltip content not found for announcement:', announcementId);
+        return;
+    }
+    
+    tooltipContent.innerHTML = '';
+    
+    if (reactors && reactors.length > 0) {
+        reactors.forEach(reactor => {
+            const reactorDiv = document.createElement('div');
+            reactorDiv.className = 'tooltip-reactor';
+            
+            const emojiMap = {
+                'like': '👍',
+                'love': '❤️', 
+                'haha': '😄',
+                'wow': '😮',
+                'sad': '😢',
+                'angry': '😠'
                 };
-                
-                reactorDiv.innerHTML = `
-                    <span class="emoji">${emojiMap[reactor.reaction] || '👍'}</span>
-                    <span>${reactor.name}</span>
-                `;
-                
-                tooltipContent.appendChild(reactorDiv);
-            });
-        } else {
-            tooltipContent.innerHTML = '<div class="tooltip-reactor">No reactions yet</div>';
+            
+            reactorDiv.innerHTML = `
+                <span class="emoji">${emojiMap[reactor.reaction] || '👍'}</span>
+                <span>${reactor.name}</span>
+            `;
+            
+            tooltipContent.appendChild(reactorDiv);
+        });
+    } else {
+        tooltipContent.innerHTML = '<div class="tooltip-reactor">No reactions yet</div>';
+    }
+}
+
+// Tooltip event handlers
+document.addEventListener('mouseenter', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
+        const tooltipId = e.target.dataset.tooltipId;
+        const tooltip = document.getElementById(tooltipId);
+        if (tooltip) {
+            setTimeout(() => {
+                tooltip.classList.add('show');
+            }, 100);
         }
     }
+}, true);
 
-    // Tooltip event handlers
-    document.addEventListener('mouseenter', function(e) {
-        if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
-            const tooltipId = e.target.dataset.tooltipId;
+document.addEventListener('mouseleave', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
+        const tooltipId = e.target.dataset.tooltipId;
+        const tooltip = document.getElementById(tooltipId);
+        if (tooltip) {
+            tooltip.classList.remove('show');
+        }
+    }
+}, true);
+
+// Also handle hover on the entire reactor text area
+document.addEventListener('mouseenter', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('reactor-text')) {
+        const remainingCount = e.target.querySelector('.remaining-count');
+        if (remainingCount) {
+            const tooltipId = remainingCount.dataset.tooltipId;
             const tooltip = document.getElementById(tooltipId);
             if (tooltip) {
                 setTimeout(() => {
@@ -495,47 +536,21 @@ function updateReactorsDisplay(announcementId, reactors, totalReactions) {
                 }, 100);
             }
         }
-    }, true);
+    }
+}, true);
 
-    document.addEventListener('mouseleave', function(e) {
-        if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
-            const tooltipId = e.target.dataset.tooltipId;
+document.addEventListener('mouseleave', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('reactor-text')) {
+        const remainingCount = e.target.querySelector('.remaining-count');
+        if (remainingCount) {
+            const tooltipId = remainingCount.dataset.tooltipId;
             const tooltip = document.getElementById(tooltipId);
             if (tooltip) {
                 tooltip.classList.remove('show');
             }
         }
-    }, true);
-
-    // Also handle hover on the entire reactor text area
-    document.addEventListener('mouseenter', function(e) {
-        if (e.target && e.target.classList && e.target.classList.contains('reactor-text')) {
-            const remainingCount = e.target.querySelector('.remaining-count');
-            if (remainingCount) {
-                const tooltipId = remainingCount.dataset.tooltipId;
-                const tooltip = document.getElementById(tooltipId);
-                if (tooltip) {
-                    setTimeout(() => {
-                        tooltip.classList.add('show');
-                    }, 100);
-                }
-            }
-        }
-    }, true);
-
-    document.addEventListener('mouseleave', function(e) {
-        if (e.target && e.target.classList && e.target.classList.contains('reactor-text')) {
-            const remainingCount = e.target.querySelector('.remaining-count');
-            if (remainingCount) {
-                const tooltipId = remainingCount.dataset.tooltipId;
-                const tooltip = document.getElementById(tooltipId);
-                if (tooltip) {
-                    tooltip.classList.remove('show');
-                }
-            }
-        }
-    }, true);
-}
+    }
+}, true);
 
 // Utility Functions
 function getCookie(name) {
@@ -551,6 +566,28 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+function getCsrfToken() {
+    return getCookie('csrftoken');
+}
+
+// Initialize reactors display for all announcements on page load
+function initializeReactorsDisplay() {
+    const announcements = document.querySelectorAll('.post-card');
+    announcements.forEach(announcement => {
+        const announcementId = announcement.dataset.id;
+        const reactorDisplay = announcement.querySelector(`#reactors-${announcementId}`);
+        
+        if (reactorDisplay) {
+            // Check if there are already reactors displayed (from server-side rendering)
+            const hasReactors = reactorDisplay.querySelector('.reactor-avatars img, .reactor-avatars .avatar-placeholder');
+            if (!hasReactors) {
+                // If no reactors displayed, hide the container
+                reactorDisplay.style.display = 'none';
+            }
+        }
+    });
 }
 
 // Load reactors for an announcement
@@ -662,9 +699,6 @@ function initializeProfileCompletion() {
 
 // Initialize everything when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize calendar
-    generateCalendar(new Date());
-    
     // Initialize reactions
     initializeReactions();
     

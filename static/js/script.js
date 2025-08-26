@@ -13,6 +13,7 @@ class EmployeePortalUI {
         this.setupDropdowns();
         this.setupTabs();
         this.setupSearch();
+        this.setupNotifications();
         this.setupTables();
         this.setupTimeline();
         this.setupForms();
@@ -334,6 +335,339 @@ class EmployeePortalUI {
                 });
             }
         });
+    }
+
+    setupSearch() {
+        const searchInput = document.getElementById('searchInput');
+        const searchSuggestions = document.getElementById('searchSuggestions');
+        
+        if (!searchInput || !searchSuggestions) return;
+        
+        // Define available modules based on user role
+        const availableModules = this.getAvailableModules();
+        
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim().toLowerCase();
+            
+            if (query.length < 2) {
+                searchSuggestions.classList.remove('show');
+                return;
+            }
+            
+            const filteredModules = availableModules.filter(module => 
+                module.name.toLowerCase().includes(query) ||
+                module.description.toLowerCase().includes(query)
+            );
+            
+            this.displaySearchSuggestions(filteredModules);
+        });
+        
+        searchInput.addEventListener('focus', () => {
+            if (searchInput.value.trim().length >= 2) {
+                const query = searchInput.value.trim().toLowerCase();
+                const filteredModules = availableModules.filter(module => 
+                    module.name.toLowerCase().includes(query) ||
+                    module.description.toLowerCase().includes(query)
+                );
+                this.displaySearchSuggestions(filteredModules);
+            }
+        });
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+                searchSuggestions.classList.remove('show');
+            }
+        });
+        
+        // Show suggestions on keydown
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
+                e.preventDefault();
+                const suggestions = searchSuggestions.querySelectorAll('.navbar-search-suggestion-item');
+                const currentIndex = Array.from(suggestions).findIndex(item => item.classList.contains('selected'));
+                
+                if (e.key === 'ArrowDown') {
+                    const nextIndex = currentIndex < suggestions.length - 1 ? currentIndex + 1 : 0;
+                    suggestions.forEach((item, index) => {
+                        item.classList.toggle('selected', index === nextIndex);
+                    });
+                } else if (e.key === 'ArrowUp') {
+                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : suggestions.length - 1;
+                    suggestions.forEach((item, index) => {
+                        item.classList.toggle('selected', index === prevIndex);
+                    });
+                } else if (e.key === 'Enter') {
+                    const selectedItem = searchSuggestions.querySelector('.navbar-search-suggestion-item.selected');
+                    if (selectedItem) {
+                        selectedItem.click();
+                    }
+                }
+            }
+        });
+    }
+
+    getAvailableModules() {
+        // Check if user is admin based on various admin roles
+        const isAdmin = document.body.hasAttribute('data-employment-type') && 
+                       (document.body.getAttribute('data-employment-type') === 'admin' ||
+                        document.body.getAttribute('data-employment-type') === 'hr_admin' ||
+                        document.body.getAttribute('data-employment-type') === 'mis_admin' ||
+                        document.body.getAttribute('data-employment-type') === 'accounting_admin');
+        
+        const allModules = [
+            {
+                name: 'Dashboard',
+                description: 'Company overview and statistics',
+                url: '/overview/',
+                icon: 'fas fa-tachometer-alt'
+            },
+            {
+                name: 'Calendar',
+                description: 'View and manage calendar events',
+                url: '/calendar/',
+                icon: 'fas fa-calendar-alt'
+            },
+            {
+                name: 'PR-Form',
+                description: 'Purchase Request Forms',
+                url: '/prf/',
+                icon: 'fas fa-file-invoice'
+            },
+            {
+                name: 'Certificate',
+                description: 'Manage certificates and achievements',
+                url: '/certificate/',
+                icon: 'fas fa-certificate'
+            },
+            {
+                name: 'Leave Requests',
+                description: 'Submit and manage leave requests',
+                url: '/leave/',
+                icon: 'fas fa-calendar-times'
+            },
+            {
+                name: 'MIS Ticket',
+                description: 'Submit and track IT support tickets',
+                url: '/ticket/',
+                icon: 'fas fa-ticket-alt'
+            },
+            {
+                name: 'Profile',
+                description: 'Manage your profile information',
+                url: '/profile/',
+                icon: 'fas fa-user'
+            },
+            {
+                name: 'Finance',
+                description: 'View financial information and payslips',
+                url: '/finance/',
+                icon: 'fas fa-dollar-sign'
+            },
+            {
+                name: 'Announcements',
+                description: 'Company announcements and news',
+                url: '/announcement/',
+                icon: 'fas fa-bullhorn'
+            },
+            {
+                name: 'Settings',
+                description: 'System configuration and preferences',
+                url: '/general-settings/',
+                icon: 'fas fa-cog'
+            }
+        ];
+        
+        if (isAdmin) {
+            return allModules;
+        } else {
+            // Regular users can only access specific modules
+            return allModules.filter(module => 
+                ['Dashboard', 'Calendar', 'PR-Form', 'Certificate', 'Leave Requests', 'MIS Ticket', 'Profile'].includes(module.name)
+            );
+        }
+    }
+
+    displaySearchSuggestions(modules) {
+        const searchSuggestions = document.getElementById('searchSuggestions');
+        if (!searchSuggestions) return;
+        
+        if (modules.length === 0) {
+            searchSuggestions.innerHTML = '<div class="navbar-search-suggestion-item">No modules found</div>';
+        } else {
+            searchSuggestions.innerHTML = modules.map(module => `
+                <div class="navbar-search-suggestion-item" onclick="window.location.href='${module.url}'">
+                    <div class="module-icon">
+                        <i class="${module.icon}"></i>
+                    </div>
+                    <div class="module-info">
+                        <div class="module-name">${module.name}</div>
+                        <div class="module-description">${module.description}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        searchSuggestions.classList.add('show');
+    }
+
+    setupNotifications() {
+        const notificationBtn = document.getElementById('notificationBtn');
+        const notificationPopover = document.getElementById('notificationPopover');
+        
+        if (!notificationBtn || !notificationPopover) return;
+        
+        // Toggle notification popover
+        notificationBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notificationPopover.classList.toggle('show');
+        });
+        
+        // Hide popover when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!notificationBtn.contains(e.target) && !notificationPopover.contains(e.target)) {
+                notificationPopover.classList.remove('show');
+            }
+        });
+        
+        // Setup notification item click handlers
+        this.setupNotificationItemHandlers();
+        
+        // Initialize notification count
+        this.updateNotificationCount();
+        
+        // Set initial count and visibility
+        const notificationCount = document.getElementById('notificationCount');
+        if (notificationCount) {
+            const count = this.getNotificationCount();
+            notificationCount.textContent = count;
+            notificationCount.style.display = count > 0 ? 'flex' : 'none';
+        }
+    }
+
+    setupNotificationItemHandlers() {
+        const notificationList = document.getElementById('notificationList');
+        if (!notificationList) return;
+        
+        // Use event delegation to handle clicks on notification items
+        notificationList.addEventListener('click', async (e) => {
+            const item = e.target.closest('.notification-item');
+            if (!item) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const notificationId = item.dataset.notificationId;
+            const notificationUrl = item.dataset.notificationUrl;
+            
+            // Check if notification ID exists
+            if (!notificationId) {
+                return;
+            }
+            
+            // Mark as read first
+            try {
+                const csrfToken = this.getCsrfToken();
+                
+                const response = await fetch(`/notification/api/mark-read/${notificationId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const responseData = await response.json();
+                
+                if (response.ok && responseData.success) {
+                    // Update the notification item to show as read
+                    item.classList.remove('unread');
+                    item.classList.add('read');
+                    
+                    // Update notification count
+                    this.updateNotificationCount();
+                } else {
+                    console.error('Failed to mark notification as read:', responseData);
+                }
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+            }
+            
+            // Navigate to the module URL after a short delay to ensure API call completes
+            if (notificationUrl) {
+                setTimeout(() => {
+                    window.location.href = `/${notificationUrl}/`;
+                }, 100);
+            }
+        });
+    }
+
+
+
+
+
+    updateNotificationCount() {
+        const notificationCount = document.getElementById('notificationCount');
+        if (!notificationCount) return;
+        
+        // Count unread notifications with specific types (approved, disapproved, approval)
+        const unreadItems = document.querySelectorAll('.notification-item.unread');
+        let unreadCount = 0;
+        
+        unreadItems.forEach(item => {
+            const notificationType = item.dataset.notificationType;
+            if (notificationType && ['approved', 'disapproved', 'approval'].includes(notificationType)) {
+                unreadCount++;
+            }
+        });
+        
+        notificationCount.textContent = unreadCount;
+        
+        // Hide badge if no unread notifications of the specified types
+        if (unreadCount === 0) {
+            notificationCount.style.display = 'none';
+        } else {
+            notificationCount.style.display = 'flex';
+        }
+    }
+
+    getNotificationCount() {
+        // Count unread notifications with specific types (approved, disapproved, approval)
+        const unreadItems = document.querySelectorAll('.notification-item.unread');
+        let unreadCount = 0;
+        
+        unreadItems.forEach(item => {
+            const notificationType = item.dataset.notificationType;
+            if (notificationType && ['approved', 'disapproved', 'approval'].includes(notificationType)) {
+                unreadCount++;
+            }
+        });
+        
+        return unreadCount;
+    }
+
+
+
+
+
+
+
+    formatTimeAgo(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+        
+        return date.toLocaleDateString();
+    }
+
+    getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+               document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
     }
 
     setSidebarActiveItem(activeItem) {
@@ -1324,3 +1658,105 @@ document.addEventListener('DOMContentLoaded', () => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = EmployeePortalUI;
 }
+
+// Feedback popover handlers
+document.addEventListener('DOMContentLoaded', function() {
+  const feedbackBtn = document.getElementById('feedbackBtn');
+  const popover = document.getElementById('feedbackPopover');
+  const popoverClose = document.getElementById('closeFeedbackPopoverBtn');
+  const cancelBtn = document.getElementById('cancelFeedbackBtn');
+  const feedbackForm = document.getElementById('feedbackModalForm');
+
+  function showPopover() {
+  if (!popover) return;
+  // notification-style popover: just toggle classes to show
+  popover.classList.remove('closing');
+  popover.classList.add('show', 'showing');
+  popover.setAttribute('aria-hidden', 'false');
+  void popover.offsetWidth;
+  popover.classList.remove('showing');
+  }
+
+  function hidePopover() {
+    if (!popover || !popover.classList.contains('show')) return;
+    popover.classList.remove('showing');
+    popover.classList.add('closing');
+    const onEnd = () => {
+      popover.classList.remove('show');
+      popover.classList.remove('closing');
+      popover.setAttribute('aria-hidden', 'true');
+      popover.removeEventListener('animationend', onEnd);
+    };
+    popover.addEventListener('animationend', onEnd);
+  }
+
+  if (feedbackBtn) {
+    feedbackBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!popover) return;
+      if (popover.classList.contains('show')) hidePopover(); else showPopover();
+    });
+  }
+
+  if (popoverClose) popoverClose.addEventListener('click', hidePopover);
+  if (cancelBtn) cancelBtn.addEventListener('click', hidePopover);
+
+  // close when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!popover) return;
+    if (!popover.classList.contains('show')) return;
+    if (!popover.contains(e.target) && e.target !== feedbackBtn) {
+      hidePopover();
+    }
+  });
+
+  if (feedbackForm) {
+    feedbackForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitFeedbackBtn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      }
+
+      const formData = new FormData(this);
+      fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Prefer the site's notification helper when available
+                    if (window.portalUI && typeof window.portalUI.showNotification === 'function') {
+                        window.portalUI.showNotification('Successfully sent', 'success');
+                    } else if (typeof showNotification === 'function') {
+                        showNotification('Successfully sent', 'success');
+                    } else {
+                        // Fallback: simple toast element (kept for environments without portalUI)
+                        const toast = document.createElement('div');
+                        toast.className = 'toast toast-success';
+                        toast.textContent = 'Successfully sent';
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 3000);
+                    }
+                    hidePopover();
+                    feedbackForm.reset();
+                } else {
+                    alert('Failed to send feedback');
+                }
+            })
+      .catch(err => {
+        console.error(err);
+        alert('Error sending feedback');
+      })
+      .finally(() => {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Feedback';
+        }
+      });
+    });
+  }
+});

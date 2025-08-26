@@ -19,6 +19,7 @@ urlpatterns = [
     path('leave/', include('leaverequest.urls')),
     path('ticket/', include('ticketing.urls')),
     path('announcement/', include('announcement.urls')),
+    path('feedback/', include('feedback.urls')), 
 ]
 
 if settings.DEBUG:

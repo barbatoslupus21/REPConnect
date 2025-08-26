@@ -22,22 +22,51 @@ from notification.models import Notification
 from usercalendar.models import Holiday
 from leaverequest.models import LeaveRequest
 from ticketing.models import Ticket
-from userprofile.models import PersonalInformation
+from userprofile.models import PersonalInformation, ContactPerson, EmploymentInformation, EducationalBackground
 
 @login_required(login_url="user-login")
 def overview(request):
     # Get recent announcements (last 10)
     announcements = Announcement.objects.filter(is_active=True).order_by('-created_at')[:10]
     
-    # Add user reaction information to each announcement
+    # Add user reaction information and reactors data to each announcement
+    announcement_data = []
     for announcement in announcements:
-        announcement.user_reaction = None
+        user_reaction = None
+        total_reactions = 0
+        reactors = []
+        
         try:
+            # Get user's reaction
             reaction = announcement.reactions.filter(user=request.user).first()
             if reaction:
-                announcement.user_reaction = reaction.emoji
-        except:
+                user_reaction = reaction.emoji
+            
+            # Get total reactions count
+            total_reactions = announcement.reactions.count()
+            
+            # Get reactors data for display
+            if total_reactions > 0:
+                reactors = announcement.reactions.select_related('user').order_by('-created_at')[:10]
+                reactors = [
+                    {
+                        'name': f"{r.user.firstname or ''} {r.user.lastname or ''}".strip() or r.user.name or 'Unknown User',
+                        'avatar': r.user.avatar.url if r.user.avatar and r.user.avatar.name != 'profile/avatar.svg' else None,
+                        'reaction': r.emoji
+                    }
+                    for r in reactors
+                ]
+        except Exception as e:
+            print(f"Error processing announcement {announcement.id}: {e}")
             pass
+        
+        # Create a dictionary with all the data
+        announcement_data.append({
+            'announcement': announcement,
+            'user_reaction': user_reaction,
+            'total_reactions': total_reactions,
+            'reactors': reactors
+        })
     
     # Get recent notifications for the user (last 10)
     notifications = Notification.objects.filter(
@@ -108,7 +137,7 @@ def overview(request):
         pass
     
     context = {
-        'announcements': announcements,
+        'announcements': announcement_data,
         'notifications': notifications,
         'holidays': holidays,
         'total_employees': total_employees,
@@ -126,29 +155,71 @@ def overview(request):
     return render(request, 'dashboard/dashboard.html', context)
 
 def calculate_profile_completion(user):
-    """Calculate profile completion percentage"""
-    total_fields = 0
-    completed_fields = 0
-    
-    # Basic required fields
-    fields_to_check = [
-        'firstname', 'lastname', 'email', 'idnumber'
-    ]
-    
-    for field in fields_to_check:
-        total_fields += 1
-        value = getattr(user, field, None)
-        if value and str(value).strip():
-            completed_fields += 1
-    
-    # Avatar check
-    total_fields += 1
-    if user.avatar and user.avatar.name != 'profile/avatar.svg':
-        completed_fields += 1
-    
-    # Calculate percentage
-    if total_fields == 0:
-        return 0
-    
-    percentage = (completed_fields / total_fields) * 100
-    return round(percentage)
+    """Calculate profile completion percentage using group-based logic (personal, contact, employment, education).
+
+    Mirrors the client-side logic in `user-profile.js` so dashboard shows the same percentage.
+    """
+    completed_groups = 0
+    total_groups = 4  # personal, contact, employment, education
+
+    # Personal information group
+    try:
+        p = getattr(user, 'personal_info', None)
+        personal_required = [
+            'gender', 'birth_date', 'birth_place', 'contact_number',
+            'present_barangay', 'present_city', 'present_province', 'present_country',
+            'provincial_barangay', 'provincial_city', 'provincial_province'
+        ]
+        personal_complete = False
+        if p:
+            missing = 0
+            for field in personal_required:
+                val = getattr(p, field, None)
+                if val is None or (isinstance(val, str) and not val.strip()):
+                    missing += 1
+            # Consider personal group complete when none of the required fields are missing
+            personal_complete = (missing == 0)
+        else:
+            personal_complete = False
+        if personal_complete:
+            completed_groups += 1
+    except Exception:
+        pass
+
+    # Contact person group
+    try:
+        c = getattr(user, 'contact_person', None)
+        contact_complete = False
+        if c:
+            if (getattr(c, 'name', None) and getattr(c, 'contact_number', None)):
+                contact_complete = True
+        if contact_complete:
+            completed_groups += 1
+    except Exception:
+        pass
+
+    # Employment information group
+    try:
+        e = getattr(user, 'employment_info', None)
+        employment_complete = False
+        if e:
+            # require position, department (or line), employment_type, date_hired
+            if (getattr(e, 'position', None) and getattr(e, 'employment_type', None) and getattr(e, 'date_hired', None)):
+                employment_complete = True
+        if employment_complete:
+            completed_groups += 1
+    except Exception:
+        pass
+
+    # Education group
+    try:
+        educ_qs = user.education.all() if hasattr(user, 'education') else None
+        education_complete = bool(educ_qs and educ_qs.exists())
+        if education_complete:
+            completed_groups += 1
+    except Exception:
+        pass
+
+    # Compute percentage
+    percentage = round((completed_groups / total_groups) * 100) if total_groups > 0 else 0
+    return int(percentage)

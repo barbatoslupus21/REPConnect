@@ -16,21 +16,12 @@ class CalendarManager {
         this.setupEventListeners();
         this.renderHolidays();
         this.markToday();
-        
-        // Restore timelog status from localStorage if available
         this.restoreTimelogStatus();
-        
-        // Initialize timelog indicators immediately with server data
         this.renderTimelogIndicators();
-        
-        // Wait a bit for DOM to be fully ready, then fetch timelog data for all visible dates
         setTimeout(async () => {
             await this.refreshTimelogIndicators();
         }, 100);
-        
-        // Await the selection and initial data load before setting up tabs
         await this.selectDate(this.getInitialSelectedDate(), true);
-        
         this.setupTabs();
         this.updateCalendarHeader();
     }
@@ -107,30 +98,20 @@ class CalendarManager {
             });
         }
         this.setupCalendarDayEvents();
-        document.addEventListener('mousemove', (e) => {
-            this.updateTooltipPosition(e);
-        });
         
-        // Refresh timelog indicators when user returns to the tab
         window.addEventListener('focus', async () => {
             await this.refreshTimelogIndicators();
         });
-        
-        // Refresh timelog indicators when page becomes visible
         document.addEventListener('visibilitychange', async () => {
             if (!document.hidden) {
                 await this.refreshTimelogIndicators();
             }
         });
-        
-        // Save current timelog status before page unloads
         window.addEventListener('beforeunload', () => {
             if (window.CALENDAR_TIMELOG_STATUS) {
                 localStorage.setItem('calendar_timelog_status', JSON.stringify(window.CALENDAR_TIMELOG_STATUS));
             }
         });
-        
-        // Set up periodic refresh of timelog indicators (every 5 minutes)
         setInterval(async () => {
             await this.refreshTimelogIndicators();
         }, 5 * 60 * 1000);
@@ -148,7 +129,7 @@ class CalendarManager {
                 }
             });
             clonedDay.addEventListener('mouseenter', (e) => {
-                this.showHolidayTooltip(e.target);
+                this.showHolidayTooltip(e.currentTarget);
             });
             clonedDay.addEventListener('mouseleave', () => {
                 this.hideHolidayTooltip();
@@ -178,7 +159,16 @@ class CalendarManager {
             addBtn.id = 'add-event-btn';
             addBtn.className = 'btn btn-primary btn-sm add-event-btn';
             addBtn.innerHTML = '<i class="far fa-plus"></i> Add Event';
-            addBtn.onclick = () => window.openModal && window.openModal('addHolidayModal');
+            addBtn.onclick = () => {
+                if (window.openModal) {
+                    window.openModal('addHolidayModal');
+                    // Set the selected date in the form
+                    const dateInput = document.querySelector('#addHolidayModal input[name="date"]');
+                    if (dateInput) {
+                        dateInput.value = this.selectedDate;
+                    }
+                }
+            };
             sidebarActions.appendChild(addBtn);
         } else if (panelId === 'timelogs-panel') {
             if (isHR) {
@@ -238,26 +228,21 @@ class CalendarManager {
         
         this.updateSelectedDateDisplay(normalizedDate);
         
-        // Load content for all panels in parallel for better performance
         const [events, timelogs, todos] = await Promise.all([
             this.getDataForDate('events-panel', normalizedDate),
             this.getDataForDate('timelogs-panel', normalizedDate),
             this.getDataForDate('todos-panel', normalizedDate)
         ]);
 
-        // Now render the panels with the fetched data
         this.renderPanelData(this.getPanelContentDiv('events-panel'), events, 'events-panel');
         this.renderPanelData(this.getPanelContentDiv('timelogs-panel'), timelogs, 'timelogs-panel');
         this.renderPanelData(this.getPanelContentDiv('todos-panel'), todos, 'todos-panel');
         
-        // This is the key fix: only render all indicators on the initial load.
         if (isInitialLoad) {
             this.renderTimelogIndicators();
         }
         
         this.updateTimelogsTabDot();
-        
-        // After loading data for a specific date, we must use the NEWLY FETCHED data to update the indicator.
         this.updateSingleTimelogIndicator(normalizedDate, timelogs);
     }
 
@@ -287,13 +272,9 @@ class CalendarManager {
         const hasTimeOut = timelogs.some(log => log.entry === 'timeout' && log.time && log.time.trim() !== '');
         let status = 'none';
         
-        // Show warning icons for incomplete dates (missing timein OR timeout)
-        // Complete dates and empty dates both show no icon
         if ((hasTimeIn || hasTimeOut) && !(hasTimeIn && hasTimeOut)) {
             status = 'incomplete';
         }
-
-        // Update the global status object so it stays in sync
         if (!window.CALENDAR_TIMELOG_STATUS) window.CALENDAR_TIMELOG_STATUS = {};
         window.CALENDAR_TIMELOG_STATUS[date] = status;
 
@@ -327,7 +308,6 @@ class CalendarManager {
                 indicator.title = 'Missing Time In or Out';
                 indicator.innerHTML = '<span class="timelog-warning-icon">⚠️</span>';
             } else {
-                // Both complete and empty dates show no icon
                 indicator.className = 'timelog-indicator';
                 indicator.title = '';
             }
@@ -335,48 +315,32 @@ class CalendarManager {
     }
 
     async refreshTimelogIndicators() {
-        // Get all visible dates in the current month
         const visibleDates = Array.from(document.querySelectorAll('.calendar-day:not(.empty)'))
             .map(day => day.dataset.date)
             .filter(date => date);
-
-        // Initialize the global status object if it doesn't exist
         if (!window.CALENDAR_TIMELOG_STATUS) {
             window.CALENDAR_TIMELOG_STATUS = {};
         }
-
-        // Fetch timelog data for all visible dates in parallel
         const fetchPromises = visibleDates.map(async (date) => {
             try {
                 const resp = await fetch(`/calendar/api/timelogs/?date=${date}`);
                 if (resp.ok) {
                     const data = await resp.json();
                     const logs = data.timelogs || [];
-                    
-                    // Calculate status for this date
                     const hasTimeIn = logs.some(log => log.entry === 'timein' && log.time && log.time.trim() !== '');
                     const hasTimeOut = logs.some(log => log.entry === 'timeout' && log.time && log.time.trim() !== '');
-                    
                     let status = 'none';
                     if ((hasTimeIn || hasTimeOut) && !(hasTimeIn && hasTimeOut)) {
                         status = 'incomplete';
                     }
-                    
-                    // Update global status
                     window.CALENDAR_TIMELOG_STATUS[date] = status;
-                    
                     return { date, logs, status };
                 }
             } catch (e) {
-                // Ignore errors for individual date fetches
             }
             return { date, logs: [], status: 'none' };
         });
-
-        // Wait for all fetches to complete
         const results = await Promise.all(fetchPromises);
-        
-        // Update all indicators based on the fetched data
         results.forEach(({ date, logs, status }) => {
             this.updateSingleTimelogIndicator(date, logs);
         });
@@ -404,10 +368,8 @@ class CalendarManager {
     }
 
     async loadPanelContent(panelId) {
-        // This function is now a wrapper. The actual fetching is done in selectDate.
         const contentDiv = this.getPanelContentDiv(panelId);
         if (!contentDiv) return;
-        // The rendering will be handled by selectDate which has the data.
     }
 
     getPanelContentDiv(panelId) {
@@ -434,9 +396,7 @@ class CalendarManager {
                     const data = await resp.json();
                     const logs = data.timelogs || [];
                     let hasTimeIn = false, hasTimeOut = false;
-                    
                     logs.forEach(log => {
-                        // Only count entries that have valid time values (matching server-side logic)
                         if (log.entry === 'timein' && log.time && log.time.trim() !== '') {
                             hasTimeIn = true;
                         }
@@ -446,9 +406,6 @@ class CalendarManager {
                     });
 
                     if (!window.CALENDAR_TIMELOG_STATUS) window.CALENDAR_TIMELOG_STATUS = {};
-                    
-                    // Show warning icons for incomplete dates (missing timein OR timeout)
-                    // Complete dates and empty dates both show no icon
                     if ((hasTimeIn || hasTimeOut) && !(hasTimeIn && hasTimeOut)) {
                         window.CALENDAR_TIMELOG_STATUS[normalizedDate] = 'incomplete';
                     } else {
@@ -732,18 +689,87 @@ class CalendarManager {
             newMonth = 12;
             newYear--;
         }
-        this.navigateToMonth(newYear, newMonth);
+        this.navigateToMonth(newYear, newMonth, direction);
     }
 
-    navigateToMonth(year, month) {
+    navigateToMonth(year, month, direction = 0) {
         localStorage.setItem('calendar_last_viewed_month', month);
         localStorage.setItem('calendar_last_viewed_year', year);
         const url = new URL(window.location);
         url.searchParams.set('year', year);
         url.searchParams.set('month', month);
-        setTimeout(() => {
-            window.location.href = url.toString();
-        }, 100);
+        const grid = document.getElementById('calendarDays');
+        const title = document.getElementById('calendarTitle');
+        const outOffset = direction > 0 ? -20 : 20;
+        const inOffset = direction > 0 ? 20 : -20;
+        if (grid) {
+            grid.style.transition = 'opacity 200ms ease, transform 200ms ease';
+            grid.style.opacity = '0';
+            grid.style.transform = `translateX(${outOffset}px)`;
+        }
+        if (title) {
+            title.style.transition = 'opacity 200ms ease, transform 200ms ease';
+            title.style.opacity = '0.2';
+            title.style.transform = `translateX(${outOffset/2}px)`;
+        }
+        fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newDays = doc.getElementById('calendarDays');
+                const newTitle = doc.getElementById('calendarTitle');
+                const scripts = Array.from(doc.querySelectorAll('script')).map(s => s.textContent || '');
+                const getJson = (name) => {
+                    const re = new RegExp(`window\\.${name}\\s*=\\s*(.*?);`);
+                    for (const txt of scripts) {
+                        const m = txt.match(re);
+                        if (m) {
+                            try { return JSON.parse(m[1]); } catch (e) { try { return eval('(' + m[1] + ')'); } catch (_) { return null; } }
+                        }
+                    }
+                    return null;
+                };
+                const newHolidays = getJson('CALENDAR_HOLIDAYS');
+                const newTimelogStatus = getJson('CALENDAR_TIMELOG_STATUS');
+                const newToday = (() => {
+                    const re = /window\.CALENDAR_DEFAULT_TODAY\s*=\s*'([^']+)'/;
+                    for (const txt of scripts) { const m = txt.match(re); if (m) return m[1]; }
+                    return this.today;
+                })();
+                if (grid && newDays) grid.innerHTML = newDays.innerHTML;
+                if (title && newTitle) title.textContent = newTitle.textContent;
+                this.currentYear = year;
+                this.currentMonth = month;
+                if (newHolidays) window.CALENDAR_HOLIDAYS = this.holidays = newHolidays;
+                if (newTimelogStatus) window.CALENDAR_TIMELOG_STATUS = newTimelogStatus;
+                if (newToday) window.CALENDAR_DEFAULT_TODAY = this.today = newToday;
+                this.setupCalendarDayEvents();
+                this.renderHolidays();
+                this.markToday();
+                this.renderTimelogIndicators();
+                this.updateCalendarHeader();
+                if (grid) {
+                    grid.style.transition = 'none';
+                    grid.style.opacity = '0';
+                    grid.style.transform = `translateX(${inOffset}px)`;
+                    void grid.offsetWidth;
+                    grid.style.transition = 'opacity 220ms ease, transform 220ms ease';
+                    grid.style.opacity = '1';
+                    grid.style.transform = 'translateX(0)';
+                }
+                if (title) {
+                    title.style.transition = 'none';
+                    title.style.opacity = '0.2';
+                    title.style.transform = `translateX(${inOffset/2}px)`;
+                    void title.offsetWidth;
+                    title.style.transition = 'opacity 220ms ease, transform 220ms ease';
+                    title.style.opacity = '1';
+                    title.style.transform = 'translateX(0)';
+                }
+            })
+            .catch(() => { window.location.href = url.toString(); })
+            .finally(() => { this.isNavigating = false; });
     }
 
     renderHolidays() {
@@ -819,6 +845,23 @@ class CalendarManager {
             });
         }
         this.tooltip.classList.add('show');
+        const rect = dayElement.getBoundingClientRect();
+        const tRect = this.tooltip.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const gap = 8;
+        let left = rect.right + gap;
+        let top = rect.top;
+        if (left + tRect.width > viewportWidth - gap) {
+            left = rect.left - tRect.width - gap;
+        }
+        if (top + tRect.height > window.innerHeight - gap) {
+            top = window.innerHeight - tRect.height - gap;
+        }
+        if (top < gap) {
+            top = gap;
+        }
+        this.tooltip.style.left = left + 'px';
+        this.tooltip.style.top = top + 'px';
     }
 
     hideHolidayTooltip() {
@@ -827,22 +870,7 @@ class CalendarManager {
         }
     }
 
-    updateTooltipPosition(e) {
-        if (!this.tooltip || !this.tooltip.classList.contains('show')) return;
-        const tooltipRect = this.tooltip.getBoundingClientRect();
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-        let x = e.clientX + 15;
-        let y = e.clientY - tooltipRect.height - 10;
-        if (x + tooltipRect.width > viewportWidth) {
-            x = e.clientX - tooltipRect.width - 15;
-        }
-        if (y < 0) {
-            y = e.clientY + 15;
-        }
-        this.tooltip.style.left = x + 'px';
-        this.tooltip.style.top = y + 'px';
-    }
+    updateTooltipPosition(e) {}
 
     openModal(modalId) {
         const modal = document.getElementById(modalId);

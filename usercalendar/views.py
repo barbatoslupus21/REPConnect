@@ -128,24 +128,31 @@ def add_holiday(request):
         return redirect('calendar_view')
     
     form = HolidayForm(request.POST, request.FILES)
-    year = request.POST.get('date', '')[:4]
-    month = request.POST.get('date', '')[5:7]
-    date = request.POST.get('date', '')
-    # Patch: handle empty month safely
-    try:
-        month_int = int(month) if month else 1
-    except ValueError:
-        month_int = 1
+    
     if form.is_valid():
         holiday = form.save(commit=False)
         holiday.created_by = request.user
         holiday.save()
         messages.success(request, f'Holiday "{holiday.name}" added successfully.')
-    else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                messages.error(request, f'{field.title()}: {error}')
-    url = reverse('calendar_view') + f'?year={year}&month={month_int}&date={date}'
+        
+        # Extract year and month from the holiday date to redirect to the correct month
+        if holiday.date:
+            year = holiday.date.year
+            month = holiday.date.month
+            url = reverse('calendar_view') + f'?year={year}&month={month}'
+            return redirect(url)
+    
+    # If form is invalid or no date, show errors and redirect to current month
+    for field, errors in form.errors.items():
+        for error in errors:
+            messages.error(request, f'{field.title()}: {error}')
+    
+    # Get current year/month from request or use today's date
+    current_date = timezone.localdate()
+    year = request.GET.get('year', current_date.year)
+    month = request.GET.get('month', current_date.month)
+    
+    url = reverse('calendar_view') + f'?year={year}&month={month}'
     return redirect(url)
 
 @login_required
@@ -183,11 +190,26 @@ def edit_holiday(request, pk):
     if form.is_valid():
         form.save()
         messages.success(request, f'Holiday "{holiday.name}" updated successfully.')
-    else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                messages.error(request, f'{field.title()}: {error}')
-    return redirect('calendar_view')
+        
+        # Redirect to the month where the holiday is located
+        if holiday.date:
+            year = holiday.date.year
+            month = holiday.date.month
+            url = reverse('calendar_view') + f'?year={year}&month={month}'
+            return redirect(url)
+    
+    # If form is invalid, show errors and redirect to current month
+    for field, errors in form.errors.items():
+        for error in errors:
+            messages.error(request, f'{field.title()}: {error}')
+    
+    # Get current year/month from request or use today's date
+    current_date = timezone.localdate()
+    year = request.GET.get('year', current_date.year)
+    month = request.GET.get('month', current_date.month)
+    
+    url = reverse('calendar_view') + f'?year={year}&month={month}'
+    return redirect(url)
 
 @login_required
 @require_http_methods(["POST"])
@@ -196,9 +218,26 @@ def delete_holiday(request, pk):
         messages.error(request, 'You do not have permission to delete holidays.')
         return redirect('calendar_view')
     holiday = get_object_or_404(Holiday, pk=pk)
+    
+    # Store the date before deleting to redirect to the correct month
+    holiday_date = holiday.date
     holiday.delete()
     messages.success(request, 'Event deleted successfully.')
-    return redirect('calendar_view')
+    
+    # Redirect to the month where the holiday was located
+    if holiday_date:
+        year = holiday_date.year
+        month = holiday_date.month
+        url = reverse('calendar_view') + f'?year={year}&month={month}'
+        return redirect(url)
+    
+    # If no date, redirect to current month
+    current_date = timezone.localdate()
+    year = request.GET.get('year', current_date.year)
+    month = request.GET.get('month', current_date.month)
+    
+    url = reverse('calendar_view') + f'?year={year}&month={month}'
+    return redirect(url)
 
 @login_required
 def get_todos_api(request):

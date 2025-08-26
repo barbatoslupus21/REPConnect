@@ -527,7 +527,7 @@ def process_prf_action(request):
             notification_type=action,
             sender=request.user,
             recipient=prf.employee,
-            module='user_prf',
+            module='prf',
         )
         return JsonResponse({'success': True, 'message': f'PRF request {action}.'})
     except PRFRequest.DoesNotExist:

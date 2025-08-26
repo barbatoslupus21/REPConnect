@@ -16,7 +16,7 @@
     background: var(--surface);
     border-radius: var(--radius-lg);
     padding: var(--space-md);
-    box-shadow: var(--shadow-md);
+    border: 0.5px solid var(--border-color);
 }
 
 .calendar-controls {
@@ -287,7 +287,7 @@
     gap: var(--space-lg);
     background: var(--surface);
     padding: var(--space-md);
-    box-shadow: var(--shadow-md);
+    border: 0.5px solid var(--border-color);
 }
 
 .selected-date-display {
@@ -447,6 +447,7 @@
     z-index: 1000;
     max-width: 300px;
     pointer-events: none;
+    transform-origin: top left;
 }
 
 .holiday-tooltip.show {

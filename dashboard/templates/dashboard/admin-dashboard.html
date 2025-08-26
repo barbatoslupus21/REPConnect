@@ -4,6 +4,7 @@
 {% csrf_token %}
 
 {% block title %}REPConnect - Overview{% endblock title %}
+{% block pagetitle %}Company Overview{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dashboard/dashboard.css' %}">
@@ -15,7 +16,7 @@
 
     <!-- User Greeting Section -->
     <div class="user-greeting-section">
-        {% comment %} <div class="greeting-icon-container">
+        <div class="greeting-icon-container">
             <div class="greeting-icon waving active" id="wavingIcon">
                 👋
             </div>
@@ -28,7 +29,7 @@
                     🌙
                 {% endif %}
             </div>
-        </div> {% endcomment %}
+        </div>
         <div class="greeting-content">
             <h2>Welcome back, {{ request.user.firstname }}!</h2>
             <p class="greeting-message">
@@ -251,10 +252,11 @@
                 <div class="notifications-section">
                     <div class="section-header">
                         <h4>Recent Notifications</h4>
+                        <a href="{% url 'notification_view' %}" class="view-full-link">View All</a>
                     </div>
                     <div class="notifications-list">
                         {% for notification in notifications %}
-                        <div class="dashboard-notification-items {% if not notification.is_read %}unread{% endif %}">
+                        <div class="notification-item {% if not notification.is_read %}unread{% endif %}">
                             <div class="notification-icon">
                                 {% if notification.notification_type == 'approved' %}
                                     <i class="fas fa-check-circle text-success"></i>

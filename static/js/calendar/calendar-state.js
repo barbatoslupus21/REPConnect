@@ -1,6 +1,3 @@
-// calendar-state.js
-// Handles calendar state persistence (month/date) across reloads and actions
-
 function getQueryParam(name) {
     const url = new URL(window.location.href);
     return url.searchParams.get(name);
@@ -17,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let month = queryMonth ? parseInt(queryMonth) : (lastMonth ? parseInt(lastMonth) : window.CALENDAR_DEFAULT_MONTH);
     let selectedDate = queryDate || lastDate || window.CALENDAR_DEFAULT_TODAY;
 
-    // Save query params to localStorage if present
     if (queryYear) localStorage.setItem('calendarYear', queryYear);
     if (queryMonth) localStorage.setItem('calendarMonth', queryMonth);
     if (queryDate) localStorage.setItem('calendarDate', queryDate);
@@ -47,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (date) localStorage.setItem('calendarDate', date);
     }
 
-    // Listen for month navigation
     const prevBtn = document.getElementById('prevMonth');
     if (prevBtn) {
         prevBtn.addEventListener('click', function() {
@@ -72,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
             saveCalendarState(newYear, newMonth, null);
         });
     }
-    // Listen for day selection
     document.querySelectorAll('.calendar-day[data-date]').forEach(day => {
         day.addEventListener('click', function() {
             const selectedDate = this.getAttribute('data-date');
@@ -83,11 +77,4 @@ document.addEventListener('DOMContentLoaded', () => {
             saveCalendarState(year, month, selectedDate);
         });
     });
-    // Optionally, open the modal when Add Event is clicked
-    const addEventBtn = document.getElementById('add-event-btn');
-    if (addEventBtn) {
-        addEventBtn.addEventListener('click', function() {
-            document.getElementById('addHolidayModal').style.display = 'block';
-        });
-    }
 });

@@ -2,7 +2,6 @@
 {% load static %}
 
 {% block title %}REPConnect - Company Calendar{% endblock title %}
-{% block pagetitle %}Company Calendar{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/calendar/calendar.css' %}">
@@ -248,22 +247,15 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Repetition</label>
-                        <select name="repetition" class="form-input">
-                            <option value="none">None</option>
-                            <option value="yearly">Yearly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="daily">Daily</option>
-                        </select>
+                        {{ holiday_form.repetition }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        {{ holiday_form.date }}
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description (Optional)</label>
                         {{ holiday_form.description }}
-                    </div>
-                    <input type="hidden" id="selected-date-input" name="date" value="">
-                    <div class="form-group" style="display:none;">
-                        <label class="form-label">Date</label>
-                        <span id="selected-date-display"></span>
                     </div>
                 </div>
                 <div class="modal-footer">

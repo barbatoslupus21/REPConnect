@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'leaverequest.apps.LeaverequestConfig',
     'ticketing.apps.TicketingConfig',
     'announcement.apps.AnnouncementConfig',
+    'feedback.apps.FeedbackConfig',
 ]
 
 AUTH_USER_MODEL = 'userlogin.EmployeeLogin'

@@ -113,9 +113,10 @@ class EmergencyLoan(models.Model):
     CUTOFF_CHOICES_5000 = [
         (1, '1 Cut-off (0.5 month)'),
         (2, '2 Cut-offs (1 month)'),
+        (3, '4 Cut-offs (1.5 months)'),
         (4, '4 Cut-offs (2 months)'),
-        (5, '5 Cut-offs (2.5 months)'),
-        (8, '8 Cut-offs (4 months)'),
+        (5, '4 Cut-offs (2.5 months)'),
+        (6, '5 Cut-offs (3 months)'),
     ]
     
     prf_request = models.OneToOneField('PRFRequest', on_delete=models.CASCADE, related_name='emergency_loan')
