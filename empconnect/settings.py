@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'ticketing.apps.TicketingConfig',
     'announcement.apps.AnnouncementConfig',
     'feedback.apps.FeedbackConfig',
+    'survey.apps.SurveyConfig',
 ]
 
 AUTH_USER_MODEL = 'userlogin.EmployeeLogin'

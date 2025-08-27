@@ -1,0 +1,351 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Survey Management{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/survey/survey.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+    <header class="page-header">
+        <div class="page-header-content">
+            <h2 class="page-title">Survey Management Dashboard</h2>
+            <p class="text-muted">Manage surveys, view analytics, and track responses</p>
+        </div>
+    </header>
+
+    <div class="dashboard-stats-container">
+        <div class="dashboard-stats">
+            <div class="modern-stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon blue">
+                            <i class="fas fa-poll"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Total Surveys</div>
+                    <div class="modern-stat-value">{{ total_surveys }}</div>
+                    <div class="modern-stat-change {% if employees_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if employees_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ employees_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon green">
+                            <i class="fas fa-play"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Active Surveys</div>
+                    <div class="modern-stat-value">{{ active_surveys }}</div>
+                    <div class="modern-stat-change {% if payslips_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if payslips_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ payslips_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon orange">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Total Responses</div>
+                    <div class="modern-stat-value">{{ total_responses }}</div>
+                    <div class="modern-stat-change {% if loans_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if loans_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ loans_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon red">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Response Rate</div>
+                    <div class="modern-stat-value">
+                        {% if total_surveys > 0 %}
+                            {{ total_responses|floatformat:0 }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </div>
+                    <div class="modern-stat-change">
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs-horizontal">
+            <div class="tab-list">
+                <button class="tab active" data-tab="survey">Survey</button>
+                <button class="tab" data-tab="template">Templates</button>
+                <button class="tab" data-tab="categories">Categories</button>
+            </div>
+        </div>
+            
+        <div class="tab-panel active" id="survey-tab">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left">
+                    <form class="search-box" method="get" action="" id="surveySearchForm">
+                        <input type="text" class="search-input" id="surveySearchInput" placeholder="Search surveys..." name="search" value="" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        <span class="search-clear" style="display: none;">
+                            <a href="#" id="clearSurveySearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" id="exportBtn">
+                        <i class="fas fa-plus"></i>
+                        Create Survey
+                    </button>
+
+                    <button class="btn btn-action" id="exportBtn">
+                        <i class="fas fa-download"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Category</th>
+                                <th>Template</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="surveyTableBody">
+                            {% include 'survey/partials/admin_survey_table.html' %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="ticketsPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="ticketsStartRecord">{{ tickets.start_index|default:0 }}</span> to <span id="ticketsEndRecord">{{ tickets.end_index|default:0 }}</span> of <span id="ticketsTotalRecords">{{ tickets.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="ticketsPaginationControls">
+                    {% if tickets.has_previous %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="ticketsPageNumbers">
+                        {% if tickets.paginator.page_range %}
+                            {% for num in tickets.paginator.page_range %}
+                                {% if tickets.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > tickets.number|add:'-3' and num < tickets.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadTicketsPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if tickets.has_next %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div> 
+
+        </div>
+
+        <div class="tab-panel" id="template-tab">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left">
+                    <form class="search-box" method="get" action="" id="templateSearchForm">
+                        <input type="text" class="search-input" id="templateSearchInput" placeholder="Search template..." name="search" value="" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        <span class="search-clear" style="display: none;">
+                            <a href="#" id="clearTemplateSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" id="exportBtn">
+                        <i class="fas fa-plus"></i>
+                        Create Survey
+                    </button>
+
+                    <button class="btn btn-action" id="exportBtn">
+                        <i class="fas fa-download"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Category</th>
+                                <th>Template</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="surveyTableBody">
+                            {% include 'survey/partials/admin_survey_table.html' %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="ticketsPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="ticketsStartRecord">{{ tickets.start_index|default:0 }}</span> to <span id="ticketsEndRecord">{{ tickets.end_index|default:0 }}</span> of <span id="ticketsTotalRecords">{{ tickets.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="ticketsPaginationControls">
+                    {% if tickets.has_previous %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="ticketsPageNumbers">
+                        {% if tickets.paginator.page_range %}
+                            {% for num in tickets.paginator.page_range %}
+                                {% if tickets.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > tickets.number|add:'-3' and num < tickets.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadTicketsPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if tickets.has_next %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div> 
+
+        </div>
+
+        <div class="tab-panel" id="categories-tab">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left">
+                    <form class="search-box" method="get" action="" id="categoriesSearchForm">
+                        <input type="text" class="search-input" id="categoriesSearchInput" placeholder="Search categories..." name="search" value="" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        <span class="search-clear" style="display: none;">
+                            <a href="#" id="clearCategoriesSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" id="exportBtn">
+                        <i class="fas fa-plus"></i>
+                        Create Category
+                    </button>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Created at</th>
+                                <th>Category Name</th>
+                                <th>Color</th>
+                                <th>Icon</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="surveyTableBody">
+                            {% include 'survey/partials/admin_survey_table.html' %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="ticketsPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="ticketsStartRecord">{{ tickets.start_index|default:0 }}</span> to <span id="ticketsEndRecord">{{ tickets.end_index|default:0 }}</span> of <span id="ticketsTotalRecords">{{ tickets.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="ticketsPaginationControls">
+                    {% if tickets.has_previous %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="ticketsPageNumbers">
+                        {% if tickets.paginator.page_range %}
+                            {% for num in tickets.paginator.page_range %}
+                                {% if tickets.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > tickets.number|add:'-3' and num < tickets.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadTicketsPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if tickets.has_next %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div> 
+
+        </div>
+
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/survey/survey_admin.js' %}"></script>
+{% endblock extra_js %}

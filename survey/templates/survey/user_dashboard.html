@@ -1,0 +1,197 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Survey{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/survey/survey.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h2 class="page-title">My Surveys</h2>
+            <p class="text-muted">Complete assigned surveys and view your progress</p>
+        </div>
+    </div>
+
+    <!-- Progress Overview -->
+    <div class="modern-stats-grid">
+        <div class="modern-stat-card">
+            <div class="modern-stat-icon blue">
+                <i class="fas fa-clipboard-list"></i>
+            </div>
+            <div class="modern-stat-label">Total Assigned</div>
+            <div class="modern-stat-value">{{ total_assigned }}</div>
+        </div>
+
+        <div class="modern-stat-card">
+            <div class="modern-stat-icon green">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="modern-stat-label">Completed</div>
+            <div class="modern-stat-value">{{ completed_surveys|length }}</div>
+        </div>
+
+        <div class="modern-stat-card">
+            <div class="modern-stat-icon orange">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="modern-stat-label">Pending</div>
+            <div class="modern-stat-value">{{ pending_surveys|length }}</div>
+        </div>
+
+        <div class="modern-stat-card">
+            <div class="modern-stat-icon purple">
+                <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="modern-stat-label">Completion Rate</div>
+            <div class="modern-stat-value">{{ completion_rate|floatformat:0 }}%</div>
+        </div>
+    </div>
+
+    <!-- Pending Surveys -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Pending Surveys</h3>
+            <span class="status-pill status-orange">{{ pending_surveys|length }} Pending</span>
+        </div>
+        <div class="card-body">
+            {% if pending_surveys %}
+                <div class="survey-grid">
+                    {% for survey in pending_surveys %}
+                    <div class="survey-card">
+                        <div class="survey-header">
+                            <h4>{{ survey.title }}</h4>
+                            {% if survey.category %}
+                                <span class="category-badge" style="background-color: {{ survey.category.color }}20; color: {{ survey.category.color }};">
+                                    <i class="{{ survey.category.icon }}"></i>
+                                    {{ survey.category.name }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        <p class="survey-description">{{ survey.description|truncatewords:15 }}</p>
+                        
+                        <div class="survey-meta">
+                            <div class="meta-item">
+                                <i class="fas fa-questions"></i>
+                                <span>{{ survey.questions.count }} questions</span>
+                            </div>
+                            {% if survey.deadline %}
+                            <div class="meta-item">
+                                <i class="fas fa-calendar"></i>
+                                <span>Due: {{ survey.deadline|date:"M d, Y" }}</span>
+                            </div>
+                            {% endif %}
+                            {% if survey.show_progress %}
+                            <div class="meta-item">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Progress tracking</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="survey-actions">
+                            <a href="{% url 'take_survey' survey.id %}" class="btn btn-primary">
+                                <i class="fas fa-play"></i>
+                                Start Survey
+                            </a>
+                        </div>
+
+                        {% if survey.deadline and survey.is_expired %}
+                        <div class="survey-status expired">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Expired
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-check"></i>
+                    <h5>All Caught Up!</h5>
+                    <p>You have no pending surveys at the moment.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Completed Surveys -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Completed Surveys</h3>
+            <span class="status-pill status-green">{{ completed_surveys|length }} Completed</span>
+        </div>
+        <div class="card-body">
+            {% if completed_surveys %}
+                <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Survey Title</th>
+                                <th>Category</th>
+                                <th>Completed Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for survey in completed_surveys %}
+                            <tr>
+                                <td>
+                                    <div class="survey-info">
+                                        <strong>{{ survey.title }}</strong>
+                                        <div class="text-muted">{{ survey.description|truncatewords:8 }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if survey.category %}
+                                        <span class="status-pill" style="background-color: {{ survey.category.color }}20; color: {{ survey.category.color }};">
+                                            <i class="{{ survey.category.icon }}"></i>
+                                            {{ survey.category.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">No Category</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% for response in survey.responses.all %}
+                                        {% if response.user == request.user and response.is_complete %}
+                                            {{ response.submitted_at|date:"M d, Y H:i" }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for response in survey.responses.all %}
+                                        {% if response.user == request.user and response.is_complete %}
+                                            <a href="{% url 'view_response' response.id %}" class="btn btn-sm btn-outline">
+                                                <i class="fas fa-eye"></i>
+                                                View Response
+                                            </a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-clipboard"></i>
+                    <h5>No Completed Surveys</h5>
+                    <p>Complete your first survey to see it here.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/survey/survey_user.js' %}"></script>
+{% endblock extra_js %}

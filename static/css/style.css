@@ -396,9 +396,63 @@ a {
     transition: opacity var(--transition-speed) ease;
 }
 
+.sub-nav-text{
+    margin-left: 4px;
+    font-size: 0.8rem;
+    opacity: 1;
+    transition: opacity var(--transition-speed) ease;
+}
+
 .minimized .nav-text {
     opacity: 0;
     visibility: hidden;
+}
+
+.icon-tooltip {
+    position: fixed; /* positioned via JS near the icon */
+    background: var(--surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 8px 10px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    font-size: 0.875rem;
+    z-index: 20000;
+    pointer-events: auto; /* allow clicks inside tooltip */
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+    transition: opacity 160ms ease, transform 160ms ease;
+    min-width: 160px;
+    max-width: 320px;
+}
+.icon-tooltip.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.icon-tooltip::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    left: 12px;
+    bottom: -6px;
+    transform: rotate(45deg);
+    border-left: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.icon-tooltip .tooltip-item {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+.icon-tooltip .tooltip-item:hover {
+    background: var(--surface-hover);
 }
 
 .badge {
@@ -6360,3 +6414,28 @@ textarea:required:invalid {
 }
 .feedback-popover.closing { animation: modalZoomOut 0.18s forwards; }
 .feedback-popover.showing { animation: modalZoomIn 0.18s forwards; }
+
+.assessments-submenu {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding: 0 12px;
+    transition: max-height 280ms ease, opacity 200ms ease, padding 200ms ease;
+}
+
+.assessments-submenu.open {
+    max-height: 480px;
+    opacity: 1;
+    padding: 8px 12px 12px 12px;
+}
+                
+.assessments-submenu .submenu-btn {
+    display: block;
+    padding: 8px 10px;
+    margin: 4px 0;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 6px;
+}
+                
+.assessments-submenu .submenu-btn:hover { background: rgba(0,0,0,0.05); }

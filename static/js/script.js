@@ -145,6 +145,7 @@ class EmployeePortalUI {
 
         this.setupUserProfile();
         this.setActiveSidebarItem();
+    this.setupIconTooltips();
         
         if (mainContent) {
             mainContent.addEventListener('click', () => {
@@ -153,6 +154,146 @@ class EmployeePortalUI {
                 }
             });
         }
+    }
+
+    setupIconTooltips() {
+        // Tooltip for minimized sidebar icons. Shows on hover and focus, or on click for touch.
+        const sidebar = document.querySelector('.sidebar');
+        if (!sidebar) return;
+
+        let tooltipEl = null;
+        const createTooltip = (text) => {
+            if (!tooltipEl) {
+                tooltipEl = document.createElement('div');
+                tooltipEl.className = 'icon-tooltip';
+                document.body.appendChild(tooltipEl);
+            }
+            tooltipEl.textContent = text;
+            return tooltipEl;
+        };
+
+        const showTooltip = (target, text) => {
+            const el = createTooltip(text);
+            // ensure added to DOM and measured
+            el.style.left = '-9999px';
+            el.style.top = '-9999px';
+            // Force reflow so offsetHeight is accurate
+            // eslint-disable-next-line no-unused-expressions
+            el.offsetHeight;
+            const rect = target.getBoundingClientRect();
+            // position to the right of minimized sidebar icon
+            const left = rect.right + 12; // small gap
+            const measuredTop = rect.top + rect.height / 2 - el.offsetHeight / 2;
+            const top = Math.max(8, measuredTop);
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+            requestAnimationFrame(() => el.classList.add('show'));
+        };
+
+    // Render interactive assessments tooltip (used for both hover and click)
+    let _docClickHandler = null;
+    let hideTimeout = null;
+        const renderAssessmentsTooltip = (target) => {
+            // ensure any existing tooltip cleaned
+            hideTooltip();
+            const el = createTooltip('');
+            el.innerHTML = `
+                <a class="tooltip-item" href="/survey/">Survey</a>
+                <a class="tooltip-item" href="/training/">Training Review</a>
+                <a class="tooltip-item" href="/performance/">Employee Review</a>
+            `;
+
+            // position after content is rendered
+            el.style.left = '-9999px'; el.style.top = '-9999px';
+            // force reflow
+            // eslint-disable-next-line no-unused-expressions
+            el.offsetHeight;
+            const rect = target.getBoundingClientRect();
+            const left = rect.right + 12;
+            const top = Math.max(8, rect.top + rect.height / 2 - el.offsetHeight / 2);
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+            requestAnimationFrame(() => el.classList.add('show'));
+
+            // clicking an item should navigate
+            el.addEventListener('click', (ev) => {
+                const a = ev.target.closest('a');
+                if (!a) return;
+                ev.preventDefault();
+                const href = a.getAttribute('href');
+                if (href) window.location.href = href;
+            });
+
+            // hide when clicking outside tooltip
+            _docClickHandler = (ev) => {
+                if (!el.contains(ev.target) && !target.contains(ev.target)) {
+                    hideTooltip();
+                    document.removeEventListener('click', _docClickHandler);
+                    _docClickHandler = null;
+                }
+            };
+            document.addEventListener('click', _docClickHandler);
+
+            // Keep tooltip open when pointer moves into it
+            el.addEventListener('mouseenter', () => {
+                if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+            });
+            el.addEventListener('mouseleave', () => {
+                hideTimeout = setTimeout(() => hideTooltip(), 180);
+            });
+        };
+
+        const hideTooltip = () => {
+            if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+            if (!tooltipEl) return;
+            tooltipEl.classList.remove('show');
+            setTimeout(() => {
+                if (tooltipEl && !tooltipEl.classList.contains('show')) {
+                    tooltipEl.remove(); tooltipEl = null;
+                }
+            }, 200);
+        };
+
+        // Attach listeners to elements with data-tooltip inside sidebar
+        const tooltipTargets = sidebar.querySelectorAll('[data-tooltip]');
+        tooltipTargets.forEach(t => {
+            // show only when sidebar is minimized
+            t.addEventListener('mouseenter', (e) => {
+                if (!sidebar.classList.contains('minimized')) return;
+                // For Assessments, show interactive menu on hover as well
+                const key = (t.getAttribute('data-tooltip') || '').trim().toLowerCase();
+                if (key === 'assessments') {
+                    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+                    renderAssessmentsTooltip(t);
+                } else {
+                    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+                    showTooltip(t, t.getAttribute('data-tooltip'));
+                }
+            });
+            t.addEventListener('mouseleave', () => {
+                hideTimeout = setTimeout(() => hideTooltip(), 180);
+            });
+            t.addEventListener('focus', (e) => {
+                if (!sidebar.classList.contains('minimized')) return;
+                const key = (t.getAttribute('data-tooltip') || '').trim().toLowerCase();
+                if (key === 'assessments') renderAssessmentsTooltip(t);
+                else showTooltip(t, t.getAttribute('data-tooltip'));
+            });
+            t.addEventListener('blur', () => hideTooltip());
+
+            // For click (touch) show interactive tooltip with submenu when minimized
+            t.addEventListener('click', (e) => {
+                if (!sidebar.classList.contains('minimized')) return;
+                e.preventDefault();
+                const key = (t.getAttribute('data-tooltip') || '').trim().toLowerCase();
+                if (key === 'assessments') {
+                    renderAssessmentsTooltip(t);
+                } else {
+                    showTooltip(t, t.getAttribute('data-tooltip'));
+                    setTimeout(hideTooltip, 1600);
+                }
+            });
+        });
     }
 
     setActiveSidebarItem() {
@@ -1760,3 +1901,68 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+(function () {
+  // Small, self-contained toggle for the assessments submenu
+  const toggle = document.querySelector(".assessments-toggle");
+  const submenu = document.getElementById("assessments-submenu");
+  if (!toggle || !submenu) return;
+
+  // Ensure submenu starts hidden
+  submenu.style.maxHeight = "0px";
+  submenu.style.overflow = "hidden";
+  submenu.style.opacity = "0";
+
+  function openSubmenu() {
+    // Measure and animate
+    submenu.classList.add("open");
+    const height = submenu.scrollHeight;
+    submenu.style.maxHeight = height + "px";
+    submenu.style.opacity = "1";
+    submenu.setAttribute("aria-hidden", "false");
+    toggle.setAttribute("aria-expanded", "true");
+    // remove explicit maxHeight after transition so content can grow naturally later
+    setTimeout(() => {
+      if (submenu.classList.contains("open")) submenu.style.maxHeight = "";
+    }, 320);
+  }
+
+  function closeSubmenu() {
+    // set current height then animate to 0
+    const height = submenu.scrollHeight;
+    submenu.style.maxHeight = height + "px";
+    // allow the browser to register the starting height
+    requestAnimationFrame(() => {
+      submenu.style.maxHeight = "0px";
+      submenu.style.opacity = "0";
+      submenu.classList.remove("open");
+      submenu.setAttribute("aria-hidden", "true");
+      toggle.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  toggle.addEventListener("click", function (e) {
+    e.preventDefault();
+    const sidebar = document.querySelector('.sidebar');
+    // If sidebar is minimized, do not open in-place submenu; tooltip handles actions
+    if (sidebar && sidebar.classList.contains('minimized')) return;
+    if (submenu.classList.contains("open")) closeSubmenu();
+    else openSubmenu();
+  });
+
+  // Close when clicking outside
+  document.addEventListener("click", function (e) {
+    if (!submenu.classList.contains("open")) return;
+    if (!submenu.contains(e.target) && !toggle.contains(e.target))
+      closeSubmenu();
+  });
+
+  // Navigation for submenu items
+  submenu.addEventListener("click", function (e) {
+    const btn = e.target.closest(".submenu-btn");
+    if (!btn) return;
+    e.preventDefault();
+    const target = btn.getAttribute("data-target");
+    if (target) window.location.href = target;
+  });
+})();

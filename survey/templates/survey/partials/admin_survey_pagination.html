@@ -1,0 +1,38 @@
+<div class="pagination" id="ticketsPaginationContainer">
+    <div class="pagination-info">
+        Showing <span id="ticketsStartRecord">{{ tickets.start_index|default:0 }}</span> to <span id="ticketsEndRecord">{{ tickets.end_index|default:0 }}</span> of <span id="ticketsTotalRecords">{{ tickets.paginator.count|default:0 }}</span> entries
+    </div>
+    <div class="pagination-controls" id="ticketsPaginationControls">
+        {% if tickets.has_previous %}
+            <button class="pagination-btn" data-page="{{ tickets.previous_page_number }}">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        {% else %}
+            <span class="pagination-btn disabled">
+                <i class="fas fa-chevron-left"></i>
+            </span>
+        {% endif %}
+        <div id="ticketsPageNumbers">
+            {% if tickets.paginator.page_range %}
+                {% for num in tickets.paginator.page_range %}
+                    {% if tickets.number == num %}
+                        <span class="pagination-btn active">{{ num }}</span>
+                    {% elif num > tickets.number|add:'-3' and num < tickets.number|add:'3' %}
+                        <button class="pagination-btn" data-page="{{ num }}">{{ num }}</button>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <span class="pagination-btn active">1</span>
+            {% endif %}
+        </div>
+        {% if tickets.has_next %}
+            <button class="pagination-btn" data-page="{{ tickets.next_page_number }}">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        {% else %}
+            <span class="pagination-btn disabled">
+                <i class="fas fa-chevron-right"></i>
+            </span>
+        {% endif %}
+    </div>
+</div>

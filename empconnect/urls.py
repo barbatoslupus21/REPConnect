@@ -20,6 +20,7 @@ urlpatterns = [
     path('ticket/', include('ticketing.urls')),
     path('announcement/', include('announcement.urls')),
     path('feedback/', include('feedback.urls')), 
+    path('survey/', include('survey.urls')),
 ]
 
 if settings.DEBUG:

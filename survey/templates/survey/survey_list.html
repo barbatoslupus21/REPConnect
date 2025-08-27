@@ -1,0 +1,302 @@
+{% load static %}
+
+<div class="page-content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h2 class="page-title">Survey Management</h2>
+            <p class="text-muted">Manage all surveys, questions, and responses</p>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'create_survey' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                Create Survey
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="filter-form">
+                <div class="form-row form-row-3col">
+                    <div class="form-group">
+                        <label class="form-label">Search</label>
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" name="search" value="{{ search }}" placeholder="Search surveys..." class="search-input">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select name="status" class="form-input">
+                            <option value="">All Statuses</option>
+                            <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Draft</option>
+                            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                            <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
+                            <option value="archived" {% if status_filter == 'archived' %}selected{% endif %}>Archived</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select name="category" class="form-input">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}" {% if category_filter == category.id|stringformat:"s" %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                        Filter
+                    </button>
+                    <a href="{% url 'survey_list' %}" class="btn btn-outline">
+                        <i class="fas fa-times"></i>
+                        Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Surveys Table -->
+    <div class="card">
+        <div class="card-body">
+            {% if surveys %}
+                <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Survey Details</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Responses</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for survey in surveys %}
+                            <tr>
+                                <td>
+                                    <div class="survey-info">
+                                        <strong>{{ survey.title }}</strong>
+                                        <div class="survey-meta">
+                                            <span class="text-muted">{{ survey.description|truncatewords:12 }}</span>
+                                        </div>
+                                        <div class="survey-stats">
+                                            <span class="stat-item">
+                                                <i class="fas fa-question-circle"></i>
+                                                {{ survey.questions.count }} questions
+                                            </span>
+                                            <span class="stat-item">
+                                                <i class="fas fa-users"></i>
+                                                {% if survey.visibility == 'all' %}All Users{% else %}{{ survey.selected_users.count }} Users{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if survey.category %}
+                                        <span class="status-pill" style="background-color: {{ survey.category.color }}20; color: {{ survey.category.color }};">
+                                            <i class="{{ survey.category.icon }}"></i>
+                                            {{ survey.category.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">No Category</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="status-pill status-{% if survey.status == 'active' %}green{% elif survey.status == 'draft' %}yellow{% elif survey.status == 'closed' %}red{% else %}gray{% endif %}">
+                                        {{ survey.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="response-info">
+                                        <strong>{{ survey.get_response_count }}</strong>
+                                        <div class="text-muted">{{ survey.get_completion_rate|floatformat:1 }}% rate</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="date-info">
+                                        <strong>{{ survey.created_at|date:"M d, Y" }}</strong>
+                                        <div class="text-muted">{{ survey.created_by.firstname }} {{ survey.created_by.lastname }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-dropdown">
+                                        <button class="btn btn-sm btn-icon dropdown-toggle">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <div class="dropdown-menu">
+                                            <a href="{% url 'survey_detail' survey.id %}" class="dropdown-item">
+                                                <i class="fas fa-eye"></i> View Details
+                                            </a>
+                                            <a href="{% url 'edit_survey' survey.id %}" class="dropdown-item">
+                                                <i class="fas fa-edit"></i> Edit Survey
+                                            </a>
+                                            <a href="{% url 'survey_analytics' survey.id %}" class="dropdown-item">
+                                                <i class="fas fa-chart-bar"></i> Analytics
+                                            </a>
+                                            <div class="dropdown-divider"></div>
+                                            <a href="{% url 'export_survey_responses' survey.id %}" class="dropdown-item">
+                                                <i class="fas fa-download"></i> Export Responses
+                                            </a>
+                                            <button onclick="duplicateSurvey({{ survey.id }})" class="dropdown-item">
+                                                <i class="fas fa-copy"></i> Duplicate Survey
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if surveys.has_other_pages %}
+                <div class="pagination">
+                    <div class="pagination-info">
+                        Showing {{ surveys.start_index }} to {{ surveys.end_index }} of {{ surveys.paginator.count }} surveys
+                    </div>
+                    <div class="pagination-controls">
+                        {% if surveys.has_previous %}
+                            <a href="?page={{ surveys.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}" class="pagination-btn">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        {% endif %}
+                        
+                        <div class="page-numbers">
+                            {% for num in surveys.paginator.page_range %}
+                                {% if num == surveys.number %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% else %}
+                                    <a href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}" class="pagination-btn">{{ num }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        
+                        {% if surveys.has_next %}
+                            <a href="?page={{ surveys.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if category_filter %}&category={{ category_filter }}{% endif %}" class="pagination-btn">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-poll"></i>
+                    <h5>No Surveys Found</h5>
+                    <p>{% if search or status_filter or category_filter %}No surveys match your current filters.{% else %}Create your first survey to get started.{% endif %}</p>
+                    {% if not search and not status_filter and not category_filter %}
+                        <a href="{% url 'create_survey' %}" class="btn btn-primary">Create Survey</a>
+                    {% else %}
+                        <a href="{% url 'survey_list' %}" class="btn btn-outline">Clear Filters</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.survey-info strong {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+}
+
+.survey-meta {
+    margin-bottom: var(--space-sm);
+    line-height: 1.4;
+}
+
+.survey-stats {
+    display: flex;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.stat-item i {
+    color: var(--primary-color);
+}
+
+.response-info strong,
+.date-info strong {
+    display: block;
+    margin-bottom: var(--space-xs);
+}
+
+.filter-form .form-row {
+    margin-bottom: var(--space-md);
+}
+
+.page-numbers {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+@media (max-width: 768px) {
+    .survey-stats {
+        flex-direction: column;
+        gap: var(--space-xs);
+    }
+    
+    .form-row.form-row-3col {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+    }
+    
+    .pagination {
+        flex-direction: column;
+        gap: var(--space-md);
+        text-align: center;
+    }
+    
+    .pagination-controls {
+        justify-content: center;
+    }
+}
+</style>
+
+<script>
+function duplicateSurvey(surveyId) {
+    if (confirm('Are you sure you want to duplicate this survey?')) {
+        fetch(`/surveys/${surveyId}/duplicate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.portalUI.showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = `/surveys/${data.survey_id}/edit/`;
+                }, 1000);
+            } else {
+                window.portalUI.showNotification(data.error || 'Error duplicating survey', 'error');
+            }
+        })
+        .catch(error => {
+            window.portalUI.showNotification('Error duplicating survey', 'error');
+        });
+    }
+}
+</script>
