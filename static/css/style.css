@@ -1670,7 +1670,14 @@ small {
 }
 
 .card-body {
+    background-color: white;
     padding: var(--space-lg);
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border-color);  
+}
+
+[data-theme="dark"] .card-body {
+  background: var(--bg-secondary);
 }
 
 .card-footer {
@@ -3104,18 +3111,27 @@ select.form-input {
 }
 
 .standard-checkbox {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    margin-bottom: var(--space-xs);
+     /* Ensure the label is a positioned container so the absolute native input can sit over it
+         This makes clicks on any part of the label reliably toggle the checkbox. */
+     position: relative;
+     display: flex;
+     align-items: center;
+     cursor: pointer;
+     margin-bottom: var(--space-xs);
 }
 
 .standard-checkbox input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    cursor: pointer;
-    height: 0;
-    width: 0;
+     /* Keep the native input visually hidden but cover the full label area so native clicks work
+         (left/top + width/height ensure the invisible input receives click events). */
+     position: absolute;
+     left: 0;
+     top: 0;
+     width: 100%;
+     height: 100%;
+     opacity: 0;
+     cursor: pointer;
+     margin: 0;
+    z-index: 3; /* place invisible native input above decorative elements so it receives clicks */
 }
 
 .checkmark {
@@ -3127,6 +3143,13 @@ select.form-input {
     position: relative;
     margin-right: var(--space-sm);
     transition: all var(--transition-normal);
+    z-index: 1; /* ensure decorative checkmark sits below the native input */
+}
+
+/* Prevent decorative elements from intercepting clicks — the native input covers the label and will receive events */
+.standard-checkbox .checkmark,
+.standard-checkbox span:last-child {
+    pointer-events: none;
 }
 
 .standard-checkbox:hover .checkmark {
@@ -5968,15 +5991,19 @@ textarea:required:invalid {
   top: 0;
   right: 0;
   height: 100vh;
-  width: 600px;
+  width: 800px;
   max-width: 100vw;
-  background: #fff;
+  background: white;
   box-shadow: -2px 0 16px rgba(0,0,0,0.12);
   z-index: 1200;
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
   display: flex;
   flex-direction: column;
+}
+
+[data-theme="dark"] .offcanvas {
+  background: var(--bg-secondary);
 }
 
 .offcanvas.show {

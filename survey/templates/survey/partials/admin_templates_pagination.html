@@ -1,0 +1,38 @@
+<div class="pagination" id="ticketsPaginationContainer">
+    <div class="pagination-info">
+        Showing <span id="templatesStartRecord">{{ templates.start_index|default:0 }}</span> to <span id="templatesEndRecord">{{ templates.end_index|default:0 }}</span> of <span id="templatesTotalRecords">{{ templates.paginator.count|default:0 }}</span> entries
+    </div>
+    <div class="pagination-controls" id="ticketsPaginationControls">
+        {% if templates.has_previous %}
+            <button class="pagination-btn" onclick="loadTemplatesPage({{ templates.previous_page_number }})">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        {% else %}
+            <span class="pagination-btn disabled">
+                <i class="fas fa-chevron-left"></i>
+            </span>
+        {% endif %}
+        <div id="ticketsPageNumbers">
+            {% if templates.paginator.page_range %}
+                {% for num in templates.paginator.page_range %}
+                    {% if templates.number == num %}
+                        <span class="pagination-btn active">{{ num }}</span>
+                    {% elif num > templates.number|add:'-3' and num < templates.number|add:'3' %}
+                        <button class="pagination-btn" onclick="loadTemplatesPage({{ num }})">{{ num }}</button>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <span class="pagination-btn active">1</span>
+            {% endif %}
+        </div>
+        {% if templates.has_next %}
+            <button class="pagination-btn" onclick="loadTemplatesPage({{ templates.next_page_number }})">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        {% else %}
+            <span class="pagination-btn disabled">
+                <i class="fas fa-chevron-right"></i>
+            </span>
+        {% endif %}
+    </div>
+</div>

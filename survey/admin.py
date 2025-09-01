@@ -63,8 +63,8 @@ class SurveyAdmin(admin.ModelAdmin):
         else:
             color = 'red'
         return format_html(
-            '<span style="color: {};">{:.1f}%</span>',
-            color, rate
+            '<span style="color: {};">{}%</span>',
+            color, f"{rate:.1f}"
         )
     completion_rate.short_description = 'Completion Rate'
     
@@ -112,8 +112,8 @@ class SurveyResponseAdmin(admin.ModelAdmin):
         else:
             color = 'red'
         return format_html(
-            '<span style="color: {};">{:.1f}%</span>',
-            color, percentage
+            '<span style="color: {};">{}%</span>',
+            color, f"{percentage:.1f}"
         )
     completion_percentage.short_description = 'Completion %'
 

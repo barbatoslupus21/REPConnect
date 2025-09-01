@@ -6,7 +6,7 @@
       <div class="text-muted">{{ survey.description|truncatewords:10 }}</div>
     </div>
   </td>
-  <td>
+  <td class="hide-column">
     {% if survey.category %}
     <span
       class="status-pill"
@@ -20,7 +20,7 @@
     {% endif %}
   </td>
 
-  <td>
+  <td class="hide-column">
     {% if survey.template %}
     <span class="text-primary">{{ survey.template }}</span>
     {% else %}
@@ -35,24 +35,19 @@
       {{ survey.get_status_display }}
     </span>
   </td>
-  <td>{{ survey.created_at|date:"M d, Y" }}</td>
+  <td class="hide-column">{{ survey.created_at|date:"M d, Y" }}</td>
   <td style="text-align: center">
-    <div class="action-dropdown">
-      <button class="btn btn-sm btn-icon dropdown-toggle">
-        <i class="fas fa-ellipsis-v"></i>
-      </button>
-      <div class="dropdown-menu">
-        <a href="{% url 'survey_detail' survey.id %}" class="dropdown-item">
-          <i class="fas fa-eye"></i> View Details
+      <div style="display:flex;">
+        <a class="btn btn-icon" href="{% url 'survey_detail' survey.id %}" title="View">
+          <i class="fas fa-eye"></i>
         </a>
-        <a href="{% url 'edit_survey' survey.id %}" class="dropdown-item">
-          <i class="fas fa-edit"></i> Edit
-        </a>
-        <a href="{% url 'survey_analytics' survey.id %}" class="dropdown-item">
-          <i class="fas fa-chart-bar"></i> Analytics
-        </a>
+        <button class="btn btn-icon survey-edit-btn" data-survey-id="{{ survey.id }}" title="Edit">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button class="btn btn-icon btn-error survey-delete-btn" data-survey-id="{{ survey.id }}" title="Delete">
+          <i class="fas fa-trash"></i>
+        </button>
       </div>
-    </div>
   </td>
 </tr>
 {% empty %}

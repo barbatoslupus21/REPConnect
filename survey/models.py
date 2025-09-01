@@ -159,7 +159,7 @@ class Answer(models.Model):
     
     date_answer = models.DateField(null=True, blank=True)
     
-    file_upload = models.FileField(upload_to='survey_uploads/%Y/%m/', null=True, blank=True)
+    file_upload = models.FileField(upload_to='static/images/survey/file-upload/%Y/%m/', null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
