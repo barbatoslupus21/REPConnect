@@ -1568,7 +1568,7 @@ small {
 
 .overview-two-column {
     display: flex;
-    gap: var(--space-lg);
+    gap: var(--space-md);
     margin-bottom: var(--space-md);
 }
 

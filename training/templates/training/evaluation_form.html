@@ -1,0 +1,330 @@
+<form class="evaluation-form" method="post">
+    {% csrf_token %}
+    
+    <!-- Content Evaluation Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">How Helpful Was the Content?</h4>
+        <p class="evaluation-instruction">Rate your satisfaction with each job aspect on a scale of 1 (Poor) to 5 (Excellent).</p>
+        
+        <!-- Rating Table -->
+        <div class="rating-table">
+            <!-- Header Row with Numbers -->
+            <div class="rating-header">
+                <div class="rating-question-header"></div>
+                <div class="rating-scale-header">
+                    <div class="rating-number-header">1</div>
+                    <div class="rating-number-header">2</div>
+                    <div class="rating-number-header">3</div>
+                    <div class="rating-number-header">4</div>
+                    <div class="rating-number-header">5</div>
+                </div>
+            </div>
+            
+            <!-- Rating Rows -->
+            <div class="rating-row">
+                <div class="rating-question">Related to the Job</div>
+                <div class="rating-stars-row" data-question-name="content_related_to_job">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.content_related_to_job.value and value|add:0 <= form.content_related_to_job.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="content_related_to_job"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="content_related_to_job" value="{{ form.content_related_to_job.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Explained Clearly</div>
+                <div class="rating-stars-row" data-question-name="content_explained_clearly">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.content_explained_clearly.value and value|add:0 <= form.content_explained_clearly.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="content_explained_clearly"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="content_explained_clearly" value="{{ form.content_explained_clearly.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Suitable for the Topic</div>
+                <div class="rating-stars-row" data-question-name="content_suitable_for_topic">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.content_suitable_for_topic.value and value|add:0 <= form.content_suitable_for_topic.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="content_suitable_for_topic"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="content_suitable_for_topic" value="{{ form.content_suitable_for_topic.value|default:'' }}">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Program Organization Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">How Well Organized Was the Program?</h4>
+        <p class="evaluation-instruction">Rate your satisfaction with each job aspect on a scale of 1 (Poor) to 5 (Excellent).</p>
+        
+        <!-- Rating Table -->
+        <div class="rating-table">
+            <!-- Header Row with Numbers -->
+            <div class="rating-header">
+                <div class="rating-question-header"></div>
+                <div class="rating-scale-header">
+                    <div class="rating-number-header">1</div>
+                    <div class="rating-number-header">2</div>
+                    <div class="rating-number-header">3</div>
+                    <div class="rating-number-header">4</div>
+                    <div class="rating-number-header">5</div>
+                </div>
+            </div>
+            
+            <!-- Rating Rows -->
+            <div class="rating-row">
+                <div class="rating-question">Clear Goals</div>
+                <div class="rating-stars-row" data-question-name="program_clear_goals">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.program_clear_goals.value and value|add:0 <= form.program_clear_goals.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="program_clear_goals"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="program_clear_goals" value="{{ form.program_clear_goals.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Met Program Goals</div>
+                <div class="rating-stars-row" data-question-name="program_met_goals">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.program_met_goals.value and value|add:0 <= form.program_met_goals.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="program_met_goals"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="program_met_goals" value="{{ form.program_met_goals.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Easy to Follow</div>
+                <div class="rating-stars-row" data-question-name="program_easy_to_follow">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.program_easy_to_follow.value and value|add:0 <= form.program_easy_to_follow.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="program_easy_to_follow"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="program_easy_to_follow" value="{{ form.program_easy_to_follow.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Easy to Understand</div>
+                <div class="rating-stars-row" data-question-name="program_easy_to_understand">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.program_easy_to_understand.value and value|add:0 <= form.program_easy_to_understand.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="program_easy_to_understand"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="program_easy_to_understand" value="{{ form.program_easy_to_understand.value|default:'' }}">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Speaker Effectiveness Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">How Effective Was the Speaker?</h4>
+        <p class="evaluation-instruction">Rate your satisfaction with each job aspect on a scale of 1 (Poor) to 5 (Excellent).</p>
+        
+        <!-- Rating Table -->
+        <div class="rating-table">
+            <!-- Header Row with Numbers -->
+            <div class="rating-header">
+                <div class="rating-question-header"></div>
+                <div class="rating-scale-header">
+                    <div class="rating-number-header">1</div>
+                    <div class="rating-number-header">2</div>
+                    <div class="rating-number-header">3</div>
+                    <div class="rating-number-header">4</div>
+                    <div class="rating-number-header">5</div>
+                </div>
+            </div>
+            
+            <!-- Rating Rows -->
+            <div class="rating-row">
+                <div class="rating-question">Speaker Knowledge</div>
+                <div class="rating-stars-row" data-question-name="speaker_knowledge">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.speaker_knowledge.value and value|add:0 <= form.speaker_knowledge.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="speaker_knowledge"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="speaker_knowledge" value="{{ form.speaker_knowledge.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Clear Communication</div>
+                <div class="rating-stars-row" data-question-name="speaker_clear_communication">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.speaker_clear_communication.value and value|add:0 <= form.speaker_clear_communication.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="speaker_clear_communication"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="speaker_clear_communication" value="{{ form.speaker_clear_communication.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Answered Questions</div>
+                <div class="rating-stars-row" data-question-name="speaker_answered_questions">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.speaker_answered_questions.value and value|add:0 <= form.speaker_answered_questions.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="speaker_answered_questions"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="speaker_answered_questions" value="{{ form.speaker_answered_questions.value|default:'' }}">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Training Environment Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">Training Environment & Resources</h4>
+        <p class="evaluation-instruction">Rate your satisfaction with each job aspect on a scale of 1 (Poor) to 5 (Excellent).</p>
+        
+        <!-- Rating Table -->
+        <div class="rating-table">
+            <!-- Header Row with Numbers -->
+            <div class="rating-header">
+                <div class="rating-question-header"></div>
+                <div class="rating-scale-header">
+                    <div class="rating-number-header">1</div>
+                    <div class="rating-number-header">2</div>
+                    <div class="rating-number-header">3</div>
+                    <div class="rating-number-header">4</div>
+                    <div class="rating-number-header">5</div>
+                </div>
+            </div>
+            
+            <!-- Rating Rows -->
+            <div class="rating-row">
+                <div class="rating-question">Training Organization</div>
+                <div class="rating-stars-row" data-question-name="training_organization">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.training_organization.value and value|add:0 <= form.training_organization.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="training_organization"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="training_organization" value="{{ form.training_organization.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Suitable Facilities</div>
+                <div class="rating-stars-row" data-question-name="suitable_facilities">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.suitable_facilities.value and value|add:0 <= form.suitable_facilities.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="suitable_facilities"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="suitable_facilities" value="{{ form.suitable_facilities.value|default:'' }}">
+            </div>
+            
+            <div class="rating-row">
+                <div class="rating-question">Helpful Materials</div>
+                <div class="rating-stars-row" data-question-name="helpful_materials">
+                    {% for value in "12345" %}
+                    <div class="rating-star-cell">
+                        <i class="fas fa-star rating-star {% if form.helpful_materials.value and value|add:0 <= form.helpful_materials.value %}filled{% else %}empty{% endif %}" 
+                           data-value="{{ value }}" data-question="helpful_materials"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="helpful_materials" value="{{ form.helpful_materials.value|default:'' }}">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Open-ended Feedback Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">Open-Ended Feedback</h4>
+        
+        <div class="form-group">
+            <label class="form-label">Which topic captured your interest the most? Why?</label>
+            <textarea name="most_interesting_topic" class="form-input" rows="3" 
+                      placeholder="Which topic captured your interest the most? Why?">{{ form.most_interesting_topic.value|default:"" }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Feedback or recommendations for future training</label>
+            <textarea name="feedback_recommendations" class="form-input" rows="3" 
+                      placeholder="Feedback or recommendations for future training">{{ form.feedback_recommendations.value|default:"" }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Topics you want in upcoming training</label>
+            <textarea name="future_training_topics" class="form-input" rows="3" 
+                      placeholder="Topics you want in upcoming training">{{ form.future_training_topics.value|default:"" }}</textarea>
+        </div>
+    </div>
+    
+    <!-- Application to Work Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">Application to Work</h4>
+        
+        <div class="form-group">
+            <label class="form-label">What new things did you learn that can help at work?</label>
+            <textarea name="new_things_learned_work" class="form-input" rows="3" 
+                      placeholder="What new things did you learn that can help at work?">{{ form.new_things_learned_work.value|default:"" }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">How will you apply them at work?</label>
+            <textarea name="how_apply_at_work" class="form-input" rows="3" 
+                      placeholder="How will you apply them at work?">{{ form.how_apply_at_work.value|default:"" }}</textarea>
+        </div>
+        
+        <div class="form-row form-row-2col">
+            <div class="form-group">
+                <label class="form-label">Target Date of Implementation</label>
+                <input type="date" name="target_implementation_date" class="form-input" 
+                       value="{{ form.target_implementation_date.value|date:'Y-m-d'|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Actual Date of Implementation</label>
+                <input type="date" name="actual_implementation_date" class="form-input" 
+                       value="{{ form.actual_implementation_date.value|date:'Y-m-d'|default:'' }}">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Application to Self Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">Application to Self</h4>
+        
+        <div class="form-group">
+            <label class="form-label">What new things did you learn for outside work?</label>
+            <textarea name="new_things_learned_personal" class="form-input" rows="3" 
+                      placeholder="What new things did you learn for outside work?">{{ form.new_things_learned_personal.value|default:"" }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">How will you apply them in daily life?</label>
+            <textarea name="how_apply_daily_life" class="form-input" rows="3" 
+                      placeholder="How will you apply them in daily life?">{{ form.how_apply_daily_life.value|default:"" }}</textarea>
+        </div>
+    </div>
+</form>

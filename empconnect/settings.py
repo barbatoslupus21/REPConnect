@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'announcement.apps.AnnouncementConfig',
     'feedback.apps.FeedbackConfig',
     'survey.apps.SurveyConfig',
+    'training.apps.TrainingConfig',
 ]
 
 AUTH_USER_MODEL = 'userlogin.EmployeeLogin'

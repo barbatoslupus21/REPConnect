@@ -1,0 +1,359 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Training Evaluation{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/training/training.css' %}">
+    <link rel="stylesheet" href="{% static 'css/survey/survey.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+    <header class="page-header">
+        <div class="page-header-content">
+            <h2>My Training Evaluations</h2>
+            <p>Complete your assigned training evaluations and track your progress</p>
+        </div>
+    </header>
+
+    <div class="tabs-horizontal">
+        <div class="tab-list">
+            <button class="tab active" data-target="training-evaluation">Training Evaluations</button>
+            {% if is_approver %}
+                <button class="tab" data-target="approvals">
+                    {{ approval_tab_label }}
+                    {% if pending_routing_count > 0 %}
+                        <span class="notification-badge">{{ pending_routing_count }}</span>
+                    {% endif %}
+                </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div id="training-evaluation" class="tab-panel active">
+        <div class="dashboard-container" style="margin-top:var(--space-md);">
+            <div class="trainings-column">
+                <div class="trainings-header">
+                    <h4>Assigned Training Evaluations</h4>
+                    <div class="trainings-filter">
+                        <select id="statusFilter" class="form-input">
+                            <option value="all">All Training Evaluations</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="trainings-list" id="trainingsList">
+                    {% for training_data in trainings_data %}
+                        <div class="training-item" data-training-id="{{ training_data.training.id }}" data-status="{{ training_data.status }}">
+                                <div class="training-card">
+                                    <div class="training-header" role="button" tabindex="0">
+                                        <div class="training-title">{{ training_data.training.title }}</div>
+                                        <div class="training-status">
+                                            {% if training_data.status == 'draft' %}
+                                                <span class="status-pill status-gray">Draft</span>
+                                            {% elif training_data.status == 'submitted' %}
+                                                <span class="status-pill status-blue">Submitted</span>
+                                            {% elif training_data.status == 'supervisor_reviewed' %}
+                                                <span class="status-pill status-yellow">Supervisor Reviewed</span>
+                                            {% elif training_data.status == 'manager_reviewed' %}
+                                                <span class="status-pill status-blue">Manager Reviewed</span>
+                                            {% elif training_data.status == 'participant_reviewed' %}
+                                                <span class="status-pill status-purple">Participant Reviewed</span>
+                                            {% elif training_data.status == 'approved' %}
+                                                <span class="status-pill status-green">Approved</span>
+                                            {% elif training_data.status == 'disapproved' %}
+                                                <span class="status-pill status-red">Disapproved</span>
+                                            {% elif training_data.status == 'pending' %}
+                                                <span class="status-pill status-orange">Pending</span>
+                                            {% elif training_data.status == 'completed' %}
+                                                <span class="status-pill status-green">Completed</span>
+                                            {% else %}
+                                                <span class="status-pill status-gray">{{ training_data.status|title }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="training-brief">
+                                        <p>Speaker: {{ training_data.training.speaker }} | Date: {{ training_data.training.training_date|date:"M j, Y" }}</p>
+                                        <p>{{ training_data.training.objective|truncatewords:15 }}</p>
+                                    </div>
+
+                                    <div class="training-details">
+                                        <div class="details-section">
+                                            <h4>Training Details</h4>
+                                            <div class="detail-row">
+                                                <span class="label">Training Date:</span>
+                                                <span class="value">{{ training_data.training.training_date|date:"F j, Y" }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="label">Speaker:</span>
+                                                <span class="value">{{ training_data.training.speaker }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="label">Estimated Time:</span>
+                                                <span class="value">5-10 minutes</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="training-actions">
+                                            {% if training_data.status == 'supervisor_reviewed' or training_data.status == 'manager_reviewed' or training_data.status == 'approved' or training_data.status == 'disapproved' or training_data.status == 'completed' or training_data.status == 'submitted' %}
+                                                <button class="btn btn-outline view-evaluation-btn" data-training-id="{{ training_data.training.id }}">
+                                                    <i class="fas fa-eye"></i>
+                                                    View Evaluation
+                                                </button>
+                                            {% elif training_data.status == 'participant_reviewed' %}
+                                                <button class="btn btn-primary check-evaluation-btn" data-training-id="{{ training_data.training.id }}">
+                                                    <i class="fas fa-clipboard-check"></i>
+                                                    Check Evaluation
+                                                </button>
+                                            {% else %}
+                                                <button class="btn btn-primary start-evaluation-btn" data-training-id="{{ training_data.training.id }}">
+                                                    <i class="fas fa-play"></i>
+                                                    {% if training_data.has_draft %}Continue Evaluation{% else %}Start Evaluation{% endif %}
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                        </div>
+                    {% empty %}
+                        <div class="empty-state">
+                            <i class="fas fa-graduation-cap"></i>
+                            <h4>No Training Evaluations Assigned</h4>
+                            <p>You don't have any training evaluations assigned at the moment.</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="content-column">
+                <div class="content-area" id="contentArea">
+                    <div class="welcome-state">
+                        <div class="welcome-icon">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <h3>Welcome to Your Training Dashboard</h3>
+                        <p>Select a training evaluation from the left panel to get started. Click "Start Evaluation" to begin completing your assigned training evaluations.</p>
+                        <div class="welcome-stats">
+                            <div class="stat-item">
+                                <div class="stat-value" id="totalTrainings">{{ total_trainings }}</div>
+                                <div class="stat-label">Total Trainings</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="completedTrainings">{{ completed_trainings }}</div>
+                                <div class="stat-label">Submitted</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="pendingTrainings">{{ pending_trainings }}</div>
+                                <div class="stat-label">Pending</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if is_approver %}
+    <div id="approvals" class="tab-panel">
+        <div class="dashboard-container" style="margin-top:var(--space-md);">
+            <div class="trainings-column">
+                <div class="trainings-header">
+                    <h4>{{ approval_tab_label }}</h4>
+                    <div class="trainings-filter">
+                        <select id="approvalsStatusFilter" class="form-input">
+                            <option value="all">All Requests</option>
+                            <option value="pending">Pending</option>
+                            <option value="reviewed">Reviewed</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="trainings-list" id="approvalsList">
+                    {% if user_position_level == 2 or pending_supervisor_assessments %}
+                        {% for evaluation in pending_supervisor_assessments %}
+                            <div class="training-item" data-training-id="{{ evaluation.training.id }}" data-status="{% if evaluation.status == 'submitted' %}pending{% else %}reviewed{% endif %}">
+                                <div class="training-card">
+                                    <div class="training-header" role="button" tabindex="0">
+                                        <div class="training-title">{{ evaluation.training.title }}</div>
+                                        <div class="training-status">
+                                            {% if evaluation.status == 'submitted' %}
+                                                <span class="status-pill status-orange">Needs Evaluation</span>
+                                            {% else %}
+                                                <span class="status-pill status-green">Evaluated</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="training-brief">
+                                        <p>Participant: {{ evaluation.participant.firstname }} {{ evaluation.participant.lastname }}</p>
+                                        <p>Submitted: {{ evaluation.submitted_at|date:"M j, Y" }}</p>
+                                    </div>
+                                    <div class="training-meta">
+                                        <div class="meta-item">
+                                            <i class="fas fa-user-check"></i>
+                                            {% if evaluation.status == 'submitted' %}
+                                                <span>Supervisor Evaluation Required</span>
+                                            {% else %}
+                                                <span>Supervisor Evaluation Completed</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="training-details">
+                                        <div class="details-section">
+                                            <h4>Evaluation Details</h4>
+                                            <div class="detail-row">
+                                                <span class="label">Participant:</span>
+                                                <span class="value">{{ evaluation.participant.firstname }} {{ evaluation.participant.lastname }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="label">Training Date:</span>
+                                                <span class="value">{{ evaluation.training.training_date|date:"F j, Y" }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="label">Submitted:</span>
+                                                <span class="value">{{ evaluation.submitted_at|date:"F j, Y g:i A" }}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="training-actions">
+                                            {% if evaluation.status == 'supervisor_reviewed' %}
+                                                <button class="btn btn-primary evaluate-subordinate-btn" data-evaluation-id="{{ evaluation.id }}">
+                                                    <i class="fas fa-clipboard-check"></i>
+                                                    Evaluate
+                                                </button>
+                                            {% else %}
+                                                <button class="btn btn-outline evaluate-subordinate-btn" data-evaluation-id="{{ evaluation.id }}">
+                                                    <i class="fas fa-eye"></i>
+                                                    View Assessment
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if user_position_level == 3 or pending_manager_reviews %}
+                        {% for evaluation in pending_manager_reviews %}
+                            {% with routing_step=evaluation.routing_steps.all|first %}
+                            <div class="training-item" data-training-id="{{ evaluation.training.id }}" data-status="{% if routing_step.is_completed %}reviewed{% else %}pending{% endif %}">
+                                <div class="training-card">
+                                    <div class="training-header" role="button" tabindex="0">
+                                        <div class="training-title">{{ evaluation.training.title }}</div>
+                                        <div class="training-status">
+                                            {% if evaluation.status == 'supervisor_reviewed' %}
+                                                <span class="status-pill status-blue">Needs Approval</span>
+                                            {% elif evaluation.status == 'approved' %}
+                                                <span class="status-pill status-green">Approved</span>
+                                            {% elif evaluation.status == 'disapproved' %}
+                                                <span class="status-pill status-red">Disapproved</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="training-brief">
+                                        <p>Participant: {{ evaluation.participant.firstname }} {{ evaluation.participant.lastname }}</p>
+                                        <p>Supervisor: {% for routing in evaluation.routing_steps.all %}{% if routing.sequence == 1 and routing.is_completed %}{{ routing.approver.firstname }} {{ routing.approver.lastname }}{% endif %}{% endfor %}</p>
+                                    </div>
+                                    <div class="training-meta">
+                                        <div class="meta-item">
+                                            <i class="fas fa-user-tie"></i>
+                                            {% if evaluation.status == 'supervisor_reviewed' %}
+                                                <span>Manager Approval Required</span>
+                                            {% else %}
+                                                <span>Manager Review Completed</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="training-details">
+                                        <div class="details-section">
+                                            <h4>Review Details</h4>
+                                            <div class="detail-row">
+                                                <span class="label">Participant:</span>
+                                                <span class="value">{{ evaluation.participant.firstname }} {{ evaluation.participant.lastname }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="label">Supervisor:</span>
+                                                <span class="value">{% for routing in evaluation.routing_steps.all %}{% if routing.sequence == 1 and routing.is_completed %}{{ routing.approver.firstname }} {{ routing.approver.lastname }}{% endif %}{% endfor %}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="label">Overall Assessment:</span>
+                                                <span class="value">{{ evaluation.overall_assessment }}/5</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="training-actions">
+                                            {% if evaluation.status == 'supervisor_reviewed' %}
+                                                <button class="btn btn-primary review-evaluation-btn" data-evaluation-id="{{ evaluation.id }}">
+                                                    <i class="fas fa-gavel"></i>
+                                                    Review & Approve
+                                                </button>
+                                            {% else %}
+                                                <button class="btn btn-outline review-evaluation-btn" data-evaluation-id="{{ evaluation.id }}">
+                                                    <i class="fas fa-eye"></i>
+                                                    View Review
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endwith %}
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if not pending_supervisor_assessments and not pending_manager_reviews %}
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-check"></i>
+                            <h4>No Pending {{ approval_tab_label }}</h4>
+                            <p>You don't have any training evaluations pending your review at the moment.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="content-column">
+                <div class="content-area" id="approvalsContentArea">
+                    <div class="welcome-state">
+                        <div class="welcome-icon">
+                            <i class="fas fa-clipboard-check"></i>
+                        </div>
+                        <h3>{{ approval_tab_label }} Dashboard</h3>
+                        <p>Select a training evaluation from the left panel to begin your review process.</p>
+                        <div class="welcome-stats">
+                            <div class="stat-item">
+                                <div class="stat-value">{{ pending_routing_count }}</div>
+                                <div class="stat-label">Pending Reviews</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    // Training statistics for JavaScript
+    console.log('Debug - Template variables:', {
+        total: {{ total_trainings|default:0 }},
+        completed: {{ completed_trainings|default:0 }},
+        pending: {{ pending_trainings|default:0 }}
+    });
+    
+    const TRAINING_STATS = {
+        total: {{ total_trainings|default:0 }},
+        completed: {{ completed_trainings|default:0 }},
+        pending: {{ pending_trainings|default:0 }}
+    };
+</script>
+<script src="{% static 'js/training/user_training.js' %}"></script>
+{% endblock extra_js %}

@@ -25,6 +25,7 @@ from .models import (
 from .forms import SurveyForm, QuestionForm, SurveyTemplateForm, SurveyCategoryForm
 from django.template.loader import render_to_string
 from collections import Counter
+from notification.models import Notification
 
 @login_required
 def survey_dashboard(request):
@@ -322,7 +323,37 @@ def create_survey(request):
             # If visibility is 'all', ensure selected_users is empty
             if survey.visibility == 'all':
                 survey.selected_users.clear()
-            
+
+            # Create notifications based on survey visibility
+            if survey.visibility == 'all':
+                # Create a general notification for all users
+                Notification.objects.create(
+                    title=f"New Survey: {survey.title}",
+                    message=f"A new survey '{survey.title}' has been created and is available for you to complete.",
+                    notification_type='general',
+                    sender=request.user,
+                    recipient=request.user,  # For general notifications, recipient can be the creator
+                    module='survey_dashboard',
+                    for_all=True
+                )
+            elif survey.visibility == 'selected':
+                # Create individual notifications for each selected user
+                for user_id in request.POST.getlist('selected_users'):
+                    try:
+                        recipient = EmployeeLogin.objects.get(id=user_id)
+                        Notification.objects.create(
+                            title=f"New Survey Assigned: {survey.title}",
+                            message=f"You have been assigned a new survey '{survey.title}' that requires your completion.",
+                            notification_type='general',
+                            sender=request.user,
+                            recipient=recipient,
+                            module='survey_dashboard',
+                            for_all=False
+                        )
+                    except EmployeeLogin.DoesNotExist:
+                        # Skip if user doesn't exist
+                        continue
+
             messages.success(request, 'Survey created successfully!')
             return redirect('edit_survey', survey_id=survey.id)
     else:

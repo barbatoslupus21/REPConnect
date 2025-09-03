@@ -1,0 +1,243 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Training Evaluation{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/training/training.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+        <div class="page-header">
+            <div class="page-header-content">
+                <h2 class="page-title">{{ training.title }}</h2>
+                <p class="page-subtitle">Training Details & Analytics</p>
+            </div>
+            <div class="page-actions">
+                <a href="{% url 'admin_training_evaluation' %}" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Admin
+                </a>
+            </div>
+        </div>
+
+        <!-- Training Overview -->
+        <div class="card">
+            <div class="training-overview-header">
+                <div class="training-overview-info">
+                    <h3>{{ training.title }}</h3>
+                    <div class="training-meta-grid">
+                        <div class="meta-item">
+                            <i class="fas fa-user"></i>
+                            <span>{{ training.speaker }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>{{ training.training_date|date:"F d, Y" }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-users"></i>
+                            <span>{{ total_participants }} Participants</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-percentage"></i>
+                            <span>{{ progress_percentage }}% Complete</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="training-progress-circle">
+                    <div class="progress-circle" data-percentage="{{ progress_percentage }}">
+                        <div class="progress-circle-inner">
+                            <span class="progress-percentage">{{ progress_percentage }}%</span>
+                            <small>Complete</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="training-objective">
+                <h4>Training Objective</h4>
+                <p>{{ training.objective }}</p>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="dashboard-stats">
+            <div class="modern-stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon blue">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="modern-stat-label">Total Participants</div>
+                    <div class="modern-stat-value">{{ total_participants }}</div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Submitted</div>
+                    <div class="modern-stat-value">{{ submitted_count }}</div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon orange">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="modern-stat-label">In Progress</div>
+                    <div class="modern-stat-value">{{ in_progress_count }}</div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon red">
+                        <i class="fas fa-minus-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Not Started</div>
+                    <div class="modern-stat-value">{{ not_started_count }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="overview-two-column">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>Response Status Distribution</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>Department Response Rate</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="departmentChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Over Time Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Submission Progress (Last 7 Days)</h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="progressChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Participants Table -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Participants Status</h3>
+                <div class="table-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="participantSearch" class="search-input" placeholder="Search participants...">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-action active" id="filterAll" data-status="all">
+                            <i class="fas fa-users"></i>
+                            All
+                        </button>
+                        <button class="btn-action" id="filterSubmitted" data-status="submitted">
+                            <i class="fas fa-check"></i>
+                            Submitted
+                        </button>
+                        <button class="btn-action" id="filterPending" data-status="pending">
+                            <i class="fas fa-clock"></i>
+                            Pending
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table class="data-table" id="participantsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Department</th>
+                            <th>Position</th>
+                            <th>Status</th>
+                            <th>Submitted Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for participant in participants_data %}
+                        <tr class="participant-row" data-status="{% if participant.is_submitted %}submitted{% else %}pending{% endif %}"
+                            data-name="{{ participant.name|lower }}"
+                            data-username="{{ participant.username|lower }}"
+                            data-department="{{ participant.department|lower }}"
+                            data-position="{{ participant.position|lower }}">
+                            <td>{{ participant.name }}</td>
+                            <td>{{ participant.username }}</td>
+                            <td>{{ participant.department }}</td>
+                            <td>{{ participant.position }}</td>
+                            <td>
+                                <span class="status-pill 
+                                    {% if participant.status == 'Submitted' %}status-yellow
+                                    {% elif participant.status == 'Supervisor Reviewed' %}status-blue
+                                    {% elif participant.status == 'Manager Reviewed' %}status-purple
+                                    {% elif participant.status == 'Approved' %}status-green
+                                    {% elif participant.status == 'Disapproved' %}status-red
+                                    {% elif participant.status == 'Not Started' %}status-gray
+                                    {% else %}status-orange{% endif %}">
+                                    {{ participant.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if participant.submitted_at %}
+                                    {{ participant.submitted_at|date:"M d, Y H:i" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if participant.is_submitted %}
+                                    <button class="btn btn-sm btn-primary view-evaluation-btn" data-participant-id="{{ participant.id }}">
+                                        <i class="fas fa-eye"></i>
+                                        View Evaluation
+                                    </button>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline" disabled>
+                                        <i class="fas fa-clock"></i>
+                                        Pending
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="table-no-data">
+                                <div class="empty-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="table-no-data-title">No Participants</div>
+                                <div class="table-no-data-desc">No participants assigned to this training</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const statusData = {{ status_counts|safe }};
+    const departmentData = {{ department_counts|safe }};
+    const progressData = {{ progress_data|safe }};
+    const trainingId = {{ training.id }};
+</script>
+<script src="{% static 'js/training/training_details.js' %}"></script>
+{% endblock extra_js %}
