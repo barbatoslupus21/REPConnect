@@ -168,6 +168,18 @@ document.addEventListener('DOMContentLoaded', function() {
             handleViewSubmittedEvaluation(trainingId, e.target);
         }
         
+        if (e.target.classList.contains('review-evaluation-participant-btn')) {
+            const trainingId = e.target.getAttribute('data-training-id');
+            handleParticipantReviewEvaluation(trainingId, e.target);
+        }
+        
+        if (e.target.classList.contains('confirm-evaluation-btn')) {
+            const trainingId = e.target.getAttribute('data-training-id');
+            if (trainingId) {
+                handleConfirmEvaluation(trainingId);
+            }
+        }
+        
         if (e.target.classList.contains('check-evaluation-btn')) {
             const trainingId = e.target.getAttribute('data-training-id');
             handleCheckEvaluation(trainingId, e.target);
@@ -175,12 +187,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (e.target.classList.contains('evaluate-subordinate-btn')) {
             const evaluationId = e.target.getAttribute('data-evaluation-id');
-            handleEvaluateSubordinate(evaluationId, e.target);
+            const routingId = e.target.getAttribute('data-routing-id');
+            if (routingId) {
+                // This is a manager review
+                handleReviewEvaluation(evaluationId, routingId);
+            } else {
+                // This is a supervisor evaluation
+                handleEvaluateSubordinate(evaluationId, e.target);
+            }
         }
         
-        if (e.target.classList.contains('review-evaluation-btn')) {
-            const evaluationId = e.target.getAttribute('data-evaluation-id');
-            window.location.href = `/training/review-evaluation/${evaluationId}/`;
+        if (e.target.id === 'reviewEvaluationBtn' || e.target.closest('#reviewEvaluationBtn')) {
+            const evaluationId = e.target.getAttribute('data-evaluation-id') || e.target.closest('#reviewEvaluationBtn').getAttribute('data-evaluation-id');
+            if (evaluationId) {
+                handleReviewEvaluation(evaluationId);
+            }
         }
     });
 
@@ -206,6 +227,10 @@ function handleEvaluateSubordinate(evaluationId, buttonElement) {
         </div>
     `;
     
+    // Add mobile back button and show content area for mobile/tablet immediately
+    addMobileBackButtonApprovals(contentArea);
+    showApprovalsContentArea();
+    
     // Fetch the supervisor assessment form
     fetch(`/training/supervisor/evaluation/${evaluationId}/`, {
         method: 'GET',
@@ -223,6 +248,10 @@ function handleEvaluateSubordinate(evaluationId, buttonElement) {
     .then(data => {
         if (data.success) {
             contentArea.innerHTML = data.html;
+            
+            // Add mobile back button and show content area for mobile/tablet
+            addMobileBackButtonApprovals(contentArea);
+            showApprovalsContentArea();
             
             // Handle form submission
             const form = document.getElementById('supervisorAssessmentForm');
@@ -251,6 +280,10 @@ function handleEvaluateSubordinate(evaluationId, buttonElement) {
                 </button>
             </div>
         `;
+        
+        // Add mobile back button and show content area for mobile/tablet in error state too
+        addMobileBackButtonApprovals(contentArea);
+        showApprovalsContentArea();
         
         showToast('Failed to load supervisor assessment. Please try again.', 'error');
     });
@@ -319,6 +352,14 @@ function goBackToApprovals() {
                 </div>
             </div>
         `;
+    }
+}
+
+// Go back to trainings list
+function showTrainingsList() {
+    const container = document.querySelector('.dashboard-container');
+    if (container) {
+        container.classList.remove('show-content');
     }
 }
 
@@ -415,7 +456,7 @@ function displayTrainingEvaluation(data, originBtn) {
             </div>
             <div class="training-content-actions">
                 <button class="btn btn-outline close-evaluation-btn">Close</button>
-                <button class="btn btn-primary submit-evaluation-btn" type="submit" form="trainingEvaluationForm">
+                <button class="btn btn-primary submit-evaluation-btn" type="submit" form="trainingEvaluationForm"  onclick="isMobileView() ? showTrainingsList()>
                     <i class="fas fa-paper-plane"></i>
                     Submit Evaluation
                 </button>
@@ -707,7 +748,7 @@ function addMobileBackButton(contentArea) {
     backButton.className = 'mobile-back-btn';
     backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Dashboard';
     backButton.addEventListener('click', function() {
-        showDashboard();
+        showTrainingsList();
     });
     
     // Insert back button at the beginning of content
@@ -719,6 +760,30 @@ function showContentArea() {
     if (container && isMobileView()) {
         container.classList.add('show-content');
     }
+}
+
+function showApprovalsContentArea() {
+    const container = document.querySelector('.dashboard-container');
+    if (container && isMobileView()) {
+        container.classList.add('show-content');
+    }
+}
+
+function addMobileBackButtonApprovals(contentArea) {
+    if (!isMobileView()) return;
+    
+    // Check if back button already exists
+    if (contentArea.querySelector('.mobile-back-btn')) return;
+    
+    const backButton = document.createElement('button');
+    backButton.className = 'mobile-back-btn';
+    backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Dashboard';
+    backButton.addEventListener('click', function() {
+        goBackToApprovals();
+    });
+    
+    // Insert back button at the beginning of content
+    contentArea.insertBefore(backButton, contentArea.firstChild);
 }
 
 function isMobileView() {
@@ -855,5 +920,324 @@ function filterTrainingItems(items, filter) {
                 item.style.display = 'none';
             }, 200);
         }
+    });
+}
+
+// Handle participant review evaluation (for supervisor_reviewed status)
+function handleParticipantReviewEvaluation(trainingId, buttonElement) {
+    console.log('Participant reviewing evaluation for training:', trainingId);
+    
+    const contentArea = document.getElementById('contentArea');
+    if (!contentArea) {
+        console.error('Content area not found');
+        showErrorMessage('Unable to display evaluation');
+        return;
+    }
+    
+    const loadingHtml = `
+        <div class="loading-content">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                <p>Loading evaluation for review...</p>
+            </div>
+        </div>
+    `;
+    
+    contentArea.innerHTML = loadingHtml;
+    showContentArea();
+    
+    fetch(`/training/evaluation/view/${trainingId}/?participant_review=true`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                contentArea.innerHTML = data.html;
+                
+                // Add mobile back button and show content area on mobile
+                addMobileBackButton(contentArea);
+                showContentArea();
+                
+                // Add confirm evaluation button click handler
+                const confirmBtn = contentArea.querySelector('.confirm-evaluation-btn');
+                if (confirmBtn) {
+                    confirmBtn.addEventListener('click', function() {
+                        handleConfirmEvaluation(trainingId);
+                    });
+                }
+                
+            } else {
+                console.error('Failed to load evaluation:', data.message);
+                showErrorMessage(data.message || 'Failed to load evaluation');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading evaluation for review:', error);
+            showErrorMessage('Failed to load evaluation. Please try again.');
+        });
+}
+
+// Handle confirm evaluation
+function handleConfirmEvaluation(trainingId) {
+    console.log('Confirming evaluation for training:', trainingId);
+    
+    // Show confirmation modal
+    showConfirmEvaluationModal(trainingId);
+}
+
+// Show confirmation modal
+function showConfirmEvaluationModal(trainingId) {
+    const modal = document.getElementById('confirmEvaluationModal');
+    if (!modal) {
+        console.error('Confirm evaluation modal not found');
+        return;
+    }
+
+    // Store training ID for later use
+    modal.setAttribute('data-training-id', trainingId);
+    
+    // Show modal with animation
+    document.body.classList.add('modal-open');
+    modal.classList.add('show');
+    
+    // Setup modal event handlers
+    setupConfirmModalHandlers(modal, trainingId);
+}
+
+// Setup modal event handlers
+function setupConfirmModalHandlers(modal, trainingId) {
+    // Remove existing event listeners to prevent duplicates
+    modal.removeEventListener('click', handleModalClick);
+    modal.addEventListener('click', handleModalClick);
+    
+    function handleModalClick(e) {
+        // Close modal when clicking overlay or close buttons
+        if (e.target.classList.contains('modal-overlay') || 
+            e.target.getAttribute('data-action') === 'close-modal' ||
+            e.target.closest('[data-action="close-modal"]')) {
+            closeConfirmModal(modal);
+            return;
+        }
+        
+        // Handle confirm button
+        if (e.target.id === 'confirmEvaluationSubmit' || 
+            e.target.closest('#confirmEvaluationSubmit')) {
+            e.preventDefault();
+            submitConfirmEvaluation(trainingId, modal);
+            return;
+        }
+    }
+    
+    // Handle escape key
+    document.addEventListener('keydown', function escapeHandler(e) {
+        if (e.key === 'Escape' && modal.classList.contains('show')) {
+            closeConfirmModal(modal);
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    });
+}
+
+// Close confirmation modal
+function closeConfirmModal(modal) {
+    // Add a 'closing' class so CSS can animate zoom-out while keeping the element mounted
+    modal.classList.add('closing');
+    document.body.classList.remove('modal-open');
+
+    // After a short delay (matching the CSS transition), remove the classes and cleanup
+    const transitionDuration = 200; // ms, matches modalZoomOut 0.2s
+    setTimeout(() => {
+        modal.classList.remove('show', 'closing');
+        // final cleanup
+        modal.removeAttribute('data-training-id');
+    }, transitionDuration);
+}
+
+// Submit evaluation confirmation
+function submitConfirmEvaluation(trainingId, modal) {
+    const submitBtn = modal.querySelector('#confirmEvaluationSubmit');
+    const originalText = submitBtn.innerHTML;
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Confirming...';
+    
+    fetch(`/training/evaluation/confirm/${trainingId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success state
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Confirmed!';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-success');
+            
+            showToast('Evaluation confirmed successfully! Sent to manager for approval.', 'success');
+            
+            // Close modal and refresh page
+            setTimeout(() => {
+                closeConfirmModal(modal);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            }, 1000);
+        } else {
+            throw new Error(data.error || 'Failed to confirm evaluation');
+        }
+    })
+    .catch(error => {
+        console.error('Error confirming evaluation:', error);
+        showToast('Failed to confirm evaluation. Please try again.', 'error');
+        
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+}
+
+// Handle review evaluation button click
+function handleReviewEvaluation(evaluationId, routingId = null) {
+    console.log('Reviewing evaluation for evaluation ID:', evaluationId, 'routing ID:', routingId);
+
+    // Show the evaluation approval modal
+    showEvaluationApprovalModal(evaluationId, routingId);
+}
+
+// Show evaluation approval modal
+function showEvaluationApprovalModal(evaluationId, routingId = null) {
+    const modal = document.getElementById('evaluationApprovalModal');
+    if (!modal) {
+        console.error('Evaluation approval modal not found');
+        return;
+    }
+
+    // Store evaluation ID and routing ID for later use
+    modal.setAttribute('data-evaluation-id', evaluationId);
+    if (routingId) {
+        modal.setAttribute('data-routing-id', routingId);
+    }
+
+    // Show modal with animation
+    document.body.classList.add('modal-open');
+    modal.classList.add('show');
+
+    // Setup modal event handlers
+    setupEvaluationApprovalModalHandlers(modal, evaluationId, routingId);
+}
+
+// Setup evaluation approval modal event handlers
+function setupEvaluationApprovalModalHandlers(modal, evaluationId, routingId = null) {
+    // Remove existing event listeners to prevent duplicates
+    modal.removeEventListener('click', handleEvaluationApprovalModalClick);
+    modal.addEventListener('click', handleEvaluationApprovalModalClick);
+
+    function handleEvaluationApprovalModalClick(e) {
+        // Close modal when clicking overlay or close buttons
+        if (e.target.classList.contains('modal-overlay') ||
+            e.target.getAttribute('data-action') === 'close-modal' ||
+            e.target.closest('[data-action="close-modal"]')) {
+            closeEvaluationApprovalModal(modal);
+            return;
+        }
+
+        // Handle approve button
+        if (e.target.id === 'approveEvaluation' ||
+            e.target.closest('#approveEvaluation')) {
+            e.preventDefault();
+            submitEvaluationApproval(evaluationId, 'approve', modal, routingId);
+            return;
+        }
+
+        // Handle disapprove button
+        if (e.target.id === 'disapproveEvaluation' ||
+            e.target.closest('#disapproveEvaluation')) {
+            e.preventDefault();
+            submitEvaluationApproval(evaluationId, 'disapprove', modal, routingId);
+            return;
+        }
+    }
+
+    // Handle escape key
+    document.addEventListener('keydown', function escapeHandler(e) {
+        if (e.key === 'Escape' && modal.classList.contains('show')) {
+            closeEvaluationApprovalModal(modal);
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    });
+}
+
+// Close evaluation approval modal
+function closeEvaluationApprovalModal(modal) {
+    // Add a 'closing' class so CSS can animate zoom-out while keeping the element mounted
+    modal.classList.add('closing');
+    document.body.classList.remove('modal-open');
+
+    // After a short delay (matching the CSS transition), remove the classes and cleanup
+    const transitionDuration = 200; // ms, matches modalZoomOut 0.2s
+    setTimeout(() => {
+        modal.classList.remove('show', 'closing');
+        // final cleanup
+        modal.removeAttribute('data-evaluation-id');
+    }, transitionDuration);
+}
+
+// Submit evaluation approval/disapproval
+function submitEvaluationApproval(evaluationId, action, modal, routingId = null) {
+    const submitBtn = modal.querySelector(action === 'approve' ? '#approveEvaluation' : '#disapproveEvaluation');
+    const originalText = submitBtn.innerHTML;
+
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+    // Use routing ID if available, otherwise use evaluation ID
+    const urlId = routingId || evaluationId;
+    fetch(`/training/manager/review/submit/${urlId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({
+            decision: action
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success state
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> ' + (action === 'approve' ? 'Approved!' : 'Disapproved!');
+            submitBtn.classList.remove('btn-success', 'btn-danger');
+            submitBtn.classList.add('btn-primary');
+
+            showToast(`Evaluation ${action}d successfully!`, 'success');
+
+            // Close modal and refresh page
+            setTimeout(() => {
+                closeEvaluationApprovalModal(modal);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            }, 1000);
+        } else {
+            throw new Error(data.error || `Failed to ${action} evaluation`);
+        }
+    })
+    .catch(error => {
+        console.error(`Error ${action}ing evaluation:`, error);
+        showToast(`Failed to ${action} evaluation. Please try again.`, 'error');
+
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     });
 }

@@ -238,11 +238,18 @@
                     </div>
                 </div>
 
-                <div class="form-actions">
-                    <button type="button" class="btn btn-outline" onclick="goBackToApprovals()">
+                <div class="assessment-form-actions">
+                    <button type="button" class="btn btn-outline"  onclick="isMobileView() ? showTrainingsList() : goBackToApprovals()">
                         <i class="fas fa-arrow-left"></i>
                         Back to List
                     </button>
+
+                    {% if evaluation.routing_steps.last.approver == request.user and evaluation.status == "manager_reviewed" %}
+                        <button type="button" class="btn btn-primary" id="reviewEvaluationBtn" data-evaluation-id="{{ evaluation.id }}">
+                            <i class="fas fa-check-square"></i>
+                            Review Evaluation
+                        </button>
+                    {% endif %}
                 </div>
             {% else %}
                 <p class="form-description">Provide your assessment of this training's effectiveness for the employee.</p>
@@ -304,8 +311,8 @@
                         {% endif %}
                     </div>
 
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" onclick="goBackToApprovals()">
+                    <div class="assessment-form-actions">
+                        <button type="button" class="btn btn-outline"  onclick="isMobileView() ? showTrainingsList() : goBackToApprovals()">
                             <i class="fas fa-arrow-left"></i>
                             Back to List
                         </button>
@@ -314,7 +321,6 @@
                             <i class="fas fa-check"></i>
                             Submit Assessment
                         </button>
-                        
                     </div>
                 </form>
             {% endif %}
@@ -322,47 +328,3 @@
     </div>
 </div>
 
-<style>
-.assessment-readonly {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 20px;
-    margin-top: 15px;
-}
-
-.readonly-group {
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.readonly-group:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-}
-
-.readonly-group label {
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 8px;
-    display: block;
-    font-size: 14px;
-}
-
-.readonly-content {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    padding: 12px;
-    color: #333;
-    line-height: 1.5;
-    min-height: 20px;
-}
-
-.readonly-content:empty:before {
-    content: "Not provided";
-    color: #888;
-    font-style: italic;
-}
-</style>

@@ -7,6 +7,7 @@ from django.db.models import Count, Q
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
+from django.db import transaction
 from datetime import timedelta
 from .models import Training, TrainingEvaluation, EvaluationRouting
 from .forms import (
@@ -16,6 +17,7 @@ from userlogin.models import EmployeeLogin
 from userprofile.models import EmploymentInformation
 from django.db import transaction
 from notification.models import Notification
+
 
 @login_required
 def training_dashboard(request):
@@ -31,39 +33,32 @@ def training_user_view(request):
     trainings_data = []
     total_trainings = user_trainings.count()
     
-    # Calculate completed and pending counts
-    # Submitted: evaluations that have been submitted (submitted_at is not null)
     completed_trainings = TrainingEvaluation.objects.filter(
         participant=request.user,
         submitted_at__isnull=False,
         training__participants=request.user
     ).count()
 
-    # Pending: evaluations that haven't been submitted yet (submitted_at is null)
     pending_trainings = TrainingEvaluation.objects.filter(
         participant=request.user,
         submitted_at__isnull=True,
         training__participants=request.user
     ).count()
 
-    # Separate trainings into pending and non-pending
     pending_trainings_list = []
     non_pending_trainings_list = []
     
     for training in user_trainings:
-        # Check for submitted evaluation first (submitted_at is not null)
         try:
             evaluation = TrainingEvaluation.objects.get(
                 training=training, 
                 participant=request.user, 
                 submitted_at__isnull=False
             )
-            # Use the actual status from the database instead of overriding it
             status = evaluation.status
             has_draft = False
             non_pending_trainings_list.append((training, status, has_draft))
         except TrainingEvaluation.DoesNotExist:
-            # Check for unsubmitted evaluation (submitted_at is null)
             try:
                 evaluation = TrainingEvaluation.objects.get(
                     training=training, 
@@ -74,21 +69,16 @@ def training_user_view(request):
                 has_draft = True
                 pending_trainings_list.append((training, status, has_draft))
             except TrainingEvaluation.DoesNotExist:
-                # No evaluation record exists yet
                 status = 'pending'
                 has_draft = False
                 pending_trainings_list.append((training, status, has_draft))
     
-    # Sort pending trainings by training date (most recent first)
     pending_trainings_list.sort(key=lambda x: x[0].training_date, reverse=True)
     
-    # Sort non-pending trainings by training date (most recent first)
     non_pending_trainings_list.sort(key=lambda x: x[0].training_date, reverse=True)
     
-    # Combine lists: pending first, then non-pending
     all_trainings_ordered = pending_trainings_list + non_pending_trainings_list
     
-    # Build trainings_data with the new ordering
     for training, status, has_draft in all_trainings_ordered:
         trainings_data.append({
             'training': training,
@@ -105,78 +95,32 @@ def training_user_view(request):
     
     if hasattr(request.user, 'employment_info') and request.user.employment_info.position:
         user_position_level = int(request.user.employment_info.position.level)
-        
-        if user_position_level == 2:
-            is_approver = True
-            approval_tab_label = "For Evaluation"
-            # Get all evaluations assigned to this supervisor (both pending and completed)
-            pending_supervisor_assessments = TrainingEvaluation.objects.filter(
-                participant__employment_info__approver=request.user,
-                is_submitted=True,
-                status__in=['submitted', 'supervisor_reviewed']
-            ).select_related('training', 'participant')
-            # Count only pending ones for the badge
-            pending_routing_count = TrainingEvaluation.objects.filter(
-                participant__employment_info__approver=request.user,
-                is_submitted=True
-            ).filter(
-                Q(status='supervisor_reviewed') | Q(status='manager_reviewed')
-            ).count()
-        
-        elif user_position_level == 3:
-            is_approver = True
-            approval_tab_label = "For Approval"
-            # Get evaluations that have routing steps assigned to this manager (both pending and completed)
-            pending_manager_reviews = TrainingEvaluation.objects.filter(
-                status__in=['supervisor_reviewed', 'approved', 'disapproved'],
-                routing_steps__approver=request.user
-            ).distinct().select_related('training', 'participant').prefetch_related('routing_steps__approver')
-            # Count only pending ones for the badge
-            pending_routing_count = TrainingEvaluation.objects.filter(
-                status='supervisor_reviewed',
-                routing_steps__approver=request.user,
-                routing_steps__is_completed=False
-            ).distinct().count()
-    
-    if not is_approver:
-        # Check if user has any supervisor assessments (evaluations to review)
-        supervisor_total_count = TrainingEvaluation.objects.filter(
-            participant__employment_info__approver=request.user,
-            is_submitted=True,
-            status__in=['submitted', 'supervisor_reviewed']
+        approval_tab_label = "For Evaluation"
+
+        pending_supervisor_assessments = EvaluationRouting.objects.filter(
+            approver=request.user
+        ).order_by('is_completed', 'id')
+
+            
+        pending_routing_count = EvaluationRouting.objects.filter(
+            approver=request.user,
+            is_completed=False, completed_at__isnull=True
         ).count()
+
+    if not is_approver:
+        supervisor_total_count = TrainingEvaluation.objects.filter(
+            routing_steps__approver=request.user,
+            is_submitted=True
+        ).exclude(status='participant_reviewed').count()
+
         if supervisor_total_count > 0:
             is_approver = True
-            approval_tab_label = "For Evaluation"
-            pending_supervisor_assessments = TrainingEvaluation.objects.filter(
-                participant__employment_info__approver=request.user,
-                is_submitted=True,
-                status__in=['submitted', 'supervisor_reviewed']
-            ).select_related('training', 'participant')
-            # Count only pending ones for the badge
-            pending_routing_count = TrainingEvaluation.objects.filter(
-                participant__employment_info__approver=request.user,
-                is_submitted=True,
-                status='submitted'
-            ).count()
         
-        # Check if user has any manager reviews (routing steps to manage)
         manager_total_count = EvaluationRouting.objects.filter(
             approver=request.user
         ).count()
         if manager_total_count > 0:
             is_approver = True
-            approval_tab_label = "For Approval"
-            pending_manager_reviews = TrainingEvaluation.objects.filter(
-                status__in=['supervisor_reviewed', 'approved', 'disapproved'],
-                routing_steps__approver=request.user
-            ).distinct().select_related('training', 'participant').prefetch_related('routing_steps__approver')
-            # Count only pending ones for the badge
-            pending_routing_count = TrainingEvaluation.objects.filter(
-                status='supervisor_reviewed',
-                routing_steps__approver=request.user,
-                routing_steps__is_completed=False
-            ).distinct().count()
 
     context = {
         'trainings_data': trainings_data,
@@ -240,7 +184,7 @@ def submit_training_evaluation(request, evaluation_id):
             evaluation = form.save(commit=False)
             evaluation.is_submitted = True
             evaluation.submitted_at = timezone.now()
-            evaluation.status = 'supervisor_reviewed'
+            evaluation.status = 'supervisor_reviewed'  # Status should be submitted when participant submits
             evaluation.save()
             
             # Create notification for the approver/supervisor
@@ -298,6 +242,9 @@ def view_submitted_evaluation(request, training_id):
             'message': 'No submitted evaluation found for this training.'
         })
     
+    # Check if this is participant review mode (when status is supervisor_reviewed)
+    participant_review_mode = request.GET.get('participant_review') == 'true' and evaluation.status == 'supervisor_reviewed'
+    
     supervisor_assessment = None
     # Check if supervisor has filled the assessment fields
     if (evaluation.result_and_impact or 
@@ -317,6 +264,7 @@ def view_submitted_evaluation(request, training_id):
         'training': training,
         'evaluation': evaluation,
         'supervisor_assessment': supervisor_assessment,
+        'participant_review_mode': participant_review_mode,
         'read_only': True
     }
     
@@ -340,23 +288,21 @@ def view_submitted_evaluation(request, training_id):
 
 @login_required
 def get_subordinate_evaluation(request, evaluation_id):
-    # Verify user is the approver for this evaluation
     evaluation = get_object_or_404(
         TrainingEvaluation,
         id=evaluation_id,
-        participant__employment_info__approver=request.user,
+        routing_steps__approver=request.user,
         is_submitted=True
     )
     
     is_read_only = evaluation.status != 'supervisor_reviewed'
     
-    # Use the evaluation itself for supervisor assessment (fields are now in TrainingEvaluation)
     form = SupervisorAssessmentForm(instance=evaluation)
     
     context_data = {
         'form': form,
         'evaluation': evaluation,
-        'assessment': evaluation,  # Now the evaluation itself contains the assessment fields
+        'assessment': evaluation,
         'is_read_only': is_read_only
     }
     
@@ -368,7 +314,6 @@ def get_subordinate_evaluation(request, evaluation_id):
 @login_required
 @require_http_methods(["POST"])
 def submit_supervisor_assessment(request, assessment_id):
-    # Get the evaluation directly (assessment fields are now in TrainingEvaluation)
     evaluation = get_object_or_404(
         TrainingEvaluation,
         id=assessment_id,
@@ -379,29 +324,30 @@ def submit_supervisor_assessment(request, assessment_id):
     form = SupervisorAssessmentForm(request.POST, instance=evaluation)
     
     if form.is_valid():
-        evaluation = form.save()
-        
-        # Update evaluation status
-        evaluation.status = 'supervisor_reviewed'
-        evaluation.save()
-        
-        # Update the supervisor's routing step to completed
-        try:
-            supervisor_routing = EvaluationRouting.objects.get(
+        with transaction.atomic():
+            evaluation = form.save()
+            
+            evaluation.status = 'participant_reviewed'
+            evaluation.save()
+            
+            # Create or update supervisor routing step
+            supervisor_routing, created = EvaluationRouting.objects.get_or_create(
                 evaluation=evaluation,
                 approver=request.user,
-                is_completed=False
+                sequence=1,
+                defaults={
+                    'is_completed': True,
+                    'completed_at': timezone.now()
+                }
             )
-            supervisor_routing.is_completed = True
-            supervisor_routing.completed_at = timezone.now()
-            supervisor_routing.save()
-            print(f"Supervisor routing step marked as completed for {request.user.firstname} {request.user.lastname}")
-        except EvaluationRouting.DoesNotExist:
-            print(f"No pending routing step found for supervisor {request.user.firstname} {request.user.lastname}")
+            if not created:
+                supervisor_routing.is_completed = True
+                supervisor_routing.completed_at = timezone.now()
+                supervisor_routing.save()
+            
+            print(f"Supervisor routing step completed for {request.user.firstname} {request.user.lastname}")
         
-        # Create routing for manager approval
         try:
-            # Create notification for the participant first
             Notification.objects.create(
                 title="Training Evaluation - Supervisor Assessment Completed",
                 message=f"Your supervisor {request.user.firstname} {request.user.lastname} has completed their assessment for your training: {evaluation.training.title}.",
@@ -410,9 +356,7 @@ def submit_supervisor_assessment(request, assessment_id):
                 recipient=evaluation.participant,
                 module='training_dashboard'
             )
-            print(f"Notification sent to participant: {evaluation.participant.firstname} {evaluation.participant.lastname}")
             
-            # Get the supervisor's manager (approver of the supervisor)
             supervisor_manager = None
             if (hasattr(request.user, 'employment_info') and 
                 request.user.employment_info and 
@@ -420,18 +364,15 @@ def submit_supervisor_assessment(request, assessment_id):
                 supervisor_manager = request.user.employment_info.approver
             
             if supervisor_manager:
-                # Create evaluation routing for manager approval
                 routing_step, created = EvaluationRouting.objects.get_or_create(
                     evaluation=evaluation,
                     approver=supervisor_manager,
                     defaults={
-                        'sequence': 2,  # Manager is sequence 2
+                        'sequence': 2,
                         'is_completed': False
                     }
                 )
-                
-                # Create notification for the manager
-                from notification.models import Notification
+
                 Notification.objects.create(
                     title="Training Evaluation - Manager Review Required",
                     message=f"Supervisor {request.user.firstname} {request.user.lastname} has completed their assessment for {evaluation.participant.firstname} {evaluation.participant.lastname}'s training: {evaluation.training.title}. Your review and approval is required.",
@@ -440,18 +381,14 @@ def submit_supervisor_assessment(request, assessment_id):
                     recipient=supervisor_manager,
                     module='training'
                 )
-                
-                print(f"Manager routing step created and notification sent to {supervisor_manager.firstname} {supervisor_manager.lastname}")
+
             else:
-                # If no manager found, mark as approved (final level)
                 evaluation.status = 'approved'
                 evaluation.approver_by_manager = True
                 evaluation.save()
-                print("No manager found, marking evaluation as approved")
                 
         except Exception as e:
             print(f"Error creating routing: {e}")
-            # Continue with success response even if notification fails
         
         return JsonResponse({
             'success': True,
@@ -547,71 +484,91 @@ def get_manager_review_evaluation(request, evaluation_id):
 @login_required
 @require_http_methods(["POST"])
 def submit_manager_review(request, routing_id):
-    # Verify user is a manager (level 3)
-    if not (hasattr(request.user, 'employment_info') and 
-            hasattr(request.user.employment_info, 'position') and
-            request.user.employment_info.position and 
-            request.user.employment_info.position.level == 3):
-        return JsonResponse({'success': False, 'error': 'Unauthorized'})
-    
-    routing_step = get_object_or_404(
-        EvaluationRouting,
-        id=routing_id,
-        approver=request.user,
-        is_completed=False
-    )
-    
-    # Create a simple form for manager approval
-    from django import forms
-    class ManagerApprovalForm(forms.Form):
-        decision = forms.ChoiceField(
-            choices=[('approve', 'Approve'), ('reject', 'Reject')],
-            widget=forms.RadioSelect()
-        )
-        comments = forms.CharField(
-            required=False,
-            widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Optional comments'})
-        )
-    
-    form = ManagerApprovalForm(request.POST)
-    
-    if form.is_valid():
-        decision = form.cleaned_data['decision']
-        comments = form.cleaned_data['comments']
+    try:
+        if routing_id:
+            try:
+                routing_step = EvaluationRouting.objects.get(
+                    id=routing_id,
+                    approver=request.user,
+                    is_completed=False
+                )
+                evaluation = routing_step.evaluation
+            except EvaluationRouting.DoesNotExist:
+                evaluation = get_object_or_404(TrainingEvaluation, id=routing_id)
+                routing_step = get_object_or_404(
+                    EvaluationRouting,
+                    evaluation=evaluation,
+                    approver=request.user,
+                    is_completed=False
+                )
         
-        # Update routing step
-        routing_step.is_completed = True
-        routing_step.completed_at = timezone.now()
-        routing_step.comments = comments
-        routing_step.save()
+        import json
+        data = json.loads(request.body) if request.body else request.POST
+        decision = data.get('decision', 'reject')
         
-        # Update evaluation status based on decision
-        evaluation = routing_step.evaluation
-        if decision == 'approve':
-            evaluation.status = 'approved'
-            evaluation.approver_by_manager = True
-        else:
-            evaluation.status = 'disapproved'
-        evaluation.save()
+        with transaction.atomic():
+            if decision == 'approve':
+                evaluation.approver_by_manager = True
+                evaluation.save()
+                
+                routing_step.is_completed = True
+                routing_step.completed_at = timezone.now()
+                routing_step.save()
+                
+                if routing_step.sequence == 2 or routing_step.sequence == 3:
+                    evaluation.status = 'approved'
+                    evaluation.save()
+                
+                Notification.objects.create(
+                    recipient=evaluation.participant,
+                    sender=request.user,
+                    title="Training Evaluation Approved",
+                    message=f"Your training evaluation for {evaluation.training.title} has been approved by {request.user}.",
+                    notification_type="approved",
+                    module="training_dashboard"
+                )
+                
+            else:
+                routing_step.delete()
+                
+                supervisor_routing = EvaluationRouting.objects.filter(
+                    evaluation=evaluation,
+                    approver=evaluation.participant.employment_info.approver,
+                    is_completed=True
+                ).first()
+                
+                if supervisor_routing:
+                    supervisor_routing.is_completed = False
+                    supervisor_routing.completed_at = None
+                    supervisor_routing.save()
+                
+                evaluation.status = 'supervisor_reviewed'
+                evaluation.save()
+                
+                if hasattr(evaluation.participant, 'employment_info') and evaluation.participant.employment_info.approver:
+                    supervisor = evaluation.participant.employment_info.approver
+                    Notification.objects.create(
+                        recipient=supervisor,
+                        sender=request.user,
+                        title="Training Evaluation Disapproved",
+                        message=f"Training evaluation for {evaluation.participant.firstname} {evaluation.participant.lastname} - {evaluation.training.title} has been disapproved and requires re-evaluation.",
+                        notification_type="disapproved",
+                        module="training_dashboard"
+                    )
         
         return JsonResponse({
             'success': True,
             'message': f'Evaluation {decision}d successfully!'
         })
-    else:
+        
+    except Exception as e:
         return JsonResponse({
             'success': False,
-            'errors': form.errors
+            'error': f'Failed to {decision} evaluation: {str(e)}'
         })
 
 @login_required
 def training_admin_view(request):
-    # hr_admin_status = getattr(request.user, 'hr_admin', False)
-    # if not hr_admin_status:
-    #     messages.error(request, 'You do not have permission to access this page.')
-    #     return redirect('user_training')
-    
-    # Search functionality
     search = request.GET.get('search', '')
     trainings = Training.objects.all().order_by('-training_date').prefetch_related('participants')
     
@@ -1157,3 +1114,61 @@ def training_details_page(request, training_id):
     }
     
     return render(request, 'training/training_details.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def confirm_evaluation(request, training_id):
+    
+    try:
+        # Get the evaluation
+        evaluation = get_object_or_404(
+            TrainingEvaluation,
+            training_id=training_id,
+            participant=request.user,
+            status='participant_reviewed'
+        )
+        
+        with transaction.atomic():
+            evaluation.status = 'manager_reviewed'
+            evaluation.save()
+            
+            supervisor_routing = EvaluationRouting.objects.filter(
+                evaluation=evaluation,
+                sequence=1
+            ).first()
+            
+            if supervisor_routing and hasattr(supervisor_routing.approver, 'employment_info'):
+                manager = supervisor_routing.approver.employment_info.approver
+                if manager:
+                    # Avoid duplicate routing records: create if not exists
+                    routing, created = EvaluationRouting.objects.get_or_create(
+                        evaluation=evaluation,
+                        approver=manager,
+                        defaults={
+                            'sequence': 2,
+                            'is_completed': False
+                        }
+                    )
+                    if created:
+                        Notification.objects.create(
+                            recipient=manager,
+                            sender=request.user,
+                            title="Training Evaluation for Manager Review",
+                            message=f"Training evaluation for {evaluation.participant.firstname} {evaluation.participant.lastname} - {evaluation.training.title} is ready for your review.",
+                            notification_type="approval",
+                            module="training_dashboard"
+                        )
+                    else:
+                        # routing already exists; no further action needed
+                        print(f"Manager routing already exists for evaluation {evaluation.id} and manager {manager.firstname} {manager.lastname}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Evaluation confirmed successfully and sent to manager for approval.'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to confirm evaluation: {str(e)}'
+        })

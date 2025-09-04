@@ -10,6 +10,7 @@ urlpatterns = [
     path('evaluation/<int:training_id>/', views.get_training_evaluation, name='get_evaluation'),
     path('evaluation/view/<int:training_id>/', views.view_submitted_evaluation, name='view_submitted_evaluation'),
     path('evaluation/submit/<int:evaluation_id>/', views.submit_training_evaluation, name='submit_evaluation'),
+    path('evaluation/confirm/<int:training_id>/', views.confirm_evaluation, name='confirm_evaluation'),
     
     # Supervisor assessment endpoints
     path('supervisor/evaluation/<int:evaluation_id>/', views.get_subordinate_evaluation, name='get_subordinate_evaluation'),
@@ -17,7 +18,7 @@ urlpatterns = [
     
     # Manager review endpoints
     path('manager/evaluation/<int:evaluation_id>/', views.get_manager_review_evaluation, name='get_manager_review_evaluation'),
-    path('manager/review/submit/<int:review_id>/', views.submit_manager_review, name='submit_manager_review'),
+    path('manager/review/submit/<int:routing_id>/', views.submit_manager_review, name='submit_manager_review'),
     
     # Admin views
     path('admin/', views.training_admin_view, name='admin_training_evaluation'),

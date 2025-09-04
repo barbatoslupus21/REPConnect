@@ -36,6 +36,7 @@ class TrainingEvaluation(models.Model):
         ('supervisor_reviewed', 'Supervisor Reviewed'),
         ('manager_reviewed', 'Manager Reviewed'),
         ('participant_reviewed', 'Participant Reviewed'),
+        ('hr_review', 'HR Review'),
         ('approved', 'Approved'),
         ('disapproved', 'Disapproved'),
     ]

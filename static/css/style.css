@@ -2625,7 +2625,7 @@ small {
     border: 1.5px solid #d1d5db;
     border-radius: 8px;
     background: #fff;
-    color: #222;
+    color: var(--text-primary);
     outline: none;
     transition: border 0.2s, box-shadow 0.2s;
     box-sizing: border-box;
