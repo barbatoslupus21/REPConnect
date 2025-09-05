@@ -4,6 +4,50 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeProgressCircle();
     initializeTableFunctionality();
     
+    // Global off-canvas body scroll prevention
+    document.addEventListener('show.bs.offcanvas', function() {
+        document.body.classList.add('offcanvas-open');
+    });
+    
+    document.addEventListener('hidden.bs.offcanvas', function() {
+        document.body.classList.remove('offcanvas-open');
+    });
+    
+    // Add slide-out animation for off-canvas hide
+    document.addEventListener('hide.bs.offcanvas', function(event) {
+        const offcanvas = event.target;
+        offcanvas.classList.add('hiding');
+        
+        // Remove hiding class after animation completes
+        setTimeout(() => {
+            offcanvas.classList.remove('hiding');
+        }, 300);
+    });
+    
+    // Enhanced off-canvas accessibility
+    document.addEventListener('shown.bs.offcanvas', function(event) {
+        const offcanvas = event.target;
+        const closeBtn = offcanvas.querySelector('.btn-close');
+        if (closeBtn) {
+            closeBtn.focus();
+        }
+    });
+    
+    // Clear off-canvas content when hidden
+    document.addEventListener('hidden.bs.offcanvas', function(event) {
+        const offcanvas = event.target;
+        const content = offcanvas.querySelector('#evaluationDetailsContent');
+        if (content) {
+            content.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
     // Initialize Chart.js charts
     function initializeCharts() {
         const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -211,113 +255,230 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize table functionality
     function initializeTableFunctionality() {
-        const searchInput = document.getElementById('participantSearch');
-        const filterButtons = document.querySelectorAll('.btn-group .btn-action');
-        const participantRows = document.querySelectorAll('.participant-row');
+        const searchInput = document.getElementById('trainingSearchInput');
+        const searchClear = document.querySelector('.search-clear');
+        let searchTimeout;
         
-        // Search functionality
+        // Search functionality with auto-submit
         if (searchInput) {
             searchInput.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase().trim();
-                filterTable(searchTerm, getCurrentFilter());
+                const searchTerm = this.value.trim();
+                
+                // Show/hide clear button
+                if (searchClear) {
+                    searchClear.style.display = searchTerm ? 'block' : 'none';
+                }
+                
+                // Clear previous timeout
+                clearTimeout(searchTimeout);
+                
+                // Set new timeout for search
+                searchTimeout = setTimeout(() => {
+                    performSearch(searchTerm);
+                }, 500); // 500ms delay for better UX
+            });
+            
+            // Handle Enter key
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimeout);
+                    performSearch(this.value.trim());
+                }
             });
         }
         
-        // Filter buttons functionality
-        filterButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                // Update active button
-                filterButtons.forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-                
-                const filterStatus = this.getAttribute('data-status');
-                const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
-                filterTable(searchTerm, filterStatus);
+        // Clear search functionality
+        if (searchClear) {
+            searchClear.addEventListener('click', function() {
+                searchInput.value = '';
+                this.style.display = 'none';
+                performSearch('');
+            });
+        }
+        
+        // Pagination functionality
+        document.querySelectorAll('.ajax-page-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = this.getAttribute('data-page');
+                const currentSearch = searchInput ? searchInput.value.trim() : '';
+                loadPage(page, currentSearch);
             });
         });
+        
+        function performSearch(searchTerm) {
+            loadPage(1, searchTerm); // Always go to page 1 when searching
+        }
+        
+        function loadPage(page, searchTerm = '') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', page);
+            
+            if (searchTerm) {
+                url.searchParams.set('search', searchTerm);
+            } else {
+                url.searchParams.delete('search');
+            }
+            
+            // Show loading state
+            const tableContainer = document.querySelector('.common-table-container');
+            if (tableContainer) {
+                tableContainer.style.opacity = '0.6';
+                tableContainer.style.pointerEvents = 'none';
+            }
+            
+            // Fetch new data
+            fetch(url.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Check if the response indicates an error
+                if (data.success === false) {
+                    throw new Error(data.error || 'An error occurred while loading data');
+                }
+                
+                // Update table content and pagination
+                const tableContainer = document.querySelector('.common-table-container');
+                const paginationContainer = document.querySelector('.pagination');
+                
+                if (data.html && tableContainer) {
+                    // Parse the HTML response
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data.html, 'text/html');
+                    
+                    // Update table content
+                    const newTable = doc.querySelector('.common-table-container');
+                    const newPagination = doc.querySelector('.pagination');
+                    
+                    if (newTable && tableContainer) {
+                        tableContainer.innerHTML = newTable.innerHTML;
+                    }
+                    
+                    // Update pagination
+                    if (newPagination && paginationContainer) {
+                        paginationContainer.innerHTML = newPagination.innerHTML;
+                    }
+                    
+                    // Re-initialize table functionality for new content
+                    initializeTableFunctionality();
+                    
+                    // Update URL without page reload
+                    window.history.pushState(null, '', url.toString());
+                    
+                    // Restore normal state
+                    if (tableContainer) {
+                        tableContainer.style.opacity = '1';
+                        tableContainer.style.pointerEvents = 'auto';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading page:', error);
+                
+                // Show error message to user
+                showNotification(`Error loading data: ${error.message}`, 'error');
+                
+                // Restore normal state
+                const tableContainer = document.querySelector('.common-table-container');
+                if (tableContainer) {
+                    tableContainer.style.opacity = '1';
+                    tableContainer.style.pointerEvents = 'auto';
+                }
+            });
+        }
         
         // View evaluation functionality
         document.querySelectorAll('.view-evaluation-btn').forEach(button => {
             button.addEventListener('click', function() {
-                const participantId = this.getAttribute('data-participant-id');
-                viewParticipantEvaluation(participantId);
+                const evaluationId = this.getAttribute('data-evaluation-id');
+                if (evaluationId && evaluationId !== 'None') {
+                    viewParticipantEvaluation(evaluationId);
+                } else {
+                    showNotification('Evaluation ID not found', 'error');
+                }
             });
         });
-        
-        function getCurrentFilter() {
-            const activeButton = document.querySelector('.btn-group .btn-action.active');
-            return activeButton ? activeButton.getAttribute('data-status') : 'all';
-        }
-        
-        function filterTable(searchTerm, filterStatus) {
-            let visibleCount = 0;
-            
-            participantRows.forEach(row => {
-                const name = row.getAttribute('data-name') || '';
-                const username = row.getAttribute('data-username') || '';
-                const department = row.getAttribute('data-department') || '';
-                const position = row.getAttribute('data-position') || '';
-                const status = row.getAttribute('data-status') || '';
-                
-                // Check search criteria
-                const matchesSearch = !searchTerm || 
-                    name.includes(searchTerm) || 
-                    username.includes(searchTerm) || 
-                    department.includes(searchTerm) || 
-                    position.includes(searchTerm);
-                
-                // Check filter criteria
-                const matchesFilter = filterStatus === 'all' || status === filterStatus;
-                
-                if (matchesSearch && matchesFilter) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-            
-            // Show/hide no results message
-            updateNoResultsMessage(visibleCount);
-        }
-        
-        function updateNoResultsMessage(visibleCount) {
-            const tbody = document.querySelector('#participantsTable tbody');
-            let noResultsRow = tbody.querySelector('.no-results-row');
-            
-            if (visibleCount === 0 && participantRows.length > 0) {
-                if (!noResultsRow) {
-                    noResultsRow = document.createElement('tr');
-                    noResultsRow.className = 'no-results-row';
-                    noResultsRow.innerHTML = `
-                        <td colspan="7" class="table-no-data">
-                            <div class="empty-icon">
-                                <i class="fas fa-search"></i>
-                            </div>
-                            <div class="table-no-data-title">No Results Found</div>
-                            <div class="table-no-data-desc">Try adjusting your search or filter criteria</div>
-                        </td>
-                    `;
-                    tbody.appendChild(noResultsRow);
-                }
-                noResultsRow.style.display = '';
-            } else if (noResultsRow) {
-                noResultsRow.style.display = 'none';
-            }
-        }
     }
     
-    // View participant evaluation (placeholder - you can implement this)
-    function viewParticipantEvaluation(participantId) {
-        // This could open a modal or redirect to evaluation details
-        // For now, we'll show a notification
-        showNotification(`Viewing evaluation for participant ID: ${participantId}`, 'info');
+    // View participant evaluation
+    function viewParticipantEvaluation(evaluationId) {
+        if (!evaluationId || evaluationId === 'None') {
+            showNotification('Invalid evaluation ID', 'error');
+            return;
+        }
         
-        // You could implement this to:
-        // 1. Open a modal with evaluation details
-        // 2. Redirect to a detailed evaluation page
-        // 3. Fetch and display evaluation data via AJAX
+        // Find the evaluation ID for this participant
+        fetch(`/training/admin/evaluation/${evaluationId}/`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Load content into off-canvas
+                document.getElementById('evaluationDetailsContent').innerHTML = data.html;
+                
+                // Show the off-canvas
+                const offcanvas = new bootstrap.Offcanvas(document.getElementById('evaluationDetailsOffcanvas'));
+                offcanvas.show();
+            } else {
+                showNotification(data.error || 'Failed to load evaluation details', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading evaluation:', error);
+            showNotification('Error loading evaluation details', 'error');
+        });
     }
+    
+    // Clear search function
+    window.clearSearch = function() {
+        const searchInput = document.getElementById('trainingSearchInput');
+        const searchClear = document.querySelector('.search-clear');
+        
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        if (searchClear) {
+            searchClear.style.display = 'none';
+        }
+        
+        // Perform empty search to show all results
+        performSearch('');
+    };
+    
+    // Export training report function
+    window.exportTrainingReport = function() {
+        const trainingId = window.trainingId;
+        if (trainingId) {
+            // Show loading notification
+            showNotification('Generating Excel report...', 'info');
+            
+            // Create a temporary link to download the file
+            const link = document.createElement('a');
+            link.href = `/training/admin/training/${trainingId}/export/`;
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Show success notification after a delay
+            setTimeout(() => {
+                showNotification('Excel report downloaded successfully!', 'success');
+            }, 1000);
+        } else {
+            showNotification('Training ID not found', 'error');
+        }
+    };
     
     // Utility function for notifications
     function showNotification(message, type = 'info') {

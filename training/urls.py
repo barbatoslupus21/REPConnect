@@ -29,4 +29,5 @@ urlpatterns = [
     path('admin/training/<int:training_id>/delete/', views.delete_training, name='delete_training'),
     path('admin/evaluation/<int:evaluation_id>/', views.get_evaluation_details, name='get_evaluation_details'),
     path('admin/training/<int:training_id>/details/', views.training_details_page, name='training_details_page'),
+    path('admin/training/<int:training_id>/export/', views.export_training_report, name='export_training_report'),
 ]

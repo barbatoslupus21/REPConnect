@@ -227,10 +227,6 @@ function handleEvaluateSubordinate(evaluationId, buttonElement) {
         </div>
     `;
     
-    // Add mobile back button and show content area for mobile/tablet immediately
-    addMobileBackButtonApprovals(contentArea);
-    showApprovalsContentArea();
-    
     // Fetch the supervisor assessment form
     fetch(`/training/supervisor/evaluation/${evaluationId}/`, {
         method: 'GET',
@@ -249,9 +245,9 @@ function handleEvaluateSubordinate(evaluationId, buttonElement) {
         if (data.success) {
             contentArea.innerHTML = data.html;
             
-            // Add mobile back button and show content area for mobile/tablet
-            addMobileBackButtonApprovals(contentArea);
-            showApprovalsContentArea();
+            // Add mobile back button for approvals content
+            addMobileBackButtonForApprovals(contentArea);
+            showContentArea();
             
             // Handle form submission
             const form = document.getElementById('supervisorAssessmentForm');
@@ -280,10 +276,6 @@ function handleEvaluateSubordinate(evaluationId, buttonElement) {
                 </button>
             </div>
         `;
-        
-        // Add mobile back button and show content area for mobile/tablet in error state too
-        addMobileBackButtonApprovals(contentArea);
-        showApprovalsContentArea();
         
         showToast('Failed to load supervisor assessment. Please try again.', 'error');
     });
@@ -353,13 +345,28 @@ function goBackToApprovals() {
             </div>
         `;
     }
+    
+    // On mobile/tablet, hide the content column to show the trainings list
+    const container = document.querySelector('.dashboard-container');
+    if (container && isMobileView()) {
+        container.classList.remove('show-content');
+    }
 }
 
 // Go back to trainings list
-function showTrainingsList() {
+function goBackToTrainingsList() {
     const container = document.querySelector('.dashboard-container');
-    if (container) {
+    if (container && isMobileView()) {
+        // On mobile/tablet, remove show-content to reveal trainings-column
         container.classList.remove('show-content');
+        // Scroll to trainings-column
+        const trainingsColumn = document.querySelector('.trainings-column');
+        if (trainingsColumn) {
+            trainingsColumn.scrollIntoView({ behavior: 'smooth' });
+        }
+    } else {
+        // On desktop, show the welcome state in content area
+        showDashboard();
     }
 }
 
@@ -456,7 +463,7 @@ function displayTrainingEvaluation(data, originBtn) {
             </div>
             <div class="training-content-actions">
                 <button class="btn btn-outline close-evaluation-btn">Close</button>
-                <button class="btn btn-primary submit-evaluation-btn" type="submit" form="trainingEvaluationForm"  onclick="isMobileView() ? showTrainingsList()>
+                <button class="btn btn-primary submit-evaluation-btn" type="submit" form="trainingEvaluationForm">
                     <i class="fas fa-paper-plane"></i>
                     Submit Evaluation
                 </button>
@@ -742,17 +749,81 @@ function addMobileBackButton(contentArea) {
     if (!isMobileView()) return;
     
     // Check if back button already exists
-    if (contentArea.querySelector('.mobile-back-btn')) return;
+    let backButton = contentArea.querySelector('.mobile-back-btn');
     
-    const backButton = document.createElement('button');
-    backButton.className = 'mobile-back-btn';
+    if (backButton) {
+        // If button exists, just add the event listener
+        backButton.addEventListener('click', function() {
+            goBackToTrainingsList();
+        });
+        backButton.style.display = 'block'; // Ensure it's visible
+        return;
+    }
+    
+    // Create new button if it doesn't exist
+    backButton = document.createElement('button');
+    backButton.className = 'btn btn-outline mobile-back-btn';
     backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Dashboard';
+    backButton.style.display = 'block'; // Explicitly show on mobile
     backButton.addEventListener('click', function() {
-        showTrainingsList();
+        goBackToTrainingsList();
     });
     
-    // Insert back button at the beginning of content
-    contentArea.insertBefore(backButton, contentArea.firstChild);
+    // Find the actions container and add the button there
+    const actionsContainer = contentArea.querySelector('.training-content-actions');
+    if (actionsContainer) {
+        // Insert before the submit button
+        const submitButton = actionsContainer.querySelector('.submit-evaluation-btn');
+        if (submitButton) {
+            actionsContainer.insertBefore(backButton, submitButton);
+        } else {
+            actionsContainer.appendChild(backButton);
+        }
+    } else {
+        // Fallback: Insert at the beginning of content
+        contentArea.insertBefore(backButton, contentArea.firstChild);
+    }
+}
+
+// Mobile back button for approvals content area
+function addMobileBackButtonForApprovals(contentArea) {
+    if (!isMobileView()) return;
+    
+    // Check if back button already exists
+    let backButton = contentArea.querySelector('.mobile-back-btn');
+    
+    if (backButton) {
+        // If button exists, just add the event listener
+        backButton.addEventListener('click', function() {
+            goBackToApprovals();
+        });
+        backButton.style.display = 'block'; // Ensure it's visible
+        return;
+    }
+    
+    // Create new button if it doesn't exist
+    backButton = document.createElement('button');
+    backButton.className = 'btn btn-outline mobile-back-btn';
+    backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back';
+    backButton.style.display = 'block'; // Explicitly show on mobile
+    backButton.addEventListener('click', function() {
+        goBackToApprovals();
+    });
+    
+    // Find the actions container and add the button there
+    const actionsContainer = contentArea.querySelector('.evaluation-form-actions');
+    if (actionsContainer) {
+        // Insert before the submit button
+        const submitButton = actionsContainer.querySelector('.confirm-evaluation-btn, .btn-primary');
+        if (submitButton) {
+            actionsContainer.insertBefore(backButton, submitButton);
+        } else {
+            actionsContainer.appendChild(backButton);
+        }
+    } else {
+        // Fallback: Insert at the beginning of content
+        contentArea.insertBefore(backButton, contentArea.firstChild);
+    }
 }
 
 function showContentArea() {
@@ -760,31 +831,60 @@ function showContentArea() {
     if (container && isMobileView()) {
         container.classList.add('show-content');
     }
-}
-
-function showApprovalsContentArea() {
-    const container = document.querySelector('.dashboard-container');
-    if (container && isMobileView()) {
-        container.classList.add('show-content');
+    // Adjust action buttons inside content for current viewport
+    try {
+        const contentArea = document.getElementById('contentArea');
+        const approvalsArea = document.getElementById('approvalsContentArea');
+        if (contentArea) adjustContentActionButtons(contentArea);
+        if (approvalsArea) adjustContentActionButtons(approvalsArea);
+    } catch (err) {
+        console.warn('adjustContentActionButtons error:', err);
     }
 }
 
-function addMobileBackButtonApprovals(contentArea) {
-    if (!isMobileView()) return;
-    
-    // Check if back button already exists
-    if (contentArea.querySelector('.mobile-back-btn')) return;
-    
-    const backButton = document.createElement('button');
-    backButton.className = 'mobile-back-btn';
-    backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Dashboard';
-    backButton.addEventListener('click', function() {
-        goBackToApprovals();
-    });
-    
-    // Insert back button at the beginning of content
-    contentArea.insertBefore(backButton, contentArea.firstChild);
+// Toggle visibility of Back/Back to List/Close buttons inside a content area
+function adjustContentActionButtons(contentArea) {
+    if (!contentArea) return;
+    const isMobile = isMobileView();
+
+    // Mobile 'Back' button (usually inserted by addMobileBackButton)
+    const mobileBack = contentArea.querySelector('.mobile-back-btn');
+
+    // 'Back to List' button used on desktop in view_submitted_evaluation.html
+    const backToList = contentArea.querySelector('button[onclick*="goBackToTrainingsList"]');
+
+    // 'Close' button used in evaluation form view
+    const closeBtn = contentArea.querySelector('.close-evaluation-btn') || contentArea.querySelector('button.close-evaluation-btn');
+
+    // Supervisor/modal close buttons that use data-action="close-modal"
+    const modalClose = contentArea.querySelector('button[data-action="close-modal"]');
+
+    // Apply visibility
+    if (mobileBack) {
+        if (isMobile) {
+            // On mobile, ensure it's visible
+            mobileBack.style.display = 'block';
+        } else {
+            // On desktop, hide it
+            mobileBack.style.display = 'none';
+        }
+    }
+    if (backToList) backToList.style.display = isMobile ? 'none' : '';
+
+    // For form close button: hide on mobile, show on desktop
+    if (closeBtn) closeBtn.style.display = isMobile ? 'none' : '';
+
+    // If there is a generic modal close control, hide on mobile when content is shown (since mobile uses Back)
+    if (modalClose) modalClose.style.display = isMobile ? 'none' : '';
 }
+
+// Update buttons when window resizes
+window.addEventListener('resize', function() {
+    const contentArea = document.getElementById('contentArea');
+    const approvalsArea = document.getElementById('approvalsContentArea');
+    if (contentArea) adjustContentActionButtons(contentArea);
+    if (approvalsArea) adjustContentActionButtons(approvalsArea);
+});
 
 function isMobileView() {
     return window.innerWidth <= 992 || !window.matchMedia('(hover: hover)').matches;
@@ -1107,8 +1207,66 @@ function submitConfirmEvaluation(trainingId, modal) {
 function handleReviewEvaluation(evaluationId, routingId = null) {
     console.log('Reviewing evaluation for evaluation ID:', evaluationId, 'routing ID:', routingId);
 
-    // Show the evaluation approval modal
-    showEvaluationApprovalModal(evaluationId, routingId);
+    // Show loading state
+    const contentArea = document.getElementById('approvalsContentArea');
+    if (!contentArea) {
+        console.error('Content area not found');
+        return;
+    }
+
+    contentArea.innerHTML = `
+        <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Loading evaluation for review...</p>
+        </div>
+    `;
+
+    // Fetch the evaluation content for review
+    fetch(`/training/supervisor/evaluation/${evaluationId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            contentArea.innerHTML = data.html;
+
+            // Add mobile back button for approvals content
+            addMobileBackButtonForApprovals(contentArea);
+            showContentArea();
+
+            // Show the evaluation approval modal
+            showEvaluationApprovalModal(evaluationId, routingId);
+        } else {
+            throw new Error(data.error || 'Failed to load evaluation for review');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading evaluation for review:', error);
+        contentArea.innerHTML = `
+            <div class="error-state">
+                <div class="error-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h3>Error Loading Evaluation</h3>
+                <p>Failed to load the evaluation for review. Please try again.</p>
+                <button class="btn btn-primary" onclick="handleReviewEvaluation('${evaluationId}', '${routingId}')">
+                    <i class="fas fa-retry"></i>
+                    Retry
+                </button>
+            </div>
+        `;
+
+        showToast('Failed to load evaluation for review. Please try again.', 'error');
+    });
 }
 
 // Show evaluation approval modal

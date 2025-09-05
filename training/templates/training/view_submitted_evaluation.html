@@ -315,7 +315,13 @@
         </div>
 
         <div class="evaluation-form-actions">
-            <button type="button" class="btn btn-outline" onclick="isMobileView() ? showTrainingsList() : goBackToApprovals()">
+
+            <button type="button" class="btn btn-outline mobile-back-btn">
+                <i class="fas fa-arrow-left"></i>
+                Back to Dashboard
+            </button>
+
+            <button type="button" class="btn btn-outline" onclick="goBackToTrainingsList()">
                 <i class="fas fa-arrow-left"></i>
                 Back to List
             </button>

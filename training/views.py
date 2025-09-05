@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Count, Q
@@ -9,6 +9,9 @@ from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.db import transaction
 from datetime import timedelta
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
 from .models import Training, TrainingEvaluation, EvaluationRouting
 from .forms import (
     TrainingForm, TrainingEvaluationForm, SupervisorAssessmentForm, EvaluationRoutingForm
@@ -968,152 +971,355 @@ def get_evaluation_details(request, evaluation_id):
     
     evaluation = get_object_or_404(TrainingEvaluation, id=evaluation_id, is_submitted=True)
     
-    # Prepare evaluation data
-    evaluation_data = {
-        'id': evaluation.id,
-        'participant_name': f"{evaluation.participant.firstname} {evaluation.participant.lastname}",
-        'training_title': evaluation.training.title,
-        'status': evaluation.get_status_display(),
-        'submitted_at': evaluation.submitted_at.strftime('%Y-%m-%d %H:%M'),
-        
-        # Content evaluation
-        'content_related_to_job': evaluation.content_related_to_job,
-        'content_explained_clearly': evaluation.content_explained_clearly,
-        'content_suitable_for_topic': evaluation.content_suitable_for_topic,
-        
-        # Program organization
-        'program_clear_goals': evaluation.program_clear_goals,
-        'program_met_goals': evaluation.program_met_goals,
-        'program_easy_to_follow': evaluation.program_easy_to_follow,
-        'program_easy_to_understand': evaluation.program_easy_to_understand,
-        
-        # Speaker effectiveness
-        'speaker_knowledge': evaluation.speaker_knowledge,
-        'speaker_clear_communication': evaluation.speaker_clear_communication,
-        'speaker_answered_questions': evaluation.speaker_answered_questions,
-        
-        # Training environment
-        'training_organization': evaluation.training_organization,
-        'suitable_facilities': evaluation.suitable_facilities,
-        'helpful_materials': evaluation.helpful_materials,
-        
-        # Open-ended feedback
-        'most_interesting_topic': evaluation.most_interesting_topic,
-        'feedback_recommendations': evaluation.feedback_recommendations,
-        'future_training_topics': evaluation.future_training_topics,
-        
-        # Application to work
-        'new_things_learned_work': evaluation.new_things_learned_work,
-        'how_apply_at_work': evaluation.how_apply_at_work,
-        'target_implementation_date': evaluation.target_implementation_date.strftime('%Y-%m-%d') if evaluation.target_implementation_date else '',
-        'actual_implementation_date': evaluation.actual_implementation_date.strftime('%Y-%m-%d') if evaluation.actual_implementation_date else '',
-        
-        # Application to self
-        'new_things_learned_personal': evaluation.new_things_learned_personal,
-        'how_apply_daily_life': evaluation.how_apply_daily_life,
-    }
-    
-    # Add supervisor assessment if exists
-    supervisor_assessment = None
-    if hasattr(evaluation, 'supervisor_assessment'):
-        supervisor_assessment = {
-            'supervisor_name': f"{evaluation.supervisor_assessment.supervisor.firstname} {evaluation.supervisor_assessment.supervisor.lastname}",
-            'result_and_impact': evaluation.supervisor_assessment.result_and_impact,
-            'recommendations': evaluation.supervisor_assessment.recommendations,
-            'overall_assessment': evaluation.supervisor_assessment.overall_assessment,
-        }
-    
-    # Add manager review if exists
-    manager_review = None
-    if hasattr(evaluation, 'manager_review'):
-        manager_review = {
-            'manager_name': f"{evaluation.manager_review.manager.firstname} {evaluation.manager_review.manager.lastname}",
-            'decision': evaluation.manager_review.get_decision_display(),
-            'comments': evaluation.manager_review.comments,
-        }
+    # Render the off-canvas content
+    html_content = render_to_string('training/evaluation_details_offcanvas.html', {
+        'evaluation': evaluation,
+    }, request=request)
     
     return JsonResponse({
         'success': True,
-        'evaluation': evaluation_data,
-        'supervisor_assessment': supervisor_assessment,
-        'manager_review': manager_review
+        'html': html_content
     })
 
 @login_required
-def training_details_page(request, training_id):
+def export_training_report(request, training_id):
     if not getattr(request.user, 'hr_admin', False):
-        messages.error(request, 'You do not have permission to access this page.')
-        return redirect('training:admin')
+        return JsonResponse({'success': False, 'error': 'Unauthorized'})
     
     training = get_object_or_404(Training, id=training_id)
     
-    participants_data = []
-    for participant in training.participants.all():
-        try:
-            evaluation = TrainingEvaluation.objects.get(training=training, participant=participant)
-            status = evaluation.get_status_display()
-            is_submitted = evaluation.is_submitted
-            submitted_at = evaluation.submitted_at
-        except TrainingEvaluation.DoesNotExist:
-            status = 'Not Started'
-            is_submitted = False
-            submitted_at = None
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Training Evaluation Report"
+    
+    header_font = Font(bold=True, size=14)
+    subheader_font = Font(italic=True, size=12)
+    bold_font = Font(bold=True)
+    border_thin = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+    center_alignment = Alignment(horizontal='center', vertical='center')
+    
+    ws.merge_cells('A1:M1')
+    ws['A1'] = "RYONAN ELECTRIC PHILIPPINES CORPORATION"
+    ws['A1'].font = header_font
+    ws['A1'].alignment = center_alignment
+    
+    ws.merge_cells('A2:M2')
+    ws['A2'] = "Training Evaluation Summary"
+    ws['A2'].font = subheader_font
+    ws['A2'].alignment = center_alignment
+    
+    current_row = 4
+    ws[f'A{current_row}'] = "Training Title:"
+    ws[f'A{current_row}'].font = bold_font
+    ws[f'B{current_row}'] = training.title
+    
+    current_row += 1
+    ws[f'A{current_row}'] = "Training Objectives:"
+    ws[f'A{current_row}'].font = bold_font
+    ws[f'B{current_row}'] = training.objective
+    
+    current_row += 1
+    ws[f'A{current_row}'] = "Training Speaker:"
+    ws[f'A{current_row}'].font = bold_font
+    ws[f'B{current_row}'] = training.speaker
+    
+    current_row += 1
+    ws[f'A{current_row}'] = "Training Date:"
+    ws[f'A{current_row}'].font = bold_font
+    ws[f'B{current_row}'] = training.training_date.strftime('%B %d, %Y')
+    
+    evaluations = TrainingEvaluation.objects.filter(training=training, is_submitted=True).select_related('participant__employment_info__department', 'participant__employment_info__position')
+    
+    current_row += 3
+    ws[f'A{current_row}'] = "Training Question Summary"
+    ws[f'A{current_row}'].font = bold_font
+    
+    current_row += 1
+    rating_headers = [
+        'Question', 'Average Rating', 'Response Count'
+    ]
+    
+    for col, header in enumerate(rating_headers, 1):
+        cell = ws.cell(row=current_row, column=col, value=header)
+        cell.font = bold_font
+        cell.fill = yellow_fill
+        cell.border = border_thin
+        cell.alignment = center_alignment
+    
+    rating_questions = [
+        ('Content Related to Job', 'content_related_to_job'),
+        ('Content Explained Clearly', 'content_explained_clearly'),
+        ('Content Suitable for Topic', 'content_suitable_for_topic'),
+        ('Program Clear Goals', 'program_clear_goals'),
+        ('Program Met Goals', 'program_met_goals'),
+        ('Program Easy to Follow', 'program_easy_to_follow'),
+        ('Program Easy to Understand', 'program_easy_to_understand'),
+        ('Speaker Knowledge', 'speaker_knowledge'),
+        ('Speaker Clear Communication', 'speaker_clear_communication'),
+        ('Speaker Answered Questions', 'speaker_answered_questions'),
+        ('Training Organization', 'training_organization'),
+        ('Suitable Facilities', 'suitable_facilities'),
+        ('Helpful Materials', 'helpful_materials'),
+    ]
+    
+    for question_label, field_name in rating_questions:
+        current_row += 1
         
-        participants_data.append({
-            'id': participant.id,
-            'name': f"{participant.firstname} {participant.lastname}",
-            'username': participant.username,
-            'department': getattr(participant.employment_info, 'department', 'N/A') if hasattr(participant, 'employment_info') else 'N/A',
-            'position': str(participant.employment_info.position) if hasattr(participant, 'employment_info') and participant.employment_info.position else 'N/A',
-            'status': status,
-            'is_submitted': is_submitted,
-            'submitted_at': submitted_at,
-        })
+        # Calculate average and count
+        field_values = [getattr(eval, field_name) for eval in evaluations if getattr(eval, field_name) is not None]
+        avg_rating = sum(field_values) / len(field_values) if field_values else 0
+        response_count = len(field_values)
+        
+        ws.cell(row=current_row, column=1, value=question_label).border = border_thin
+        ws.cell(row=current_row, column=2, value=f"{avg_rating:.2f}").border = border_thin
+        ws.cell(row=current_row, column=3, value=response_count).border = border_thin
     
-    total_participants = len(participants_data)
-    submitted_count = sum(1 for p in participants_data if p['is_submitted'])
-    not_started_count = sum(1 for p in participants_data if p['status'] == 'Not Started')
-    in_progress_count = total_participants - submitted_count - not_started_count
+    # Participant Summary
+    current_row += 3
+    ws[f'A{current_row}'] = "Participant Summary"
+    ws[f'A{current_row}'].font = bold_font
     
-    status_counts = {}
-    for participant in participants_data:
-        status = participant['status']
-        status_counts[status] = status_counts.get(status, 0) + 1
+    current_row += 1
+    # Participant headers
+    participant_headers = [
+        'Submitted Date', 'ID Number', 'Employee Name', 'Department', 'Position',
+        'Content Related to Job', 'Content Explained Clearly', 'Content Suitable for Topic',
+        'Program Clear Goals', 'Program Met Goals', 'Program Easy to Follow', 'Program Easy to Understand',
+        'Speaker Knowledge', 'Speaker Clear Communication', 'Speaker Answered Questions',
+        'Training Organization', 'Suitable Facilities', 'Helpful Materials', 'Supervisor Result & Impact',
+        'Supervisor Recommendations', 'Supervisor Overall Assessment'
+    ]
     
-    department_counts = {}
-    for participant in participants_data:
-        if participant['is_submitted']:
-            dept = participant['department']
-            department_counts[dept] = department_counts.get(dept, 0) + 1
+    for col, header in enumerate(participant_headers, 1):
+        cell = ws.cell(row=current_row, column=col, value=header)
+        cell.font = bold_font
+        cell.fill = yellow_fill
+        cell.border = border_thin
+        cell.alignment = center_alignment
     
-    from datetime import datetime, timedelta
-    progress_data = []
-    for i in range(7):
-        date = datetime.now().date() - timedelta(days=6-i)
-        submissions_on_date = TrainingEvaluation.objects.filter(
+    # Participant data
+    for evaluation in evaluations:
+        current_row += 1
+        participant_data = [
+            evaluation.submitted_at.strftime('%m/%d/%Y %H:%M') if evaluation.submitted_at else '',
+            evaluation.participant.idnumber or 'N/A',
+            f"{evaluation.participant.firstname} {evaluation.participant.lastname}",
+            getattr(getattr(evaluation.participant, 'employment_info', None), 'department', None).department_name if getattr(evaluation.participant, 'employment_info', None) and getattr(evaluation.participant.employment_info, 'department', None) else 'N/A',
+            str(getattr(getattr(evaluation.participant, 'employment_info', None), 'position', None).position) if getattr(evaluation.participant, 'employment_info', None) and getattr(evaluation.participant.employment_info, 'position', None) else 'N/A',
+            evaluation.content_related_to_job or '',
+            evaluation.content_explained_clearly or '',
+            evaluation.content_suitable_for_topic or '',
+            evaluation.program_clear_goals or '',
+            evaluation.program_met_goals or '',
+            evaluation.program_easy_to_follow or '',
+            evaluation.program_easy_to_understand or '',
+            evaluation.speaker_knowledge or '',
+            evaluation.speaker_clear_communication or '',
+            evaluation.speaker_answered_questions or '',
+            evaluation.training_organization or '',
+            evaluation.suitable_facilities or '',
+            evaluation.helpful_materials or '',
+            evaluation.result_and_impact or '',
+            evaluation.recommendations or '',
+            evaluation.overall_assessment or ''
+        ]
+        
+        for col, value in enumerate(participant_data, 1):
+            cell = ws.cell(row=current_row, column=col, value=value)
+            cell.border = border_thin
+    
+    # Auto-adjust column widths
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Create response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="Training_Evaluation_Report_{training.title}_{timezone.now().strftime("%Y%m%d")}.xlsx"'
+    
+    wb.save(response)
+    return response
+
+@login_required
+def training_details_page(request, training_id):
+    try:
+        if not getattr(request.user, 'hr_admin', False):
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('training:admin')
+        
+        training = get_object_or_404(Training, id=training_id)
+        
+        # Get search query
+        search_query = request.GET.get('search', '').strip()
+        
+        # Get all participants for this training
+        participants_queryset = training.participants.all().order_by('firstname', 'lastname')
+        
+        # Apply search filter if provided
+        if search_query:
+            participants_queryset = participants_queryset.filter(
+                Q(idnumber__icontains=search_query) |
+                Q(firstname__icontains=search_query) |
+                Q(lastname__icontains=search_query) |
+                Q(username__icontains=search_query) |
+                Q(employment_info__department__department_name__icontains=search_query) |
+                Q(employment_info__position__position__icontains=search_query)
+            ).distinct()        # Pagination
+        from django.core.paginator import Paginator
+        paginator = Paginator(participants_queryset, 10)  # 10 participants per page
+        page_number = request.GET.get('page', 1)
+        page_obj = paginator.get_page(page_number)
+        
+        participants_data = []
+        for participant in page_obj:
+            try:
+                evaluation = TrainingEvaluation.objects.get(training=training, participant=participant)
+                status = evaluation.get_status_display()
+                is_submitted = evaluation.is_submitted
+                submitted_at = evaluation.submitted_at
+                evaluation_id = evaluation.id
+            except TrainingEvaluation.DoesNotExist:
+                status = 'Not Started'
+                is_submitted = False
+                submitted_at = None
+                evaluation_id = None
+            
+            participants_data.append({
+                'id': participant.id,
+                'evaluation_id': evaluation_id,
+                'idnumber': participant.idnumber or 'N/A',
+                'name': f"{participant.firstname} {participant.lastname}",
+                'username': participant.username,
+                'department': getattr(getattr(participant, 'employment_info', None), 'department', None).department_name if getattr(participant, 'employment_info', None) and getattr(participant.employment_info, 'department', None) else 'N/A',
+                'position': str(getattr(getattr(participant, 'employment_info', None), 'position', None).position) if getattr(participant, 'employment_info', None) and getattr(participant.employment_info, 'position', None) else 'N/A',
+                'status': status,
+                'is_submitted': is_submitted,
+                'submitted_at': submitted_at,
+            })        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Return only the table and pagination content for AJAX requests
+            context = {
+                'participants_data': participants_data,
+                'page_obj': page_obj,
+                'search': search_query,
+            }
+            html = render_to_string('training/training_details_table.html', context, request=request)
+            return JsonResponse({'html': html})
+        
+        # Calculate totals from all participants (not just current page)
+        all_participants = training.participants.all()
+        total_participants = all_participants.count()
+        submitted_count = TrainingEvaluation.objects.filter(training=training, is_submitted=True).count()
+        not_started_count = total_participants - TrainingEvaluation.objects.filter(training=training).count()
+        in_progress_count = total_participants - submitted_count - not_started_count
+        
+        status_counts = {}
+        for participant in all_participants:
+            try:
+                evaluation = TrainingEvaluation.objects.get(training=training, participant=participant)
+                status = evaluation.get_status_display()
+            except TrainingEvaluation.DoesNotExist:
+                status = 'Not Started'
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        department_counts = {}
+        submitted_evaluations = TrainingEvaluation.objects.filter(training=training, is_submitted=True).select_related('participant__employment_info__department')
+        for evaluation in submitted_evaluations:
+            dept = getattr(evaluation.participant.employment_info, 'department', 'N/A') if hasattr(evaluation.participant, 'employment_info') else 'N/A'
+            department_counts[str(dept)] = department_counts.get(str(dept), 0) + 1
+        
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        current_month_start = now.replace(day=1)
+        previous_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
+        previous_month_end = current_month_start - timedelta(days=1)
+        
+        # Calculate previous month counts
+        # For participants, we'll use the training creation date as reference
+        if training.created_at.date() < current_month_start.date():
+            previous_participants = total_participants  # Use current as baseline if training existed last month
+        else:
+            previous_participants = 0  # New training this month
+        
+        previous_submitted = TrainingEvaluation.objects.filter(
             training=training,
-            submitted_at__date=date,
+            submitted_at__date__range=[previous_month_start.date(), previous_month_end.date()],
             is_submitted=True
         ).count()
-        progress_data.append({
-            'date': date.strftime('%m/%d'),
-            'submissions': submissions_on_date
-        })
+        
+        # Calculate percentage changes
+        participants_change = ((total_participants - previous_participants) / previous_participants * 100) if previous_participants > 0 else 0
+        submitted_change = ((submitted_count - previous_submitted) / previous_submitted * 100) if previous_submitted > 0 else 0
+        
+        # For in_progress and not_started, we need to calculate based on current logic
+        previous_total = previous_participants
+        previous_not_started = previous_total - previous_submitted if previous_total > 0 else 0
+        previous_in_progress = 0  # This is harder to calculate historically, so we'll use 0 as baseline
+        
+        in_progress_change = ((in_progress_count - previous_in_progress) / previous_in_progress * 100) if previous_in_progress > 0 else 0
+        not_started_change = ((not_started_count - previous_not_started) / previous_not_started * 100) if previous_not_started > 0 else 0
+        
+        progress_data = []
+        for i in range(7):
+            date = datetime.now().date() - timedelta(days=6-i)
+            submissions_on_date = TrainingEvaluation.objects.filter(
+                training=training,
+                submitted_at__date=date,
+                is_submitted=True
+            ).count()
+            progress_data.append({
+                'date': date.strftime('%m/%d'),
+                'submissions': submissions_on_date
+            })
+        
+        context = {
+            'training': training,
+            'participants_data': participants_data,
+            'page_obj': page_obj,
+            'search': search_query,
+            'total_participants': total_participants,
+            'submitted_count': submitted_count,
+            'not_started_count': not_started_count,
+            'in_progress_count': in_progress_count,
+            'progress_percentage': round((submitted_count / total_participants) * 100, 1) if total_participants > 0 else 0,
+            'status_counts': status_counts,
+            'department_counts': department_counts,
+            'progress_data': progress_data,
+            # Month-over-month changes
+            'participants_change': participants_change,
+            'submitted_change': submitted_change,
+            'in_progress_change': in_progress_change,
+            'not_started_change': not_started_change,
+        }
+        
+        return render(request, 'training/training_details.html', context)
     
-    context = {
-        'training': training,
-        'participants_data': participants_data,
-        'total_participants': total_participants,
-        'submitted_count': submitted_count,
-        'not_started_count': not_started_count,
-        'in_progress_count': in_progress_count,
-        'progress_percentage': round((submitted_count / total_participants) * 100, 1) if total_participants > 0 else 0,
-        'status_counts': status_counts,
-        'department_counts': department_counts,
-        'progress_data': progress_data,
-    }
-    
-    return render(request, 'training/training_details.html', context)
+    except Exception as e:
+        # Handle any exceptions that might occur
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': f'An error occurred: {str(e)}'
+            }, status=500)
+        else:
+            # For non-AJAX requests, re-raise the exception to show Django's error page
+            raise
 
 @login_required
 @require_http_methods(["POST"])

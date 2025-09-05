@@ -767,7 +767,7 @@
     background: var(--surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    overflow: auto;
+    overflow: hidden;
 }
 
 .trainings-header {
@@ -912,7 +912,6 @@
     .trainings-column {
         width: 100%;
         max-height: 50vh;
-        overflow-y: auto;
     }
 }
 
@@ -985,17 +984,7 @@
 
 /* Mobile back button */
 .mobile-back-btn {
-    display: none;
-    width: 100%;
-    margin-bottom: var(--space-md);
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    display: block;
 }
 
 .mobile-back-btn:hover {
@@ -1008,9 +997,6 @@
 }
 
 @media (max-width: 992px) {
-    .mobile-back-btn {
-        display: block;
-    }
     
     .trainings-column {
         width: 100%;
@@ -1019,7 +1005,6 @@
         top: 0;
         left: 0;
         height: 100%;
-        overflow: auto;
     }
 
     .content-column {
@@ -1063,10 +1048,6 @@
         z-index: 10;
     }
     
-    .mobile-back-btn {
-        display: none;
-    }
-
     .mobile-back-btn:hover {
         background: var(--surface-hover);
         transform: translateY(-1px);
@@ -1090,6 +1071,12 @@
     .rating-scale-container {
         justify-content: flex-start;
         width: 100%;
+    }
+}
+
+@media (min-width: 993px) {
+    .mobile-back-btn {
+        display: none;
     }
 }
 
@@ -1145,7 +1132,6 @@
 
     .trainings-column {
         max-height: 350px;
-        overflow-y: auto;
     }
     
     .training-item.expanded .training-details {
@@ -1286,10 +1272,6 @@
     background-color: var(--bg-secondary);
     padding: var(--space-md);
     border-radius: var(--radius-lg);
-}
-
-[data-theme="dark"] .readonly-group {
-  background: var(--bg-primary) !important;
 }
 
 .readonly-group:last-child {
@@ -1553,7 +1535,14 @@
     font-size: 3rem;
     margin-bottom: var(--space-md);
     animation: bounceIn 0.5s ease-out;
-    color: #22c55e;
+}
+
+.icon-success {
+    color: #22c55e !important;
+}
+
+.icon-warning {
+    color: #ef4444 !important;
 }
 
 .confirmation-message h5 {
@@ -1613,6 +1602,25 @@
     color: #1976d2;
 }
 
+.alert.alert-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    margin-top: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    animation: fadeInUp 0.4s ease-out;
+    animation-delay: 0.4s;
+    animation-fill-mode: both;
+}
+
+.alert.alert-warning i {
+    color: #856404;
+}
+
 /* Modal Animation Keyframes */
 @keyframes bounceIn {
     0% {
@@ -1651,4 +1659,58 @@
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+.training-meta-grid {
+    display: flex;
+    gap: var(--space-lg);
+}
+
+.training-meta-grid .meta-item {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* ===========================================
+   OFF-CANVAS ENHANCEMENTS FOR TRAINING
+   =========================================== */
+
+/* Ensure off-canvas works well with training layout */
+.offcanvas-backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    transition: opacity 0.3s ease;
+    cursor: pointer;
+}
+
+.offcanvas-backdrop.show {
+    opacity: 1;
+}
+
+/* Training-specific evaluation details styling */
+.evaluation-details .text-primary {
+    color: #6366f1 !important;
+    font-weight: 600;
+}
+
+.evaluation-details .text-muted {
+    color: #6b7280;
+}
+
+/* Enhanced card styling for training evaluations */
+.evaluation-details .card {
+    transition: all 0.2s ease;
+}
+
+.evaluation-details .card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Better spacing for evaluation sections */
+.evaluation-details .row {
+    margin-bottom: 1rem;
+}
+
+.evaluation-details .row:last-child {
+    margin-bottom: 0;
 }

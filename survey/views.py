@@ -1129,7 +1129,6 @@ def export_survey_responses(request, survey_id):
 
 @login_required
 def export_survey_excel_detailed(request, survey_id):
-    """Export survey responses in detailed Excel format with statistics and response data."""
     survey = get_object_or_404(Survey, id=survey_id)
     
     if not (request.user.hr_admin or request.user.iad_admin or request.user.accounting_admin or survey.created_by == request.user):
