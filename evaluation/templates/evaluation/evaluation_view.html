@@ -1,0 +1,77 @@
+<div class="evaluation-view">
+    <!-- Performance Evaluation Section -->
+    <div class="evaluation-section">
+        <h4 class="evaluation-section-title">Performance Evaluation Results</h4>
+        <p class="evaluation-instruction">Your submitted performance evaluation results.</p>
+        
+        <div class="evaluation-summary">
+            <div class="summary-item">
+                <span class="summary-label">Status:</span>
+                <span class="summary-value">
+                    {% if employee_eval.status == 'pending' %}
+                        <span class="status-pill status-yellow">Pending</span>
+                    {% elif employee_eval.status == 'supervisor_review' %}
+                        <span class="status-pill status-blue">Under Supervisor Review</span>
+                    {% elif employee_eval.status == 'manager_review' %}
+                        <span class="status-pill status-orange">Under Manager Review</span>
+                    {% elif employee_eval.status == 'approved' %}
+                        <span class="status-pill status-green">Approved</span>
+                    {% elif employee_eval.status == 'disapproved' %}
+                        <span class="status-pill status-red">Disapproved</span>
+                    {% endif %}
+                </span>
+            </div>
+            {% if employee_eval.completed_at %}
+            <div class="summary-item">
+                <span class="summary-label">Submitted:</span>
+                <span class="summary-value">{{ employee_eval.completed_at }}</span>
+            </div>
+            {% endif %}
+            <div class="summary-item">
+                <span class="summary-label">Average Rating:</span>
+                <span class="summary-value">
+                    <div class="rating-stars-display">
+                        {% for _ in "12345" %}
+                            {% if forloop.counter <= employee_eval.average_rating %}
+                                <i class="fas fa-star filled"></i>
+                            {% else %}
+                                <i class="fas fa-star empty"></i>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <span class="rating-display">{{ employee_eval.average_rating|floatformat:1 }}/5</span>
+                </span>
+            </div>
+        </div>
+        
+        <!-- Task Ratings Display -->
+        <div class="rating-table view-mode">
+            <!-- Header Row -->
+            <div class="rating-header">
+                <div class="rating-question-header">Tasklists</div>
+                <div class="rating-scale-header">Rating</div>
+            </div>
+            
+            <!-- Rating Rows -->
+            {% for task_rating in task_ratings %}
+            <div class="rating-row">
+                <div class="rating-question">{{ task_rating.task_name }}</div>
+                <div class="rating-display">
+                    <div class="rating-stars-display">
+                        {% for i in "12345" %}
+                            <i class="fas fa-star {% if i|add:0 <= task_rating.rating %}filled{% else %}empty{% endif %}"></i>
+                        {% endfor %}
+                    </div>
+                    <span class="evaluation-rating-number">{{ task_rating.rating }}/5</span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="rating-row">
+                <div class="rating-question">No tasks evaluated</div>
+                <div class="rating-display">-</div>
+                <div class="rating-comments">-</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

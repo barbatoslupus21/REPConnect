@@ -5,6 +5,7 @@
 {% block title %}REPConnect - Performance Evaluation{% endblock title %}
 
 {% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/evaluation/evaluation.css' %}">
     <link rel="stylesheet" href="{% static 'css/survey/survey.css' %}">
     <link rel="stylesheet" href="{% static 'css/training/training.css' %}">
 {% endblock %}
@@ -39,83 +40,111 @@
                 <div class="trainings-header">
                     <h4>Assigned Evaluations</h4>
                     <div class="trainings-filter">
-                        <select id="statusFilter" class="form-input">
-                            <option value="all">All Training Evaluations</option>
+                        <select id="evaluationStatusFilter" class="form-input">
+                            <option value="all">All Evaluations</option>
                             <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
                             <option value="completed">Completed</option>
+                            <option value="overdue">Overdue</option>
                         </select>
                     </div>
                 </div>
                 
                 <div class="trainings-list" id="trainingsList">
-                    {% for training_data in trainings_data %}
-                        <div class="training-item" data-training-id="{{ training_data.training.id }}" data-status="{{ training_data.status }}">
+                    {% for evaluation_data in evaluations_data %}
+                        <div class="training-item" 
+                             data-evaluation-id="{{ evaluation_data.evaluation.id }}" 
+                             data-instance-id="{{ evaluation_data.instance.id }}"
+                             data-status="{{ evaluation_data.status }}">
                                 <div class="training-card">
                                     <div class="training-header" role="button" tabindex="0">
-                                        <div class="training-title">{{ training_data.training.title }}</div>
+                                        <div class="training-title">{{ evaluation_data.evaluation.title }}</div>
                                         <div class="training-status">
-                                            {% if training_data.status == 'draft' %}
-                                                <span class="status-pill status-gray">Draft</span>
-                                            {% elif training_data.status == 'submitted' %}
-                                                <span class="status-pill status-blue">Submitted</span>
-                                            {% elif training_data.status == 'supervisor_reviewed' %}
-                                                <span class="status-pill status-yellow">Supervisor Reviewed</span>
-                                            {% elif training_data.status == 'manager_reviewed' %}
-                                                <span class="status-pill status-blue">Manager Reviewed</span>
-                                            {% elif training_data.status == 'participant_reviewed' %}
-                                                <span class="status-pill status-purple">Participant Reviewed</span>
-                                            {% elif training_data.status == 'hr_review' %}
-                                                <span class="status-pill status-blue">HR Review</span>
-                                            {% elif training_data.status == 'approved' %}
-                                                <span class="status-pill status-green">Approved</span>
-                                            {% elif training_data.status == 'disapproved' %}
-                                                <span class="status-pill status-red">Disapproved</span>
-                                            {% elif training_data.status == 'pending' %}
-                                                <span class="status-pill status-orange">Pending</span>
-                                            {% elif training_data.status == 'completed' %}
+                                            {% if evaluation_data.status == 'pending' %}
+                                                <span class="status-pill status-yellow">Pending</span>
+                                            {% elif evaluation_data.status == 'in_progress' %}
+                                                <span class="status-pill status-blue">In Progress</span>
+                                            {% elif evaluation_data.status == 'completed' %}
                                                 <span class="status-pill status-green">Completed</span>
+                                            {% elif evaluation_data.status == 'overdue' %}
+                                                <span class="status-pill status-red">Overdue</span>
                                             {% else %}
-                                                <span class="status-pill status-gray">{{ training_data.status|title }}</span>
+                                                <span class="status-pill status-gray">{{ evaluation_data.status|title }}</span>
                                             {% endif %}
                                         </div>
                                     </div>
                                     <div class="training-brief">
-                                        <p>Speaker: {{ training_data.training.speaker }} | Date: {{ training_data.training.training_date|date:"M j, Y" }}</p>
-                                        <p>{{ training_data.training.objective|truncatewords:15 }}</p>
+                                        <p><strong>Duration:</strong> {{ evaluation_data.evaluation.get_duration_display }}</p>
+                                        <p><strong>Period:</strong> 
+                                            {% if evaluation_data.evaluation.duration == 'daily' %}
+                                                {{ evaluation_data.period_start|date:"M j, Y" }} - {{ evaluation_data.period_end|date:"M j, Y" }}
+                                            {% elif evaluation_data.evaluation.duration == 'monthly' %}
+                                                {{ evaluation_data.period_start|date:"F Y" }}
+                                            {% elif evaluation_data.evaluation.duration == 'quarterly' %}
+                                                {% if evaluation_data.period_start.month <= 3 %}
+                                                    January {{ evaluation_data.period_start.year }} - March {{ evaluation_data.period_start.year }}
+                                                {% elif evaluation_data.period_start.month <= 6 %}
+                                                    April {{ evaluation_data.period_start.year }} - June {{ evaluation_data.period_start.year }}
+                                                {% elif evaluation_data.period_start.month <= 9 %}
+                                                    July {{ evaluation_data.period_start.year }} - September {{ evaluation_data.period_start.year }}
+                                                {% else %}
+                                                    October {{ evaluation_data.period_start.year }} - December {{ evaluation_data.period_start.year }}
+                                                {% endif %}
+                                            {% elif evaluation_data.evaluation.duration == 'yearly' %}
+                                                {{ evaluation_data.period_start.year }}
+                                            {% else %}
+                                                {{ evaluation_data.period_start|date:"M j, Y" }} - {{ evaluation_data.period_end|date:"M j, Y" }}
+                                            {% endif %}
+                                        </p>
                                     </div>
 
                                     <div class="training-details">
                                         <div class="details-section">
-                                            <h4>Training Details</h4>
+                                            <h4>Evaluation Details</h4>
                                             <div class="detail-row">
-                                                <span class="label">Training Date:</span>
-                                                <span class="value">{{ training_data.training.training_date|date:"F j, Y" }}</span>
+                                                <span class="label">Due Date:</span>
+                                                <span class="value">{{ evaluation_data.due_date|date:"F j, Y" }}</span>
                                             </div>
                                             <div class="detail-row">
-                                                <span class="label">Speaker:</span>
-                                                <span class="value">{{ training_data.training.speaker }}</span>
+                                                <span class="label">Duration:</span>
+                                                <span class="value">{{ evaluation_data.evaluation.get_duration_display }}</span>
                                             </div>
                                             <div class="detail-row">
-                                                <span class="label">Estimated Time:</span>
-                                                <span class="value">5-10 minutes</span>
+                                                <span class="label">Period:</span>
+                                                <span class="value">
+                                                    {% if evaluation_data.evaluation.duration == 'daily' %}
+                                                        {{ evaluation_data.period_start|date:"M j, Y" }} - {{ evaluation_data.period_end|date:"M j, Y" }}
+                                                    {% elif evaluation_data.evaluation.duration == 'monthly' %}
+                                                        {{ evaluation_data.period_start|date:"F Y" }}
+                                                    {% elif evaluation_data.evaluation.duration == 'quarterly' %}
+                                                        {% if evaluation_data.period_start.month <= 3 %}
+                                                            January {{ evaluation_data.period_start.year }} - March {{ evaluation_data.period_start.year }}
+                                                        {% elif evaluation_data.period_start.month <= 6 %}
+                                                            April {{ evaluation_data.period_start.year }} - June {{ evaluation_data.period_start.year }}
+                                                        {% elif evaluation_data.period_start.month <= 9 %}
+                                                            July {{ evaluation_data.period_start.year }} - September {{ evaluation_data.period_start.year }}
+                                                        {% else %}
+                                                            October {{ evaluation_data.period_start.year }} - December {{ evaluation_data.period_start.year }}
+                                                        {% endif %}
+                                                    {% elif evaluation_data.evaluation.duration == 'yearly' %}
+                                                        {{ evaluation_data.period_start.year }}
+                                                    {% else %}
+                                                        {{ evaluation_data.period_start|date:"M j, Y" }} - {{ evaluation_data.period_end|date:"M j, Y" }}
+                                                    {% endif %}
+                                                </span>
                                             </div>
                                         </div>
                                         
                                         <div class="training-actions">
-                                            {% if training_data.status == 'participant_reviewed'%}
-                                                <button class="btn btn-primary view-evaluation-btn" data-training-id="{{ training_data.training.id }}">
-                                                    <i class="fas fa-check-circle"></i>
-                                                    Confirm Evaluation
-                                                </button>
-                                            {% elif training_data.status == 'submitted' or training_data.status == 'supervisor_reviewed' or training_data.status == 'manager_reviewed' or training_data.status == 'hr_review' or training_data.status == 'approved' or training_data.status == 'disapproved' or training_data.status == 'completed' %}
-                                                <button class="btn btn-outline view-evaluation-btn" data-training-id="{{ training_data.training.id }}">
+                                            {% if not evaluation_data.can_start %}
+                                                <button class="btn btn-outline view-evaluation-btn" data-instance-id="{{ evaluation_data.instance.id }}">
                                                     <i class="fas fa-eye"></i>
                                                     View Evaluation
                                                 </button>
-                                            {% else %}
-                                                <button class="btn btn-primary start-evaluation-btn" data-training-id="{{ training_data.training.id }}">
+                                            {% elif evaluation_data.can_start %}
+                                                <button class="btn btn-primary start-evaluation-btn" data-instance-id="{{ evaluation_data.instance.id }}">
                                                     <i class="fas fa-play"></i>
-                                                    {% if training_data.has_draft %}Continue Evaluation{% else %}Start Evaluation{% endif %}
+                                                    {% if evaluation_data.status == 'in_progress' %}Continue Evaluation{% else %}Start Evaluation{% endif %}
                                                 </button>
                                             {% endif %}
                                         </div>
@@ -142,16 +171,20 @@
                         <p>Select a performance evaluation from the left panel to get started. Click "Start Evaluation" to begin completing your assigned performance evaluations.</p>
                         <div class="welcome-stats">
                             <div class="stat-item">
-                                <div class="stat-value" id="totalTrainings">{{ total_trainings }}</div>
-                                <div class="stat-label">Total Trainings</div>
+                                <div class="stat-value" id="totalEvaluations">{{ total_evaluations }}</div>
+                                <div class="stat-label">Total Evaluations</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-value" id="completedTrainings">{{ completed_trainings }}</div>
-                                <div class="stat-label">Submitted</div>
+                                <div class="stat-value" id="completedEvaluations">{{ completed_evaluations }}</div>
+                                <div class="stat-label">Completed</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-value" id="pendingTrainings">{{ pending_trainings }}</div>
+                                <div class="stat-value" id="pendingEvaluations">{{ pendinsg_evaluations }}</div>
                                 <div class="stat-label">Pending</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="overdueEvaluations">{{ overdue_evaluations }}</div>
+                                <div class="stat-label">Overdue</div>
                             </div>
                         </div>
                     </div>
@@ -359,17 +392,20 @@
 
 {% block extra_js %}
 <script>
-    // Training statistics for JavaScript
+    // Evaluation statistics for JavaScript
     console.log('Debug - Template variables:', {
-        total: {{ total_trainings|default:0 }},
-        completed: {{ completed_trainings|default:0 }},
-        pending: {{ pending_trainings|default:0 }}
+        total: {{ total_evaluations|default:0 }},
+        completed: {{ completed_evaluations|default:0 }},
+        pending: {{ pending_evaluations|default:0 }},
+        overdue: {{ overdue_evaluations|default:0 }}
     });
     
-    const TRAINING_STATS = {
-        total: {{ total_trainings|default:0 }},
-        completed: {{ completed_trainings|default:0 }},
-        pending: {{ pending_trainings|default:0 }}
+    const EVALUATION_STATS = {
+        total: {{ total_evaluations|default:0 }},
+        completed: {{ completed_evaluations|default:0 }},
+        pending: {{ pending_evaluations|default:0 }},
+        in_progress: {{ in_progress_evaluations|default:0 }},
+        overdue: {{ overdue_evaluations|default:0 }}
     };
 </script>
 <script src="{% static 'js/evaluation/user_evaluation.js' %}"></script>

@@ -903,12 +903,6 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-.training-header:hover {
-    background: var(--bg-hover);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
 .training-title {
     font-size: var(--font-size-md);
     font-weight: 600;

@@ -38,8 +38,8 @@ class Evaluation(models.Model):
 
     title = models.CharField(max_length=255)
     description = models.TextField(help_text="Description of the evaluation")
-    start_year = models.IntegerField(default=2025, help_text="Fiscal year start (e.g., 2025 for FY2025-26)")
-    end_year = models.IntegerField(default=2026, help_text="Fiscal year end (e.g., 2026 for FY2025-26)")
+    start_year = models.IntegerField(help_text="Fiscal year start (e.g., 2025 for FY2025-26)")
+    end_year = models.IntegerField(help_text="Fiscal year end (e.g., 2026 for FY2025-26)")
     duration = models.CharField(max_length=20, choices=DURATION_CHOICES)
     created_by = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='created_evaluations')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,62 +54,85 @@ class Evaluation(models.Model):
 
     @property
     def fiscal_year_label(self):
-        """Return formatted fiscal year label like 'FY2025-26'"""
         return f"FY{self.start_year}-{str(self.end_year)[2:]}"
 
     @property
     def fiscal_year_start_date(self):
-        """Return the actual start date of the fiscal year (May 1st)"""
         return dt.datetime(self.start_year, 5, 1, tzinfo=dt.timezone.utc)
 
     @property
     def fiscal_year_end_date(self):
-        """Return the actual end date of the fiscal year (April 30th)"""
         return dt.datetime(self.end_year, 4, 30, 23, 59, 59, tzinfo=dt.timezone.utc)
 
     def is_active_in_fiscal_year(self):
-        """Check if evaluation is currently active within its fiscal year"""
         now = timezone.now()
         return self.fiscal_year_start_date <= now <= self.fiscal_year_end_date
 
     def clean(self):
-        """Validate that end_year is exactly start_year + 1 for fiscal year"""
         from django.core.exceptions import ValidationError
         if self.end_year != self.start_year + 1:
             raise ValidationError({
                 'end_year': f'End year must be {self.start_year + 1} for fiscal year {self.start_year}-{self.start_year + 1}'
             })
 
-    def get_next_evaluation_date(self, employee):
-        """Calculate next due date based on duration."""
-        last_submission = EmployeeEvaluation.objects.filter(
-            evaluation=self,
-            employee=employee
-        ).order_by('-created_at').first()
+    def set_fiscal_year_from_start_date(self):
+        start_date = self.start_date or timezone.now()
+        
+        if start_date.month >= 5:
+            self.start_year = start_date.year
+            self.end_year = start_date.year + 1
+        else:
+            self.start_year = start_date.year - 1
+            self.end_year = start_date.year
 
-        base_date = last_submission.created_at if last_submission else self.start_date
+    def save(self, *args, **kwargs):
+        if not self.pk or not self.start_year or not self.end_year:
+            self.set_fiscal_year_from_start_date()
+        
+        super().save(*args, **kwargs)
+        
+        if not kwargs.get('update_fields'):
+            self._create_initial_instances()
 
+    def _create_initial_instances(self):
+        from .utils import create_evaluation_instances
+        try:
+            create_evaluation_instances(self)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create initial instances for evaluation {self.title}: {e}")
+
+    def create_instances_for_period(self):
+        from .utils import create_evaluation_instances
+        create_evaluation_instances(self)
+
+    def generate_recurring_instances(self):
+        """Generate recurring evaluation instances up to current date"""
+        from .utils import create_evaluation_instances
+        return create_evaluation_instances(self)
+
+    def get_next_due_date(self, last_due_date=None):
+        base_date = last_due_date or self.start_date
+        
         if self.duration == 'daily':
             return base_date + timedelta(days=1)
-
         elif self.duration == 'monthly':
-            next_month = (base_date.replace(day=1) + timedelta(days=32)).replace(day=1)
-            return next_month
-
+            if base_date.month == 12:
+                return base_date.replace(year=base_date.year + 1, month=1, day=1)
+            else:
+                return base_date.replace(month=base_date.month + 1, day=1)
         elif self.duration == 'quarterly':
             month = ((base_date.month - 1) // 3 + 1) * 3 + 1
             year = base_date.year
             if month > 12:
                 month = 1
                 year += 1
-            return dt.datetime(year, month, 1, tzinfo=dt.timezone.utc)
-
+            return base_date.replace(year=year, month=month, day=1)
         elif self.duration == 'yearly':
             return base_date.replace(year=base_date.year + 1)
-
-    def is_due_for_employee(self, employee):
-        next_date = self.get_next_evaluation_date(employee)
-        return timezone.now() >= next_date
+        
+        return base_date
 
     def is_employee_eligible(self, employee):
         excluded_roles = [
@@ -124,8 +147,53 @@ class Evaluation(models.Model):
         return getattr(employee, 'active', True) and not any(excluded_roles)
 
 
+class EvaluationInstance(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('overdue', 'Overdue'),
+    ]
+
+    evaluation = models.ForeignKey(Evaluation, on_delete=models.CASCADE, related_name='instances')
+    employee = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='evaluation_instances')
+    period_start = models.DateTimeField(help_text="Start of the evaluation period")
+    period_end = models.DateTimeField(help_text="End of the evaluation period")
+    due_date = models.DateTimeField(help_text="When this evaluation is due")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('evaluation', 'employee', 'period_start')
+        ordering = ['-due_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.employee.username} - {self.evaluation.title} ({self.period_start.strftime('%Y-%m-%d')} to {self.period_end.strftime('%Y-%m-%d')})"
+
+    @property
+    def is_overdue(self):
+        return timezone.now() > self.due_date and self.status != 'completed'
+
+    def update_status(self):
+        if self.is_overdue and self.status not in ['completed']:
+            self.status = 'overdue'
+            self.save(update_fields=['status'])
+
+    def get_or_create_employee_evaluation(self):
+        employee_eval, created = EmployeeEvaluation.objects.get_or_create(
+            evaluation_instance=self,
+            defaults={
+                'evaluation': self.evaluation,
+                'employee': self.employee,
+            }
+        )
+        return employee_eval
+
+
 class EmployeeEvaluation(models.Model):
     evaluation = models.ForeignKey(Evaluation, on_delete=models.CASCADE)
+    evaluation_instance = models.OneToOneField(EvaluationInstance, on_delete=models.CASCADE, null=True, blank=True, related_name='employee_evaluation')
     employee = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='employee_evaluations')
     supervisor = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='supervised_evaluations', null=True, blank=True)
     manager = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='managed_evaluations', null=True, blank=True)
@@ -147,11 +215,20 @@ class EmployeeEvaluation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('evaluation', 'employee')
         ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.employee.username} - {self.evaluation.title} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.evaluation_instance:
+            if self.status in ['approved', 'disapproved']:
+                self.evaluation_instance.status = 'completed'
+                self.evaluation_instance.save(update_fields=['status'])
+            elif self.status != 'pending':
+                self.evaluation_instance.status = 'in_progress'
+                self.evaluation_instance.save(update_fields=['status'])
 
     @property
     def average_rating(self):
@@ -165,19 +242,15 @@ class EmployeeEvaluation(models.Model):
         """Calculate completion percentage based on evaluation stages."""
         percentage = 0
         
-        # Self-evaluation completed
         if self.self_completed_at:
             percentage += 25
         
-        # Supervisor review completed
         if self.supervisor_completed_at:
             percentage += 25
         
-        # Manager review completed
         if self.manager_completed_at:
             percentage += 25
         
-        # Final approval
         if self.status in ['approved', 'disapproved']:
             percentage += 25
         

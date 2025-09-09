@@ -21,4 +21,9 @@ urlpatterns = [
     
     # Employee Self-Evaluations
     path('users/', views.evaluation_user_view, name='user_evaluation'),
+    
+    # Evaluation Instance Actions
+    path('instance/<int:instance_id>/', views.get_evaluation_instance, name='get_evaluation_instance'),
+    path('instance/<int:instance_id>/view/', views.view_completed_evaluation, name='view_completed_evaluation'),
+    path('submit/<int:employee_evaluation_id>/', views.submit_evaluation_instance, name='submit_evaluation_instance'),
 ]

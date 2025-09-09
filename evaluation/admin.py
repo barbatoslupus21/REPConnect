@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import TaskList, Evaluation, EmployeeEvaluation, TaskRating, TrainingRequest
+from .models import EvaluationInstance
 
 @admin.register(TaskList)
 class TaskListAdmin(admin.ModelAdmin):
@@ -108,3 +109,27 @@ class TrainingRequestAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ['created_at']
+
+
+@admin.register(EvaluationInstance)
+class EvaluationInstanceAdmin(admin.ModelAdmin):
+    list_display = ['evaluation', 'employee', 'period_start', 'period_end', 'due_date', 'status']
+    list_filter = ['status', 'evaluation', 'due_date', 'created_at']
+    search_fields = ['employee__username', 'employee__firstname', 'employee__lastname', 'evaluation__title']
+    ordering = ['-due_date', '-created_at']
+    date_hierarchy = 'due_date'
+    autocomplete_fields = ['evaluation', 'employee']
+
+    fieldsets = (
+        ('Basic', {
+            'fields': ('evaluation', 'employee', 'status')
+        }),
+        ('Period', {
+            'fields': ('period_start', 'period_end', 'due_date')
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+
+    readonly_fields = ['created_at', 'updated_at']

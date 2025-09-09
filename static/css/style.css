@@ -3613,6 +3613,7 @@ select.form-input {
 .field-error::before {
     content: '\f071';
     font-family: 'Font Awesome 6 Free';
+    /* font-family: 'Poppins', sans-serif; */
     font-weight: 900;
     font-size: 0.9em;
 }
