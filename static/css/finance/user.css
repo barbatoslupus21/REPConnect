@@ -1,0 +1,837 @@
+.savings-active-icon {
+  color: #22c55e;
+  font-size: 16px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.allowance-date-icon {
+  color: var(--text-muted);
+  margin-right: 6px;
+  font-size: 12px;
+}
+/* Allowance card: flex row layout for type/date left, amount right */
+.allowance-flex-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.allowance-info-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+.allowance-amount-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 90px;
+}
+
+/* Allowance Card/List Design */
+.allowance-list {
+  display: flex;
+  flex-direction: column;
+  /* gap: 8px; */
+  /* padding: 8px; */
+}
+.allowance-item {
+  background: var(--surface, #fff);
+  border-bottom: 1px solid var(--border-color);
+  /* border-radius: 10px; */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  padding: 16px 20px 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+.allowance-type {
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+.allowance-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-color, #4f46e5);
+  margin-bottom: 8px;
+}
+.allowance-date {
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
+}
+/* Finance summary flex layout for user-finance.html */
+.finance-flex-row {
+    display: flex;
+    gap: 24px;
+    width: 100%;
+}
+.finance-flex-payslip {
+    flex: 1 1 0%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.finance-flex-fixed {
+    flex: 0 0 22%;
+    width: 22%;
+    display: flex;
+    flex-direction: column;
+}
+
+.user-finance-card{
+    position: relative;
+    max-height: 400px;
+    overflow: hidden;
+}
+
+/* Loan Table: Fixed footer, scrollable tbody */
+.user-finance-table.loan-table-fixed-footer {
+  position: relative;
+  max-height: 400px;
+  overflow: hidden;
+}
+
+.user-finance-table.loan-table-fixed-footer table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.user-finance-table.loan-table-fixed-footer thead,
+.user-finance-table.loan-table-fixed-footer tfoot {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.user-finance-table.loan-table-fixed-footer tbody {
+  display: block;
+  max-height: 270px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.user-finance-table.loan-table-fixed-footer tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.user-finance-table.loan-table-fixed-footer tfoot tr {
+  background: #f8fafc;
+  font-weight: bold;
+}
+/* Fade-in effect for inactive loan rows */
+@keyframes fadeInRow {
+  from { opacity: 0; background-color: #b9fbc0; }
+  to { opacity: 1; background-color: transparent; }
+}
+
+.fade-in-effect {
+  animation: fadeInRow 0.7s ease;
+}
+/* Make radio button label full width in modal */
+.radio-input .label {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Finance table container enhancements */
+.user-finance-table,
+.data-table {
+    overflow: auto;
+    max-height: 400px;
+}
+
+/* Email Selection Modal Styles */
+.email-selection-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.email-option-card {
+    position: relative;
+}
+
+.email-option-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.email-option-label {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color, #e1e5e9);
+    border-radius: 8px;
+    background: var(--surface, #ffffff);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 12px;
+}
+
+.email-option-label:hover {
+    border-color: var(--primary-color, #4f46e5);
+    background: var(--surface-hover, #f8fafc);
+}
+
+.email-option-card input[type="radio"]:checked + .email-option-label {
+    border-color: var(--primary-color, #4f46e5);
+}
+
+.email-option-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--muted-light, #f1f5f9);
+    color: var(--text-muted, #64748b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.email-option-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.email-option-name {
+    font-weight: 500;
+    color: var(--text-primary, #1e293b);
+    font-size: 15px;
+    margin-bottom: 2px;
+    word-break: break-all;
+}
+
+.email-option-username {
+    color: var(--text-muted, #64748b);
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.email-option-check {
+    color: var(--primary-color, #4f46e5);
+    font-size: 18px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.email-option-card input[type="radio"]:checked + .email-option-label .email-option-check {
+    opacity: 1;
+}
+
+.email-option-card input[type="radio"]:checked + .email-option-label .email-option-name {
+    color: var(--text-primary, #1e293b);
+    font-weight: 600;
+}
+/* User Finance Summary - Unique Styles */
+.user-finance-summary {
+    display: flex;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-sm);
+}
+
+.left-finance-col {
+    width: 65%;
+}
+
+.right-finance-col {
+    width: 35%;
+}
+ 
+.center-align {
+    text-align: center !important;
+}
+     
+.user-finance-table{
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    overflow-y: auto;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    width: 100%;
+    min-height: 385px;
+    max-height: 385px;
+}
+
+.user-finance-table,
+.common-table-container {
+    overflow-x: auto;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    width: 100%;
+}
+.user-finance-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.user-finance-table th,
+.user-finance-table td {
+    padding: var(--space-md) var(--space-lg);
+    text-align: left;
+    border-bottom: 0.5px solid var(--border-color);
+}
+
+/* Ensure better spacing between Payment Progress and Balance columns */
+.user-finance-table th:nth-child(3),
+.user-finance-table td:nth-child(3) {
+    min-width: 180px;
+}
+.user-finance-table th:nth-child(4),
+.user-finance-table td:nth-child(4) {
+    min-width: 120px;
+    text-align: right;
+}
+
+/* Remove center alignment for specific columns in user-finance-table */
+.user-finance-table th:nth-child(2),
+.user-finance-table td:nth-child(2),
+.user-finance-table th:nth-child(3),
+.user-finance-table td:nth-child(3),
+.user-finance-table th:nth-child(4),
+.user-finance-table td:nth-child(4),
+.user-finance-table th:nth-child(5),
+.user-finance-table td:nth-child(5),
+.user-finance-table th:nth-child(6),
+.user-finance-table td:nth-child(6) {
+    text-align: left !important;
+}
+
+.user-finance-table th {
+    background: var(--surface-hover);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.user-finance-table td {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.finance-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: var(--space-xs) 0;
+    margin-bottom: var(--space-md);
+}
+
+.user-section-content {
+    padding: 0;
+    margin-bottom: var(--space-lg);
+    overflow: hidden;
+
+}
+
+/* Align all table cells to the left and add spacing between columns */
+.left-align-table th,
+.left-align-table td {
+    text-align: left !important;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.left-align-table th:first-child,
+.left-align-table td:first-child {
+    padding-left: 24px;
+}
+.left-align-table th:last-child,
+.left-align-table td:last-child {
+    padding-right: 24px;
+}
+.left-align-table th,
+.left-align-table td {
+    min-width: 120px;
+}
+
+.user-finance-card.user-finance-empty:only-child {
+    flex: 1;
+}
+
+.user-finance-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.user-finance-card-title-section {
+    flex: 1;
+}
+
+.user-finance-card-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-xs) 0;
+}
+
+.user-finance-card-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.user-finance-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    font-size: var(--font-size-xl);
+}
+
+.user-finance-card-content {
+    flex: 1;
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+}
+
+.user-finance-payslips-list,
+.user-finance-allowances-list {
+    flex: 1;
+}
+
+.user-finance-payslip-item,
+.user-finance-allowance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--space-md) 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.user-finance-payslip-item:last-child,
+.user-finance-allowance-item:last-child {
+    border-bottom: none;
+}
+
+.user-finance-payslip-info,
+.user-finance-allowance-info {
+    flex: 1;
+}
+
+.user-finance-payslip-period,
+.user-finance-allowance-type {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+}
+
+.user-finance-payslip-type,
+.user-finance-allowance-frequency {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.user-finance-payslip-amount,
+.user-finance-allowance-amount {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.user-finance-amount-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.user-finance-card-footer {
+    padding: var(--space-md) var(--space-lg);
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.user-finance-empty-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+    text-align: center;
+}
+
+.user-finance-empty-icon {
+    font-size: 48px;
+    color: var(--text-muted);
+    margin-bottom: var(--space-lg);
+}
+
+.user-finance-empty-text {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 1100px) {
+    .finance-flex-fixed { flex-basis: 220px; max-width: 220px; min-width: 160px; }
+}
+
+@media (max-width: 1024px) {
+    .loan-responsive-table .loan-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table.loan-table-fixed-footer {
+        max-height: 600px;
+    }
+    .user-finance-table .payslip-hide-mobile {
+        display: none !important;
+    }
+    .finance-flex-fixed {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
+}
+
+@media (max-width: 900px) {
+    .finance-flex-row { 
+        flex-direction: column; 
+        gap: 0; 
+    }
+    .finance-flex-fixed, .finance-flex-payslip { 
+        max-width: 100%; 
+        min-width: 0; flex: 1 1 100%; 
+    }
+}
+
+@media (max-width: 768px) {
+    .loan-responsive-table .loan-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table.loan-table-fixed-footer {
+        max-height: 600px;
+    }
+    .user-finance-table .payslip-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table{
+        min-height: 385px;
+        max-height: 500px;
+    }
+
+    .user-finance-table table {
+        width: 100%;
+    }
+
+    .user-finance-table th {
+        background: var(--surface-hover);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: var(--font-size-xs);
+    }
+
+    .user-finance-table td {
+        color: var(--text-secondary);
+        font-size: var(--font-size-sm);
+    }
+    .finance-flex-fixed {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .loan-responsive-table .loan-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table.loan-table-fixed-footer {
+        max-height: 600px;
+    }
+    .user-finance-table .payslip-hide-mobile {
+        display: none !important;
+    }
+    .user-finance-table table {
+            width: 100%;
+    }
+
+    .user-section-content {
+        padding: var(--space-md);
+    }
+    .finance-flex-fixed {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
+}
+
+/* OJT Payslip Modal Styles */
+.payslip-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+}
+
+.payslip-header {
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.company-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.company-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+.company-details h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    line-height: 1.2;
+}
+
+.company-details p {
+    margin: 5px 0 0 0;
+    font-size: 12px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.employee-info {
+    margin-bottom: 25px;
+}
+
+.info-row {
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.info-item {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #333;
+    display: flex;
+    gap: 8px;
+}
+
+.info-item .label {
+    font-weight: bold;
+    min-width: 80px;
+}
+
+.info-item .value {
+    flex: 1;
+}
+
+.payslip-sections {
+    margin-bottom: 25px;
+}
+
+.section-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.section {
+    flex: 1;
+    border: 1px solid #333;
+}
+
+.section h3 {
+    margin: 0;
+    padding: 12px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #333;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.section-content {
+    padding: 12px;
+}
+
+.field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px dotted #ddd;
+}
+
+.field:last-child {
+    border-bottom: none;
+}
+
+.field.total {
+    border-top: 2px solid #333;
+    border-top: 1px solid #333;
+    border-bottom: 1px solid #333;
+    padding-top: 8px;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.field-label {
+    font-size: 13px;
+    color: #333;
+}
+
+.field-value {
+    font-weight: 600;
+    color: #333;
+    text-align: right;
+}
+
+.total-allowance {
+    text-align: center;
+    background: #f8f9fa;
+    border: 2px solid #333;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.total-allowance h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #333;
+}
+
+.total-allowance span {
+    color: #059669;
+    font-weight: bold;
+}
+
+/* Modal specific adjustments */
+.modal-lg .modal-content {
+    max-width: 900px;
+    width: 90%;
+}
+
+#ojtPayslipDetailsModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* OJT Email Confirmation Modal Styles */
+.ojt-email-confirmation-form {
+    padding: 10px 0;
+}
+
+.confirmation-message {
+    text-align: center;
+}
+
+.confirmation-icon {
+    /* background: #e3f2fd; */
+    color: #1976d2;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px auto;
+    font-size: 24px;
+}
+
+.confirmation-message p {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: 20px;
+}
+
+.email-info {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.email-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.email-display i {
+    font-size: 16px;
+}
+
+.payslip-info-summary {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.payslip-info-summary .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.payslip-info-summary .info-item:last-child {
+    border-bottom: none;
+}
+
+.payslip-info-summary .label {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.payslip-info-summary .value {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+/* Print styles */
+@media print {
+    .payslip-container {
+        box-shadow: none;
+        border: none;
+        margin: 0;
+        padding: 15px;
+    }
+    
+    .modal-header,
+    .modal-footer {
+        display: none !important;
+    }
+    
+    .section-row {
+        page-break-inside: avoid;
+    }
+    
+    .total-allowance {
+        page-break-inside: avoid;
+    }
+}

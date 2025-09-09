@@ -1,0 +1,293 @@
+{% extends "main.html" %}
+{% load static %}
+{% load dashboard_extras %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Overview{% endblock title %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/announcement/announcement.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+
+    <!-- User Greeting Section -->
+    <div class="user-greeting-section">
+        {% comment %} <div class="greeting-icon-container">
+            <div class="greeting-icon waving active" id="wavingIcon">
+                👋
+            </div>
+            <div class="greeting-icon time-icon hidden" id="timeIcon" data-time="{{ time_greeting }}">
+                {% if time_greeting == 'morning' %}
+                    ☀️
+                {% elif time_greeting == 'afternoon' %}
+                    ☀️
+                {% else %}
+                    🌙
+                {% endif %}
+            </div>
+        </div> {% endcomment %}
+        <div class="greeting-content">
+            <h2>Welcome back, {{ request.user.firstname }}!</h2>
+            <p class="greeting-message">
+                {% if time_greeting == 'morning' %}
+                    Good morning! Ready to make today amazing?
+                {% elif time_greeting == 'afternoon' %}
+                    Good afternoon! Hope you're having a productive day!
+                {% else %}
+                    Good evening! Time to wrap up another great day!
+                {% endif %}
+            </p>
+            {% if is_birthday %}
+            <div class="birthday-message">
+                <span class="birthday-icon">🎉</span>
+                Happy Birthday! Wishing you an amazing year ahead filled with success and happiness!
+                <span class="birthday-icon">🎂</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="overview-layout">
+        <!-- Announcements Feed -->
+        <div class="first-column">
+            <div class="announcements-section">
+                <!-- Announcements Feed -->
+                <div class="announcements-feed" id="announcementsFeed">
+                    {% for announcement_data in announcements %}
+                    <div class="post-card" data-id="{{ announcement_data.announcement.id }}">
+                        <div class="post-header">
+                            <div class="post-author">
+                                <div class="author-avatar">
+                                    {% if announcement_data.announcement.author.avatar %}
+                                    <img src="{{ announcement_data.announcement.author.avatar.url }}" alt="{{ announcement_data.announcement.author.full_name }}">
+                                    {% else %}
+                                    <div class="avatar-placeholder">
+                                        {{ announcement_data.announcement.author.firstname.0 }}{{ announcement_data.announcement.author.lastname.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="author-info">
+                                    <h4 class="author-name">{{ announcement_data.announcement.author.full_name }} <span class="post-status">posted an announcement</span></h4>
+                                    <span class="post-time" data-time="{{ announcement_data.announcement.created_at|date:'c' }}">
+                                        {{ announcement_data.announcement.created_at|date:"F d, Y at g:i A" }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="post-content">
+                            <p class="post-text">{{ announcement_data.announcement.get_highlighted_content|safe|linebreaksbr }}</p>
+                            {% if announcement_data.announcement.image %}
+                            <div class="post-image">
+                                <img src="{% static announcement_data.announcement.image %}" alt="Post image" loading="lazy">
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="post-footer">
+                            <div class="reactions-container">
+                                <div class="reaction-section">
+                                    <!-- Main Reaction Button -->
+                                    <div class="main-reaction-wrapper">
+                                        <button class="main-reaction-btn" data-announcement="{{ announcement_data.announcement.id }}">
+                                            {% if announcement_data.user_reaction %}
+                                                {% for emoji_code, emoji_symbol in emoji_choices %}
+                                                    {% if emoji_code == announcement_data.user_reaction %}
+                                                        <span class="reaction-icon active" data-emoji="{{ emoji_code }}">{{ emoji_symbol }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <i class="fas fa-thumbs-up reaction-icon"></i>
+                                            {% endif %}
+                                        </button>
+                                        
+                                        <!-- Reactions Popover -->
+                                        <div class="reactions-popover" id="popover-{{ announcement_data.announcement.id }}">
+                                            {% for emoji_code, emoji_symbol in emoji_choices %}
+                                            <button class="popover-reaction-btn" 
+                                                    data-emoji="{{ emoji_code }}" 
+                                                    data-announcement="{{ announcement_data.announcement.id }}">
+                                                <span class="emoji">{{ emoji_symbol }}</span>
+                                            </button>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Reactors Display -->
+                                    <div class="reactors-display" id="reactors-{{ announcement_data.announcement.id }}" {% if announcement_data.total_reactions == 0 %}style="display: none;"{% endif %}>
+                                        <div class="reactor-avatars">
+                                            {% if announcement_data.reactors %}
+                                                {% for reactor in announcement_data.reactors|slice:":5" %}
+                                                    <div class="reactor-avatar">
+                                                        {% if reactor.avatar %}
+                                                            <img src="{{ reactor.avatar }}" alt="{{ reactor.name }}">
+                                                        {% else %}
+                                                            <div class="avatar-placeholder">{{ reactor.name|slice:":2"|upper }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                        <div class="reactor-text">
+                                            {% if announcement_data.reactors %}
+                                                <span class="latest-reactor">{{ announcement_data.reactors.0.name }}</span>
+                                                {% if announcement_data.total_reactions > 1 %}
+                                                    <span class="remaining-count" data-tooltip-id="tooltip-{{ announcement_data.announcement.id }}">and {{ announcement_data.total_reactions|add:"-1" }} {{ announcement_data.total_reactions|add:"-1"|pluralize:"person,people" }} reacted to this announcement</span>
+                                                {% else %}
+                                                    <span class="remaining-count" data-tooltip-id="tooltip-{{ announcement_data.announcement.id }}">reacted to this announcement</span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Tooltip for reactor list -->
+                                        <div class="reactors-tooltip" id="tooltip-{{ announcement_data.announcement.id }}">
+                                            <div class="tooltip-content">
+                                                {% if announcement_data.reactors %}
+                                                    {% for reactor in announcement_data.reactors %}
+                                                        <div class="tooltip-reactor">
+                                                            <span class="emoji">
+                                                                {% for emoji_code, emoji_symbol in emoji_choices %}
+                                                                    {% if emoji_code == reactor.reaction %}{{ emoji_symbol }}{% endif %}
+                                                                {% endfor %}
+                                                            </span>
+                                                            <span>{{ reactor.name }}</span>
+                                                        </div>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <div class="tooltip-reactor">No reactions yet</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="no-announcements">
+                        <i class="fas fa-bullhorn"></i>
+                        <p>No announcements yet.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% comment %} <div class="second-column">
+        </div> {% endcomment %}
+
+        <!-- Right Column -->
+        <div class="third-column">
+                <!-- Mini Calendar -->
+                <div class="calendar-section">
+                    <div class="mini-calendar" id="miniCalendar">
+                        <!-- Calendar will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Profile Completion -->
+                <div class="profile-completion-content">
+                    <div class="completion-circle">
+                        <svg class="progress-ring" width="80" height="80">
+                                <circle cx="40" cy="40" r="32" 
+                                        fill="none" stroke="#e4e6ea" stroke-width="6"></circle>
+                                <circle class="progress-ring-circle" 
+                                        cx="40" cy="40" r="32" 
+                                        fill="none" stroke="#1877f2" stroke-width="6"
+                                        stroke-linecap="round"
+                                        stroke-dasharray="0 201">
+                                </circle>
+                        </svg>
+                        <div class="completion-percentage">{{ profile_completion }}%</div>
+                    </div>
+                        
+                    <div class="completion-details">
+                        <h5>Complete your profile</h5>
+                        <p>Add missing information to help colleagues find and connect with you.</p>
+                    </div>
+
+                    {% if profile_completion < 100 %}
+                    <a href="{% url 'user_profile' %}" class="view-full-link">Complete Profile</a>
+                    {% endif %}
+                </div>
+
+                <!-- Upcoming Leaves -->
+                {% if upcoming_leaves %}
+                <div class="upcoming-leaves-section">
+                    <div class="section-header">
+                        <h4>Upcoming Leaves</h4>
+                        <a href="{% url 'user_leave' %}" class="view-full-link">View All</a>
+                    </div>
+                    <div class="upcoming-leaves-list">
+                        {% for leave in upcoming_leaves %}
+                        <div class="leave-item">
+                            <div class="leave-icon">
+                                <i class="fas fa-calendar-times"></i>
+                            </div>
+                            <div class="leave-content">
+                                <div class="leave-type">{{ leave.leave_type.name }}</div>
+                                <div class="leave-dates">
+                                    {{ leave.date_from|date:"M d" }} 
+                                    {% if leave.date_from != leave.date_to %}
+                                        - {{ leave.date_to|date:"M d" }}
+                                    {% endif %}
+                                </div>
+                                <div class="leave-days">{{ leave.days_requested }} day{{ leave.days_requested|floatformat:0|add:"0"|pluralize }}</div>
+                            </div>
+                            <div class="leave-status">
+                                <span class="status-badge approved">{{ leave.status|title }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Notifications -->
+                <div class="notifications-section">
+                    <div class="section-header">
+                        <h4>Recent Notifications</h4>
+                    </div>
+                    <div class="notifications-list">
+                        {% for notification in notifications %}
+                        <div class="dashboard-notification-items {% if not notification.is_read %}unread{% endif %}">
+                            <div class="notification-icon">
+                                {% if notification.notification_type == 'approved' %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% elif notification.notification_type == 'disapproved' %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% elif notification.notification_type == 'announcement' %}
+                                    <i class="fas fa-bullhorn text-primary"></i>
+                                {% else %}
+                                    <i class="fas fa-bell text-info"></i>
+                                {% endif %}
+                            </div>
+                            <div class="notification-content">
+                                <div class="notification-title">{{ notification.title }}</div>
+                                <div class="notification-message">{{ notification.message|truncatechars:100 }}</div>
+                                <div class="notification-time">{{ notification.created_at|timesince }} ago</div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="no-notifications">
+                            <i class="fas fa-bell-slash"></i>
+                            <p>No notifications yet.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="toast-container" id="toastContainer"></div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/dashboard/dashboard.js' %}"></script>
+{% endblock %}

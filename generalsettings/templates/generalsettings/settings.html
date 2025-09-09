@@ -1,0 +1,494 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - General Settings{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/generalsettings/generalsettings.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+        <div class="page-header">
+            <div class="page-header-content">
+                <h1 class="page-title">General Settings</h1>
+                <p class="page-subtitle">Manage your system configuration and preferences</p>
+            </div>
+        </div>
+
+        <div class="tabs-horizontal">
+            <div class="tab-list">
+                <button class="tab active" data-tab="profile">General</button>
+                <button class="tab" data-tab="finance">Finance</button>
+                <button class="tab" data-tab="leave">Leave</button>
+                <button class="tab" data-tab="ticketing">Ticketing</button>
+            </div>
+        </div>
+            
+        <div class="tab-panel active" id="profile">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            
+            <!-- Line Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Production Lines</h4>
+                        </div>
+                        <p class="info-subtext">Manage available production lines in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="lineForm">
+                        <div class="invite-fields" id="lineFields">
+                            <!-- Line fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addLineBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+
+            <!-- Department Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Departments</h4>
+                        </div>
+                        <p class="info-subtext">Manage available departments in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="departmentForm">
+                        <div class="invite-fields" id="departmentFields">
+                            <!-- Department fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addDepartmentBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                 
+
+                </div>
+            </div>
+
+            <!-- Position Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Positions</h4>
+                        </div>
+                        <p class="info-subtext">Manage available positions in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="positionForm">
+                        <div class="invite-fields" id="positionFields">
+                            <!-- Position fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addPositionBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-panel" id="finance">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            
+            <!-- LoanType Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Loan Types</h4>
+                        </div>
+                        <p class="info-subtext">Manage available loan types in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="loanTypeForm">
+                        <div class="invite-fields" id="loanTypeFields">
+                            <!-- LoanType fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addLoanTypeBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+
+            <!-- AllowanceType Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Allowance Types</h4>
+                        </div>
+                        <p class="info-subtext">Manage available allowance types in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="allowanceTypeForm">
+                        <div class="invite-fields" id="allowanceTypeFields">
+                            <!-- AllowanceType fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addAllowanceTypeBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+
+            <!-- OJTRate Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>OJT Rates</h4>
+                        </div>
+                        <p class="info-subtext">Manage OJT site rates and configurations</p>
+                    </div>
+                        
+                    <div class="invite-form" id="ojtRateForm">
+                        <div class="invite-fields" id="ojtRateFields">
+                            <!-- OJTRate fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addOJTRateBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+        </div>     
+
+        <div class="tab-panel" id="leave">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            
+            <!-- LeaveType Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Leave Types</h4>
+                        </div>
+                        <p class="info-subtext">Manage available leave types in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="leaveTypeForm">
+                        <div class="invite-fields" id="leaveTypeFields">
+                            <!-- LeaveType fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addLeaveTypeBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+
+            <!-- SundayException Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Sunday Exceptions</h4>
+                        </div>
+                        <p class="info-subtext">Manage Sunday exceptions (working Sundays)</p>
+                    </div>
+                        
+                    <div class="invite-form" id="sundayExceptionForm">
+                        <div class="invite-fields" id="sundayExceptionFields">
+                            <!-- SundayException fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addSundayExceptionBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-panel" id="ticketing">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            
+            <!-- DeviceType Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Device Types</h4>
+                        </div>
+                        <p class="info-subtext">Manage available device types in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="deviceTypeForm">
+                        <div class="invite-fields" id="deviceTypeFields">
+                            <!-- DeviceType fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addDeviceTypeBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+
+            <!-- TicketCategory Section -->
+            <div class="settings-content">
+                <div class="invite-layout">
+                    <div class="invite-info">
+                        <div class="info-header">
+                            <h4>Ticket Categories</h4>
+                        </div>
+                        <p class="info-subtext">Manage available ticket categories in the system</p>
+                    </div>
+                        
+                    <div class="invite-form" id="ticketCategoryForm">
+                        <div class="invite-fields" id="ticketCategoryFields">
+                            <!-- TicketCategory fields will be populated here (minimum 3) -->
+                        </div>
+                        <button class="btn-add-field" id="addTicketCategoryBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Another Field
+                        </button>
+                    </div>                
+                </div>
+            </div>
+        </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal modal-md" id="deleteConfirmModal">
+    <div class="modal-overlay" onclick="closeDeleteModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Confirm Deletion</h4>
+            <button class="modal-close" onclick="closeDeleteModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="delete-confirmation">
+                <p>Are you sure you want to delete</p>
+                <p class="delete-details" id="deleteItemName"></p>
+                <div class="warning-note">
+                    <i class="fas fa-info-circle"></i>
+                    <span>This action cannot be undone</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-error" id="confirmDeleteBtn">
+                <i class="fa fa-check"></i>
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Department Lines Modal -->
+<div class="modal modal-lg" id="departmentLinesModal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 id="departmentLinesTitle">Department Lines</h4>
+            <button class="modal-close" onclick="closeDepartmentLinesModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="department-lines-container">
+                <div class="add-line-section">
+                    <h5>Add Line to Department</h5>
+                    <div class="add-line-form">
+                        <select id="availableLinesSelect" class="form-select">
+                            <option value="">select available lines...</option>
+                            {% for line in lines %}
+                                <option value="{{ line.id }}">{{ line.line_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addLineToDepartment()">
+                            <i class="fas fa-plus"></i>
+                            Add
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="current-lines-section">
+                    <h5>Current Lines in Department</h5>
+                    <div id="departmentLinesList" class="department-lines-list">
+                        <!-- Lines will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeDepartmentLinesModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- OJT Rate Modal -->
+<div class="modal modal-md" id="ojtRateModal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 id="ojtRateTitle">OJT Site Rates</h4>
+            <button class="modal-close" onclick="closeOJTRateModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="ojt-rate-container">
+                <div class="rate-form-section">
+                    <form id="ojtRateForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="allowanceDayInput">Allowance Day</label>
+                                <input type="number" id="allowanceDayInput" class="form-input" step="0.01" placeholder="0.00">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="regNdRateInput">Regular ND Rate</label>
+                                <input type="number" id="regNdRateInput" class="form-input" step="0.01" placeholder="0.00">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="regNdOtRateInput">Regular ND OT Rate</label>
+                                <input type="number" id="regNdOtRateInput" class="form-input" step="0.01" placeholder="0.00">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="regOtRateInput">Regular OT Rate</label>
+                                <input type="number" id="regOtRateInput" class="form-input" step="0.01" placeholder="0.00">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="restOtRateInput">Rest OT Rate</label>
+                                <input type="number" id="restOtRateInput" class="form-input" step="0.01" placeholder="0.00">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="legalRateInput">Legal Rate</label>
+                                <input type="number" id="legalRateInput" class="form-input" step="0.01" placeholder="0.00">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="satOffRateInput">Saturday Off Rate</label>
+                                <input type="number" id="satOffRateInput" class="form-input" step="0.01" placeholder="0.00">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeOJTRateModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveOJTRate()">
+                <i class="fas fa-save"></i>
+                Save Rates
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Leave Type Reasons Modal -->
+<div class="modal modal-lg" id="leaveTypeReasonsModal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 id="leaveTypeReasonsTitle">Leave Type Reasons</h4>
+            <button class="modal-close" onclick="closeLeaveTypeReasonsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="leave-type-reasons-container">
+                <div class="add-reason-section">
+                    <h5>Add Reason to Leave Type</h5>
+                    <div class="add-reason-form">
+                        <input type="text" id="newReasonInput" class="form-input" placeholder="Enter reason text...">
+                        <div class="checkbox-container">
+                            <label class="standard-checkbox">
+                                <input type="checkbox" id="newReasonActiveInput" checked>
+                                <span class="checkmark"></span>
+                            </label>
+                            <span>Is Active</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addReasonToLeaveType()">
+                            <i class="fas fa-plus"></i>
+                            Add
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="current-reasons-section">
+                    <h5>Current Reasons in Leave Type</h5>
+                    <div id="leaveTypeReasonsList" class="leave-type-reasons-list">
+                        <!-- Reasons will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeLeaveTypeReasonsModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Leave Type Reason Modal -->
+<div class="modal modal-md" id="editLeaveTypeReasonModal">
+    <div class="modal-overlay" onclick="closeEditLeaveTypeReasonModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Edit Leave Type Reason</h4>
+            <button class="modal-close" onclick="closeEditLeaveTypeReasonModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="edit-reason-container">
+                <form id="editReasonForm">
+                    <div class="form-group">
+                        <label for="editReasonTextInput">Reason Text</label>
+                        <input type="text" id="editReasonTextInput" class="form-input" placeholder="Enter reason text...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-container">
+                            <label class="standard-checkbox">
+                                <input type="checkbox" id="editReasonActiveInput">
+                                <span class="checkmark"></span>
+                            </label>
+                            <span>Is Active</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeEditLeaveTypeReasonModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveEditedLeaveTypeReason()">
+                <i class="fas fa-save"></i>
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/generalsettings/generalsettings.js' %}"></script>
+{% endblock extra_js %}

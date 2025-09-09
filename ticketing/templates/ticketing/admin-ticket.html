@@ -1,0 +1,429 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - MIS Ticketing{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/ticket/ticket.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+        <div class="page-header">
+            <div class="page-header-content">
+                <h1 class="page-title">MIS Admin Dashboard</h1>
+                <p class="page-subtitle">Manage all IT support tickets and devices</p>
+            </div>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon blue">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div class="modern-stat-label">Total Requests</div>
+                    <div class="modern-stat-value">{{ stats.total_requests }}</div>
+                    <div class="modern-stat-change {% if stats.is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.percentage_change }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Approved</div>
+                    <div class="modern-stat-value">{{ stats.approved }}</div>
+                    <div class="modern-stat-change {% if stats.approved_is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.approved_is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.approved_percentage }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon red">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Disapproved</div>
+                    <div class="modern-stat-value">{{ stats.disapproved }}</div>
+                    <div class="modern-stat-change {% if stats.disapproved_is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.disapproved_is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.disapproved_percentage }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon orange">
+                        <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <div class="modern-stat-label">Processing</div>
+                    <div class="modern-stat-value">{{ stats.processing }}</div>
+                    <div class="modern-stat-change {% if stats.processing_is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.processing_is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.processing_percentage }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs-horizontal">
+            <div class="tab-list">
+                <button class="tab active" data-tab="tickets">Ticket Requests</button>
+                <button class="tab" data-tab="devices">User Devices</button>
+            </div>
+        </div>
+            
+        <div class="tab-panel active" id="tickets-tab">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left">
+                    <form class="search-box" method="get" action="" id="ticketsSearchForm">
+                        <input type="text" class="search-input" id="ticketsSearchInput" placeholder="Search tickets..." name="search" value="" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        <span class="search-clear" style="display: none;">
+                            <a href="#" id="clearTicketsSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" id="exportBtn">
+                        <i class="fas fa-download"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ticket #</th>
+                                <th>Requestor</th>
+                                <th>Device</th>
+                                <th>Category</th>
+                                <th style="text-align: center;">Priority</th>
+                                <th style="text-align: center;">Status</th>
+                                <th>Created</th>
+                                <th style="text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ticketsTableBody">
+                            {% include 'ticketing/partials/admin_tickets_table.html' %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="ticketsPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="ticketsStartRecord">{{ tickets.start_index|default:0 }}</span> to <span id="ticketsEndRecord">{{ tickets.end_index|default:0 }}</span> of <span id="ticketsTotalRecords">{{ tickets.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="ticketsPaginationControls">
+                    {% if tickets.has_previous %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="ticketsPageNumbers">
+                        {% if tickets.paginator.page_range %}
+                            {% for num in tickets.paginator.page_range %}
+                                {% if tickets.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > tickets.number|add:'-3' and num < tickets.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadTicketsPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if tickets.has_next %}
+                        <button class="pagination-btn" onclick="loadTicketsPage({{ tickets.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div> 
+
+        </div>
+            
+        <div class="tab-panel" id="devices-tab">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left">
+                    <form class="search-box" method="get" action="" id="devicesSearchForm">
+                        <input type="text" class="search-input" id="devicesSearchInput" placeholder="Search devices..." name="search" value="" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        <span class="search-clear" style="display: none;">
+                            <a href="#" id="clearDevicesSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                    </form>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Owner</th>
+                                <th>Device Name</th>
+                                <th>Device Code</th>
+                                <th>Device Type</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devicesTableBody">
+                            {% include 'ticketing/partials/admin_devices_table.html' %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="devicesPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="devicesStartRecord">{{ devices.start_index|default:0 }}</span> to <span id="devicesEndRecord">{{ devices.end_index|default:0 }}</span> of <span id="devicesTotalRecords">{{ devices.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="devicesPaginationControls">
+                    {% if devices.has_previous %}
+                        <button class="pagination-btn" onclick="loadDevicesPage({{ devices.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="devicesPageNumbers">
+                        {% if devices.paginator.page_range %}
+                            {% for num in devices.paginator.page_range %}
+                                {% if devices.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > devices.number|add:'-3' and num < devices.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadDevicesPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if devices.has_next %}
+                        <button class="pagination-btn" onclick="loadDevicesPage({{ devices.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <span class="pagination-btn disabled">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div> 
+        </div>
+</div>
+
+<!-- View Ticket Modal -->
+<div class="modal modal-lg" id="viewTicketModal">
+        <div class="modal-overlay" onclick="closeModal('viewTicketModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h4>Ticket Details</h4>
+                <button class="modal-close" onclick="closeModal('viewTicketModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="ticketDetailsContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('viewTicketModal')">Close</button>
+            </div>
+        </div>
+</div>
+
+<!-- Review Ticket Modal -->
+<div class="modal modal-lg" id="reviewTicketModal">
+        <div class="modal-overlay" onclick="closeModal('reviewTicketModal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Review Ticket Request</h4>
+                <button class="modal-close" onclick="closeModal('reviewTicketModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="ticketInfoSection" class="mb-4">
+                    <!-- Ticket info will be loaded here -->
+                </div>
+                <div style="padding-bottom: var(--space-md)">
+                    <h4>MIS Diagnosis Information</h4>
+                </div>
+                {% comment %} <hr style="padding: 0; margin-bottom: var(--space-md)"> {% endcomment %}
+                <form id="reviewTicketForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="reviewTicketId" name="ticket_id">
+                    <div class="form-row form-row-2col">
+                        <div class="form-group">
+                            <label class="form-label">Status <span class="text-danger">*</span></label>
+                            <select name="status" class="form-input" required>
+                                <option value="">Select Status</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Disapproved">Disapproved</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Technician Name</label>
+                            <input type="text" name="technician_name" class="form-input" value="{{ request.user.full_name }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Diagnosis <span class="text-danger">*</span></label>
+                        <textarea name="diagnosis" class="form-input" rows="3" required placeholder="Enter diagnosis details"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Action Taken <span class="text-danger">*</span></label>
+                        <textarea name="action_taken" class="form-input" rows="3" required placeholder="Describe actions taken"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Possible Reason <span class="text-danger">*</span></label>
+                        <textarea name="possible_reason" class="form-input" rows="3" required placeholder="Explain possible reasons for the issue"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Recommendation</label>
+                        <textarea name="recommendation" class="form-input" rows="3" placeholder="Optional recommendations"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('reviewTicketModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitReviewTicket()">Submit Review</button>
+            </div>
+        </div>
+</div>
+
+<!-- View Device Modal -->
+<div class="modal modal-md" id="viewDeviceModal">
+        <div class="modal-overlay" onclick="closeModal('viewDeviceModal')"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Device Details</h4>
+                <button class="modal-close" onclick="closeModal('viewDeviceModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="deviceDetailsContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('viewDeviceModal')">Close</button>
+            </div>
+        </div>
+</div>
+
+<!-- Export Options Modal -->
+<div class="modal modal-md" id="exportOptionsModal">
+    <div class="modal-overlay" onclick="closeModal('exportOptionsModal')"></div>
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h4>Export Options</h4>
+            <button class="modal-close" onclick="closeModal('exportOptionsModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="exportOptionsForm">
+                {% csrf_token %}
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label class="form-label">Date From <span class="text-danger">*</span></label>
+                        <input type="date" name="date_from" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date To <span class="text-danger">*</span></label>
+                        <input type="date" name="date_to" class="form-input" required>
+                    </div>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label class="form-label">Ticket Category</label>
+                        <select name="category" class="form-input">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ticket Status</label>
+                        <select name="status" class="form-input">
+                            <option value="">All Statuses</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Disapproved">Disapproved</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('exportOptionsModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="exportReport()">
+                <i class="fas fa-download"></i>
+                Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Device Ticket History Modal -->
+<div class="modal modal-lg" id="deviceHistoryModal">
+    <div class="modal-overlay" onclick="closeModal('deviceHistoryModal')"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h4>Device Ticket History</h4>
+            <button class="modal-close" onclick="closeModal('deviceHistoryModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="tabs-horizontal" id="historyTabs">
+                <div class="tab-list" id="historyTabsList">
+                    <!-- Tabs will be populated dynamically -->
+                </div>
+            </div>
+            <div id="historyTabPanels" class="history-tab-panels">
+                <!-- Tab panels will be populated dynamically -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('deviceHistoryModal')">Close</button>
+            <button class="btn btn-primary" onclick="exportDeviceHistory()">
+                <i class="fas fa-download"></i>
+                Export History
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/ticket/admin_ticket.js' %}"></script>
+{% endblock extra_js %}

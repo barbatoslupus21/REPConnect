@@ -1,0 +1,71 @@
+{% if evaluations %}
+    {% for evaluation in evaluations %}
+    <tr>
+        <td>
+            <div class="fiscal-year">{{ evaluation.fiscal_year_label }}</div>
+        </td>
+        <td>
+            <div class="evaluation-title">{{ evaluation.title|title }}</div>
+        </td>
+        <td class="hide-column">
+            <div class="evaluation-description">
+                {% if evaluation.description %}
+                    {{ evaluation.description|truncatechars:50 }}
+                {% else %}
+                    <span class="text-muted">No description</span>
+                {% endif %}
+            </div>
+        </td>
+        
+        <td>{{ evaluation.duration|title }}</td>
+        <td style="text-align:center;" class="hide-column">
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ evaluation.completion_percentage }}%"></div>
+                </div>
+                <span class="progress-text">{{ evaluation.completion_percentage }}%</span>
+            </div>
+        </td>
+        <td style="text-align:center;" class="hide-column">
+            {% if evaluation.is_active %}
+                <div class="status-pill status-green">Active</div>
+            {% else %}
+                <div class="status-pill status-red">Inactive</div>
+            {% endif %}           
+        </td>
+        <td style="text-align:center;">
+            <div style="display:flex; justify-content:center;">
+                <button class="btn btn-icon view-evaluation-btn" data-evaluation-id="{{ evaluation.id }}">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-icon edit-evaluation-btn" data-evaluation-id="{{ evaluation.id }}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-icon btn-error text-danger delete-evaluation-btn" data-evaluation-id="{{ evaluation.id }}" data-evaluation-title="{{ evaluation.title }}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="8" class="text-center">
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <h5>No evaluations found</h5>
+                <p>No evaluations created yet</p>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+{% else %}
+    <tr>
+        <td colspan="8" class="text-center">
+			<div class="empty-state">
+				<i class="fas fa-search"></i>
+				<h5>No evaluations found</h5>
+				<p>No evaluations date found in database</p>
+			</div>
+		</td>
+    </tr>
+{% endif %}

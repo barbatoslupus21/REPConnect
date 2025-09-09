@@ -1,0 +1,415 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - My Certificates{% endblock title %}
+
+{% csrf_token %}
+
+{% block extra_css %}
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="stylesheet" href="{% static 'css/certificate/certificate.css' %}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/minified/introjs.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/themes/introjs-dark.min.css" id="introjs-dark-theme" disabled>
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+    <header class="page-header">
+        <div class="page-header-content">
+            <h2>My Certificates</h2>
+            <p>View and manage your issued certificates</p>
+        </div>
+
+        <button class="tour-btn" onclick="startProductTour()" data-intro="Take a guided tour of the My Certificates page" data-step="1">
+            <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
+            <span class="tour-tooltip">Page Tour</span>
+        </button>
+    </header>
+
+    {% if certificates %}
+        <div class="component-grid">
+            {% for certificate in certificates %}
+                <div class="card certificate-card" data-certificate-id="{{ certificate.id }}">
+                    <div class="card-header">
+                        <h4>{{ certificate.title }}</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="certificate-preview">
+                            {% if certificate.is_image %}
+                                <img src="{{ certificate.certificate_file.url }}" alt="{{ certificate.title }}" class="certificate-image">
+                            {% elif certificate.is_pdf %}
+                                <div class="pdf-preview">
+                                    <i class="fas fa-file-pdf pdf-icon"></i>
+                                    <span>PDF Certificate</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="certificate-info">
+                            <p class="certificate-date">
+                                <i class="fas fa-calendar"></i>
+                                Received: {{ certificate.created_at|date:"M d, Y" }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-primary btn-sm view-certificate" data-certificate-id="{{ certificate.id }}">
+                            <i class="fas fa-eye"></i>
+                            View
+                        </button>
+                        <button class="btn btn-accent btn-sm email-certificate" data-certificate-id="{{ certificate.id }}">
+                            <i class="fas fa-envelope"></i>
+                            Send
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-certificate"></i>
+            </div>
+            <h3>No Certificates Yet</h3>
+            <p>You haven't received any certificates yet. Check back later!</p>
+        </div>
+    {% endif %}
+</div>
+
+{% if unseen_count > 0 %}
+<div id="congratsModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-md congrats-modal" style="position:relative; max-width: 420px; margin: 2.5rem auto;">
+        <!-- Enhanced Confetti Animation System -->
+        <div class="confetti-container">
+            <!-- Confetti Cannons -->
+            <div class="confetti-cannon left-cannon">
+                <div class="confetti-piece rectangle gold"></div>
+                <div class="confetti-piece circle pink"></div>
+                <div class="confetti-piece star blue"></div>
+                <div class="confetti-piece rectangle green"></div>
+                <div class="confetti-piece circle orange"></div>
+                <div class="confetti-piece star purple"></div>
+                <div class="confetti-piece rectangle red"></div>
+                <div class="confetti-piece circle cyan"></div>
+                <div class="confetti-piece star yellow"></div>
+                <div class="confetti-piece rectangle lime"></div>
+            </div>
+
+            <div class="confetti-cannon right-cannon">
+                <div class="confetti-piece rectangle gold"></div>
+                <div class="confetti-piece circle pink"></div>
+                <div class="confetti-piece star blue"></div>
+                <div class="confetti-piece rectangle green"></div>
+                <div class="confetti-piece circle orange"></div>
+                <div class="confetti-piece star purple"></div>
+                <div class="confetti-piece rectangle red"></div>
+                <div class="confetti-piece circle cyan"></div>
+                <div class="confetti-piece star yellow"></div>
+                <div class="confetti-piece rectangle lime"></div>
+            </div>
+
+            <!-- Floating Confetti Background -->
+            <div class="floating-confetti">
+                <div class="float-piece rectangle gold"></div>
+                <div class="float-piece circle pink"></div>
+                <div class="float-piece star blue"></div>
+                <div class="float-piece rectangle green"></div>
+                <div class="float-piece circle orange"></div>
+                <div class="float-piece star purple"></div>
+                <div class="float-piece rectangle red"></div>
+                <div class="float-piece circle cyan"></div>
+                <div class="float-piece star yellow"></div>
+                <div class="float-piece rectangle lime"></div>
+                <div class="float-piece circle gold"></div>
+                <div class="float-piece star pink"></div>
+                <div class="float-piece rectangle blue"></div>
+                <div class="float-piece circle green"></div>
+                <div class="float-piece star orange"></div>
+            </div>
+
+            <!-- Burst Effects -->
+            <div class="confetti-burst center-burst">
+                <div class="burst-piece rectangle gold"></div>
+                <div class="burst-piece circle pink"></div>
+                <div class="burst-piece star blue"></div>
+                <div class="burst-piece rectangle green"></div>
+                <div class="burst-piece circle orange"></div>
+                <div class="burst-piece star purple"></div>
+                <div class="burst-piece rectangle red"></div>
+                <div class="burst-piece circle cyan"></div>
+            </div>
+
+            <!-- Sparkle Effects -->
+            <div class="sparkle-effects">
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+            </div>
+        </div>
+        <div class="modal-header">
+            <h3>Congratulations!</h3>
+        </div>
+        <div class="modal-body">
+            <div class="congrats-content">
+                <i class="fas fa-trophy congrats-icon" style="font-size:2.5rem; color:#FFD700; display:block; margin-bottom:10px; text-align:center;"></i>
+                <h4>You have {{ unseen_count }} new certificate{{ unseen_count|pluralize }}!</h4>
+                <p>Great work! Your achievements have been recognized.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="awesomeBtn">
+                <i class="fas fa-check"></i>
+                Awesome!
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div id="certificateViewModal" class="modal modal-xl">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="certificateViewTitle">Certificate</h3>
+            <button class="modal-close" onclick="closeCertificateViewModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="certificateViewContent" class="certificate-viewer">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeCertificateViewModal()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Certificate Email Confirmation Modal -->
+<div id="emailConfirmationModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Send Certificate</h4>
+            <button class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="email-confirmation-content">
+                <div class="confirmation-message">
+                    <p>Send this certificate to your email address?</p>
+                    <div class="certificate-info">
+                        <div class="cert-title" id="confirm-cert-title">Certificate Title</div>
+                        <div class="email-display">
+                            <i class="fas fa-at"></i>
+                            <span id="confirm-email">{{ request.user.email }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline modal-close">Cancel</button>
+            <button class="btn btn-primary" id="confirm-send-email">
+                <i class="fas fa-paper-plane"></i>
+                Send Certificate
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/certificate/user-cert.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/intro.js/minified/intro.min.js"></script>
+<script>
+function insertSampleCertificateCard() {
+    let grid = document.querySelector('.component-grid');
+    if (!grid) {
+        // If the grid doesn't exist, create it and insert before the empty state
+        const emptyState = document.querySelector('.empty-state');
+        grid = document.createElement('div');
+        grid.className = 'component-grid';
+        emptyState.parentNode.insertBefore(grid, emptyState);
+    }
+    // Only add if no cards exist
+    if (!grid.querySelector('.certificate-card')) {
+        const sampleCard = document.createElement('div');
+        sampleCard.className = 'card certificate-card sample-certificate-card';
+        sampleCard.innerHTML = `
+            <div class="card-header">
+                <h4>Sample Certificate</h4>
+            </div>
+            <div class="card-body">
+                <div class="certificate-preview">
+                    <img src="{% static 'images/certificates/sample-certificate.jpg' %}" alt="Sample Certificate" class="certificate-image">
+                </div>
+                <div class="certificate-info">
+                    <p class="certificate-date">
+                        <i class="fas fa-calendar"></i>
+                        Received: Jul 06, 2025
+                    </p>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-primary btn-sm view-certificate" disabled>
+                    <i class="fas fa-eye"></i>
+                    View
+                </button>
+                <button class="btn btn-accent btn-sm email-certificate" disabled>
+                    <i class="fas fa-envelope"></i>
+                    Send
+                </button>
+            </div>
+        `;
+        grid.appendChild(sampleCard);
+    }
+}
+
+function removeSampleCertificateCard() {
+    const sample = document.querySelector('.sample-certificate-card');
+    if (sample) sample.remove();
+}
+
+function addStepNumberToIntroJs(tour) {
+    tour.onafterchange(function(targetElement) {
+        const tooltip = document.querySelector('.introjs-tooltip');
+        if (!tooltip) return;
+        let stepNumberDiv = tooltip.querySelector('.introjs-step-number');
+        if (stepNumberDiv) stepNumberDiv.remove();
+        const currentStep = tour._currentStep + 1;
+        const totalSteps = tour._options.steps.length;
+        stepNumberDiv = document.createElement('div');
+        stepNumberDiv.className = 'introjs-step-number';
+        stepNumberDiv.textContent = `Step ${currentStep} of ${totalSteps}`;
+        stepNumberDiv.style.fontWeight = '500';
+        stepNumberDiv.style.fontSize = '0.95em';
+        stepNumberDiv.style.marginBottom = '8px';
+        stepNumberDiv.style.textAlign = 'center';
+        const progressBar = tooltip.querySelector('.introjs-progress');
+        if (progressBar) {
+            tooltip.insertBefore(stepNumberDiv, progressBar);
+        }
+    });
+}
+
+function startProductTour() {
+    // Insert sample card if needed
+    if (!document.querySelector('.certificate-card')) {
+        insertSampleCertificateCard();
+    }
+    const tour = introJs();
+    tour.setOptions({
+        steps: [
+            {
+                element: '.tour-btn',
+                intro: 'Welcome to the My Certificates page! This tour will guide you through all the features.',
+                position: 'left'
+            },
+            {
+                element: '.component-grid',
+                intro: 'Here you can see all your certificates. Each card shows a certificate you have received.',
+                position: 'bottom'
+            },
+            {
+                element: '.certificate-card .card-header h4',
+                intro: 'This is the certificate title. Each card displays the name of your certificate here.',
+                position: 'bottom'
+            },
+            {
+                element: '.certificate-card .certificate-preview',
+                intro: 'This area shows a preview of your certificate. Click "View" to see it in full.',
+                position: 'bottom'
+            },
+            {
+                element: '.certificate-card .view-certificate',
+                intro: 'Click this button to view your certificate in a larger modal window.',
+                position: 'top'
+            },
+            {
+                element: '.certificate-card .email-certificate',
+                intro: 'Click this button to send your certificate to your email address.',
+                position: 'top'
+            }
+        ],
+        showProgress: true,
+        showBullets: false,
+        nextLabel: 'Next',
+        prevLabel: 'Back',
+        doneLabel: 'Finish',
+        skipLabel: 'Skip Tour',
+        exitOnOverlayClick: false,
+        exitOnEsc: true
+    });
+    addStepNumberToIntroJs(tour);
+    tour.onbeforechange(function(targetElement) {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+            document.getElementById('introjs-dark-theme').disabled = false;
+        } else {
+            document.getElementById('introjs-dark-theme').disabled = true;
+        }
+    });
+    tour.onexit(function() {
+        document.body.classList.remove('introjs-blur-active');
+        removeSampleCertificateCard();
+    });
+    tour.oncomplete(function() {
+        document.body.classList.remove('introjs-blur-active');
+        removeSampleCertificateCard();
+    });
+    tour.start();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Prevent closing modal by overlay or Esc
+    const modal = document.getElementById('congratsModal');
+    if (modal) {
+        const overlay = modal.querySelector('.modal-overlay');
+        if (overlay) {
+            overlay.onclick = function(e) { e.stopPropagation(); };
+        }
+        document.addEventListener('keydown', function(e) {
+            if (modal.style.display === 'flex' && (e.key === 'Escape' || e.keyCode === 27)) {
+                e.preventDefault();
+            }
+        });
+    }
+    // Handle Awesome button click
+    const awesomeBtn = document.getElementById('awesomeBtn');
+    if (awesomeBtn) {
+        awesomeBtn.onclick = function() {
+            fetch('/certificate/mark_all_seen/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Content-Type': 'application/json'
+                }
+            }).then(response => {
+                if (response.ok) {
+                    // Hide the modal
+                    modal.style.display = 'none';
+                    // Optionally, update the UI to reflect all certs are seen
+                    location.reload(); // or update DOM as needed
+                }
+            });
+        };
+    }
+});
+</script>
+{% endblock %}

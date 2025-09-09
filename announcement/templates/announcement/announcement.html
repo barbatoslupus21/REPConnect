@@ -1,0 +1,296 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Announcements{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/announcement/announcement.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+    <div class="facebook-style-container">
+        <!-- Create Post Box -->
+        {% if is_admin %}
+        <div class="create-post-card">
+            <div class="create-post-header">
+                <div class="user-avatar">
+                    {% if request.user.avatar %}
+                    <img src="{{ request.user.avatar.url }}" alt="{{ request.user.full_name }}">
+                    {% else %}
+                    <div class="avatar-placeholder">
+                        {{ request.user.firstname.0 }}{{ request.user.lastname.0 }}
+                    </div>
+                    {% endif %}
+                </div>
+                <button class="create-post-input" id="newPostBtn">
+                    What's on your mind?
+                </button>
+            </div>
+            <div class="create-post-actions">
+                <button class="action-btn" id="photoVideoBtn">
+                    <i class="fas fa-photo-video"></i>
+                    Photo/Video
+                </button>
+                <button class="action-btn" id="feelingActivityBtn">
+                    <i class="fas fa-smile"></i>
+                    Feeling/Activity
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Announcements Feed -->
+        <div class="announcements-feed" id="announcementsFeed">
+            {% for announcement in page_obj %}
+            <div class="post-card" data-id="{{ announcement.id }}">
+                <div class="post-header">
+                    <div class="post-author">
+                        <div class="author-avatar">
+                            {% if announcement.author.avatar %}
+                            <img src="{{ announcement.author.avatar.url }}" alt="{{ announcement.author.full_name }}">
+                            {% else %}
+                            <div class="avatar-placeholder">
+                                {{ announcement.author.firstname.0 }}{{ announcement.author.lastname.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="author-info">
+                            <h4 class="author-name">{{ announcement.author.full_name }} <span class="post-status">posted an announcement</span></h4>
+                            <span class="post-time" data-time="{{ announcement.created_at|date:'c' }}">
+                                {{ announcement.created_at|date:"F d, Y at g:i A" }}
+                            </span>
+                        </div>
+                    </div>
+                    {% if is_admin and announcement.author == request.user %}
+                    <div class="post-menu">
+                        <button class="post-menu-btn" data-id="{{ announcement.id }}">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+                        <div class="post-menu-dropdown" id="menu-{{ announcement.id }}">
+                            <button class="menu-item edit-btn" data-id="{{ announcement.id }}">
+                                <i class="fas fa-edit"></i>
+                                Edit Post
+                            </button>
+                            <button class="menu-item delete-btn" data-id="{{ announcement.id }}">
+                                <i class="fas fa-trash"></i>
+                                Delete Post
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="post-content">
+                    <p class="post-text">{{ announcement.get_highlighted_content|safe|linebreaksbr }}</p>
+                    {% if announcement.image %}
+                    <div class="post-image">
+                        <img src="{% static announcement.image %}" alt="Post image" loading="lazy">
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="post-footer">
+                    <div class="reactions-container">
+                        <div class="reaction-section">
+                            <!-- Main Reaction Button -->
+                            <div class="main-reaction-wrapper">
+                                <button class="main-reaction-btn" data-announcement="{{ announcement.id }}">
+                                    {% if announcement.user_reaction %}
+                                        {% for emoji_code, emoji_symbol in emoji_choices %}
+                                            {% if emoji_code == announcement.user_reaction %}
+                                                <span class="reaction-icon active" data-emoji="{{ emoji_code }}">{{ emoji_symbol }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <i class="fas fa-thumbs-up reaction-icon"></i>
+                                    {% endif %}
+                                </button>
+                                
+                                <!-- Reactions Popover -->
+                                <div class="reactions-popover" id="popover-{{ announcement.id }}">
+                                    {% for emoji_code, emoji_symbol in emoji_choices %}
+                                    <button class="popover-reaction-btn" 
+                                            data-emoji="{{ emoji_code }}" 
+                                            data-announcement="{{ announcement.id }}">
+                                        <span class="emoji">{{ emoji_symbol }}</span>
+                                    </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Reactors Display -->
+                            <div class="reactors-display" id="reactors-{{ announcement.id }}" {% if announcement.total_reactions == 0 %}style="display: none;"{% endif %}>
+                                <div class="reactor-avatars">
+                                    <!-- Avatars will be populated by JavaScript -->
+                                </div>
+                                <div class="reactor-text">
+                                    <span class="latest-reactor"></span>
+                                    <span class="remaining-count" data-tooltip-id="tooltip-{{ announcement.id }}"></span>
+                                </div>
+                                
+                                <!-- Tooltip for reactor list -->
+                                <div class="reactors-tooltip" id="tooltip-{{ announcement.id }}">
+                                    <div class="tooltip-content">
+                                        <!-- Will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <i class="fas fa-bullhorn"></i>
+                <h4>No Announcements Yet</h4>
+                <p>There are no announcements to show at the moment.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Post Modal -->
+<div class="modal modal-lg" id="newPostModal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Create Announcement</h4>
+            <button class="modal-close" id="closeNewPost">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="newPostForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="create-post-header">
+                    <span class="form-label">What's on your mind?</span>
+                    <div class="upload-actions">
+                        <input type="file" name="image" class="announcement-file-input" id="newPostImage" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                        <button type="button" class="btn btn-icon upload-btn" id="uploadImageBtn" title="Upload Image">
+                            <i class="fas fa-image"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 0 !important;">
+                    <textarea name="content" class="form-input" style="margin-bottom: 0 !important;" rows="8" placeholder="Share an announcement with everyone..." required></textarea>
+                    <div class="field-error"></div>
+                </div>
+                
+                <!-- Image Preview -->
+                <div class="image-preview-container" id="newImagePreview" style="display: none;">
+                    <!-- The preview content will be injected by JS. The remove-image-btn will be visible when an image is selected. -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="cancelNewPost">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane"></i>
+                    Post
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Post Modal -->
+<div class="modal" id="editPostModal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h4>Edit Announcement</h4>
+            <button class="modal-close" id="closeEditPost">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="editPostForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="announcement_id" id="editAnnouncementId">
+            <div class="modal-body">
+                <div class="create-post-header">
+                    <span class="form-label">Edit your announcement</span>
+                    <div class="upload-actions">
+                        <input type="file" name="image" class="announcement-file-input" id="editPostImage" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                        <button type="button" class="btn btn-icon upload-btn" id="editUploadImageBtn" title="Upload New Image">
+                            <i class="fas fa-image"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <textarea name="content" id="editContent" class="form-input" rows="8" placeholder="What's on your mind?" required></textarea>
+                    <div class="field-error"></div>
+                </div>
+                
+                <!-- Current Image Display -->
+                <div class="current-image" id="currentImageContainer" style="display: none;">
+                    <label class="form-label">Current Image</label>
+                    <div class="current-image-preview">
+                        <img id="currentImg" src="" alt="Current image">
+                        <p>Current image - upload a new one to replace it</p>
+                    </div>
+                </div>
+                
+                <!-- Image Preview -->
+                <div class="image-preview-container" id="editImagePreview" style="display: none;">
+                    <div class="image-preview">
+                        <img id="editPreviewImg" src="" alt="Preview">
+                        <button type="button" class="remove-image-btn" id="editRemoveImageBtn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelEditPost">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal modal-md" id="deleteConfirmModal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Confirm Delete</h4>
+            <button class="modal-close" id="closeDeleteConfirm">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="delete-confirmation">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p>Are you sure you want to delete this announcement?</p>
+                <p class="delete-details" id="deleteDetails"></p>
+                <div class="warning-note">
+                    <i class="fas fa-info-circle"></i>
+                    <span>This action cannot be undone.</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancelDelete">Cancel</button>
+            <button type="button" class="btn btn-error" id="confirmDelete">
+                <i class="fas fa-trash"></i>
+                Delete Announcement
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/announcement/announcement.js' %}"></script>
+{% endblock extra_js %}

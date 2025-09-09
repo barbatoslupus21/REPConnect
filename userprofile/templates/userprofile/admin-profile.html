@@ -1,0 +1,748 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - Employee Management{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/profile/profile.css' %}">
+    <style>
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+        }
+        .action-buttons .btn-icon {
+            padding: 8px;
+            min-width: 36px;
+        }
+        .modal .warning-icon, .modal .info-note {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        .modal .warning-icon {
+            font-size: 48px;
+            color: #f59e0b;
+        }
+        .modal .info-note {
+            background: #f3f4f6;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .modal .confirmation-content {
+            text-align: center;
+        }
+        .modal .confirmation-content p {
+            margin: 10px 0;
+        }
+        .toast {
+            font-family: inherit;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="page-content" id="page-content">
+    <div class="custom-scrollbar">
+        <header class="page-header">
+            <div class="page-header-content">
+                <h2>Employee Management</h2>
+                <p>Manage employee profiles and information</p>
+            </div>
+        </header>
+
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
+                    <form class="search-box">
+                        <input type="text" class="search-input" id="searchInput" placeholder="Search employees..." name="search" value="{{ search_query }}" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        {% if search %}
+                        <span class="search-clear" onclick="clearSearch()">
+                            <i class="fas fa-times"></i>
+                        </span>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="table-actions-right">
+                    <button class="btn btn-action" id="create-employee-btn">
+                        <i class="fas fa-plus"></i>
+                        Add Employee
+                    </button>
+                    <button class="btn btn-action" id="import-employees-btn">
+                        <i class="fas fa-file-import"></i>
+                        Import
+                    </button>
+                    <button class="btn btn-action" id="export-employees-btn">
+                        <i class="fas fa-download"></i>
+                        Export
+                    </button>
+                    <button class="tour-btn" id="btn-tour">
+                        <i class="fa-regular fa-circle-question"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="common-table-container">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th class="d-none d-md-table-cell">Email</th>
+                                <th class="d-none d-md-table-cell">Username</th>
+                                <th class="d-none d-md-table-cell">Position</th>
+                                <th class="d-none d-md-table-cell">Department</th>
+                                <th class="d-none d-md-table-cell">Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employee in employees %}
+                            <tr class="employee-row" data-id="{{ employee.id }}">
+                                <td>
+                                    <div class="employee-info">
+                                        <img src="{{ employee.avatar.url }}" alt="Avatar" class="employee-avatar">
+                                    </div>
+                                </td>
+                                <td>{{ employee.idnumber }}</td>
+                                <td>{{ employee.firstname }} {{ employee.lastname }}</td>
+                                <td class="d-none d-md-table-cell">{{ employee.email }}</td>
+                                <td class="d-none d-md-table-cell">{{ employee.username }}</td>
+                                <td class="d-none d-md-table-cell">{{ employee.employment_info.position.position|default:'-' }}</td>
+                                <td class="d-none d-md-table-cell">{{ employee.employment_info.department.department_name|default:'-' }}</td>
+                                <td class="d-none d-md-table-cell">
+                                    {% if employee.active and employee.status == "approved" %}
+                                        <span class="status-badge status-connected">
+                                            <i class="fas fa-check-circle"></i> Active
+                                        </span>
+                                    {% elif employee.active and employee.status == 'pending' %}
+                                        <span class="status-badge status-importing">
+                                            <i class="fas fa-spinner fa-spin"></i> Pending
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-attention">
+                                            <i class="fas fa-times-circle"></i> Deactivated
+                                        </span>
+                                    {% endif %}
+                                    {% if employee.locked %}
+                                        <span class="status-badge status-attention">
+                                            <i class="fas fa-lock"></i> Locked
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-icon view-employee-btn" data-employee-id="{{ employee.id }}" data-employee-name="{{ employee.firstname }} {{ employee.lastname }}" title="View Employee">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-icon" id="reset-password-btn" data-employee-id="{{ employee.id }}" data-employee-name="{{ employee.firstname }} {{ employee.lastname }}" data-employee-idnumber="{{ employee.idnumber }}" title="Reset Password">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center">
+                                    <div class="empty-state">
+                                        <i class="fa fa-search"></i>
+                                        <h5>No employees found</h5>
+                                        <p>No employees match your search criteria.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="pagination" id="paginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="startRecord">{{ employees.start_index }}</span> to <span id="endRecord">{{ employees.end_index }}</span> of <span id="totalRecords">{{ employees.paginator.count }}</span> entries
+                </div>
+                <div class="pagination-controls" id="paginationControls">
+                        {% if employees.has_previous %}
+                        <a class="pagination-btn" id="prevPage" href="?page={{ employees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="prevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                        {% endif %}
+                    <div id="pageNumbers">
+                        {% for num in employees.paginator.page_range %}
+                        {% if employees.number == num %}
+                                <span class="pagination-btn active">{{ num }}</span>
+                        {% elif num > employees.number|add:'-3' and num < employees.number|add:'3' %}
+                                <a class="pagination-btn" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                        {% if employees.has_next %}
+                        <a class="pagination-btn" id="nextPage" href="?page={{ employees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="nextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                        {% endif %}
+                </div>
+            </div>
+    </div>
+</div> 
+</div>
+
+<div class="modal modal-lg" id="createEmployeeModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Create New Employee</h4>
+                    <button type="button" class="modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="create-employee-form">
+                        {% csrf_token %}
+                        <div class="form-section">
+                        <h6 class="section-title">Basic Information</h6>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" name="firstname" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" name="lastname" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">ID Number</label>
+                                    <input type="text" name="idnumber" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" name="email" class="form-input" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-section">
+                    <h6 class="section-title">Employment Information</h6>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Department</label>
+                                    <select name="department" class="form-input" id="departmentSelect" required>
+                                        <option value="">Select Department</option>
+                                        {% for department in departments %}
+                                            <option value="{{ department.id }}">{{ department.department_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Line</label>
+                                    <select name="line" class="form-input" id="lineSelect" disabled required>
+                                        <option value="">Select Line</option>
+                                        {% for line in lines %}
+                                            <option value="{{ line.id }}">{{ line.line_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Position</label>
+                                    <select name="position" class="form-input" id="positionSelect" required>
+                                        <option value="">Select Position</option>
+                                        {% for position in positions %}
+                                            <option value="{{ position.id }}">{{ position.position }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Employment Type</label>
+                                    <select name="employment_type" class="form-input" required>
+                                        <option value="">Select Type</option>
+                                        <option value="Regular">Regular</option>
+                                        <option value="Probationary">Probationary</option>
+                                        <option value="OJT">OJT</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Date Hired</label>
+                                    <input type="date" name="date_hired" class="form-input" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-section">
+                    <h6 class="section-title">Government IDs (Optional)</h6>
+                            <div class="form-grid">
+                                <div class="form-group">
+                            <label class="form-label">TIN Number</label>
+                                    <input type="text" name="tin_number" class="form-input">
+                                </div>
+                                <div class="form-group">
+                            <label class="form-label">SSS Number</label>
+                                    <input type="text" name="sss_number" class="form-input">
+                                </div>
+                                <div class="form-group">
+                            <label class="form-label">HDMF Number</label>
+                                    <input type="text" name="hdmf_number" class="form-input">
+                                </div>
+                                <div class="form-group">
+                            <label class="form-label">PhilHealth Number</label>
+                                    <input type="text" name="philhealth_number" class="form-input">
+                                </div>
+                                <div class="form-group">
+                            <label class="form-label">Bank Account</label>
+                                    <input type="text" name="bank_account" class="form-input">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="save-employee-btn">
+                        <i class="fas fa-save"></i>
+                        Create Employee
+                    </button>
+                </div>
+    </div>
+</div>
+
+<div class="modal" id="viewEmployeeModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-xl">
+                <div class="modal-header">
+                    <h4 class="modal-title">Employee Profile</h4>
+            <button type="button" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+                </div>
+                <div class="modal-body">
+                    <div id="employee-profile-content">
+                    </div>
+                </div>
+                <div class="modal-footer">
+            <button type="button" class="btn btn-outline">Close</button>
+                    <button type="button" class="btn btn-primary" id="edit-employee-profile-btn">
+                        <i class="fas fa-edit"></i>
+                        Edit Profile
+                    </button>
+            </div>
+        </div>
+</div>
+
+<div class="modal" id="confirmModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Confirm Action</h4>
+                    <button type="button" class="modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirm-message"></p>
+                </div>
+                <div class="modal-footer">
+            <button type="button" class="btn btn-outline">Cancel</button>
+            <button type="button" class="btn btn-error" id="confirm-action-btn">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="deactivateConfirmModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 class="modal-title">Deactivate Employee</h5>
+            <button type="button" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="deactivate-confirm-message">Are you sure you want to deactivate this employee?</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline">Cancel</button>
+            <button type="button" class="btn btn-error" id="confirm-deactivate-btn">Deactivate</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal modal-md" id="importEmployeesModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 class="modal-title">Import Employees</h4>
+            <button class="modal-close" id="closeImportModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-actions-header">
+                <p class="import-description">Upload Excel files containing employee data. You can download a template to ensure proper formatting.</p>
+                <button class="btn btn-outline" id="exportEmployeeTemplateBtn">
+                    <i class="fas fa-download"></i>
+                    Download Template
+                </button>
+            </div>
+
+            <div class="file-upload-area">
+                <div class="file-upload">
+                    <input type="file" id="employee-file-upload" class="file-input" accept=".xlsx,.xls">
+                    <label for="employee-file-upload" class="file-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Drag & drop Excel files here or click to browse</span>
+                        <small>Supported formats: .xlsx, .xls (Max size: 10MB)</small>
+                    </label>
+                </div>
+
+                <div class="selected-files" id="selectedEmployeeFiles" style="display: none;">
+                    <h4>Selected Files:</h4>
+                    <div class="file-list" id="employeeFileList">
+                    </div>
+                </div>
+
+                <div class="upload-progress" id="employeeUploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="employeeProgressFill"></div>
+                    </div>
+                    <span class="progress-text" id="employeeProgressText">0%</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="uploadEmployeesBtn" disabled>
+                <i class="fas fa-upload"></i>
+                Upload Files
+            </button>
+            <button class="btn btn-outline" id="cancelImportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="editEmployeeModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h4 class="modal-title">Edit Employee</h4>
+            <button class="modal-close" id="closeEditEmployeeModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="editEmployeeForm">
+                <input type="hidden" id="editEmployeeId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-input" id="editFirstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-input" id="editLastName" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" id="editEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Employee ID</label>
+                        <input type="text" class="form-input" id="editEmployeeIdNumber" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Department</label>
+                        <input type="text" class="form-input" id="editDepartment" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Position</label>
+                        <input type="text" class="form-input" id="editPosition">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="saveEditEmployeeBtn">
+                <i class="fas fa-save"></i>
+                Save Changes
+            </button>
+            <button class="btn btn-outline" id="cancelEditEmployeeBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="deleteEmployeeModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h4 class="modal-title">Confirm Deletion</h5>
+            <button class="modal-close" id="closeDeleteEmployeeModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="delete-confirmation">
+                <i class="fas fa-exclamation-triangle warning-icon"></i>
+                <p>Are you sure you want to delete this employee?</p>
+                <p class="delete-details" id="deleteEmployeeDetails"></p>
+                <div class="warning-note">
+                    <i class="fas fa-info-circle"></i>
+                    <span>This action cannot be undone. All employee data will be permanently removed.</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-error" id="confirmDeleteEmployeeBtn">
+                <i class="fas fa-trash"></i>
+                Delete Employee
+            </button>
+            <button class="btn btn-outline" id="cancelDeleteEmployeeBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Import Progress Modal -->
+<div id="importProgressModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Importing Employees</h4>
+            <!-- No close button - prevent closing during import -->
+        </div>
+        <div class="modal-body">
+            <div class="import-progress-container">
+                <div class="import-status-icon">
+                    <i class="fas fa-users" id="importStatusIcon"></i>
+                </div>
+
+                <div class="import-progress-info">
+                    <h4 id="importProgressTitle">Processing Employee Data...</h4>
+                    <p id="importProgressDescription">Please wait while we import your employee data.</p>
+                </div>
+
+                <div class="import-progress-bar">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="importProgressFill"></div>
+                    </div>
+                    <div class="progress-details">
+                        <span class="progress-text" id="importProgressText">0%</span>
+                        <span class="progress-count" id="importProgressCount">0 of 0 employees</span>
+                    </div>
+                </div>
+
+                <div class="import-details" id="importDetails" style="display: none;">
+                    <div class="import-detail-item">
+                        <span class="detail-label">Successfully Imported:</span>
+                        <span class="detail-value success" id="successCount">0</span>
+                    </div>
+                    <div class="import-detail-item">
+                        <span class="detail-label">Failed to Import:</span>
+                        <span class="detail-value error" id="errorCount">0</span>
+                    </div>
+                </div>
+
+                <div class="import-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Please do not close your browser or navigate away from this page during the import process.</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" id="importProgressFooter" style="display: none;">
+            <button class="btn btn-primary" id="viewImportResultsBtn" style="display: none;">
+                View Import Results
+            </button>
+            <button class="btn btn-outline" id="closeImportProgressBtn">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Import Results Modal -->
+<div id="importResultsModal" class="modal modal-lg">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import Results</h4>
+            <button class="modal-close" id="closeImportResultsModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-summary">
+                <div class="summary-card success">
+                    <div class="summary-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="summary-content">
+                        <h4 id="summarySuccessCount">0</h4>
+                        <p>Successfully Imported</p>
+                    </div>
+                </div>
+
+                <div class="summary-card error">
+                    <div class="summary-icon">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="summary-content">
+                        <h4 id="summaryErrorCount">0</h4>
+                        <p>Failed to Import</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="import-errors" id="importErrorsSection" style="display: none;">
+                <h4>Failed Imports</h4>
+                <p class="error-description">The following employees could not be imported due to validation errors:</p>
+
+                <div class="error-table-container">
+                    <table class="error-table">
+                        <thead>
+                            <tr>
+                                <th>Row</th>
+                                <th>Employee Name</th>
+                                <th>Email</th>
+                                <th>Error Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="importErrorsList">
+                            <!-- Error rows will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="error-help">
+                    <h5>Common Issues:</h5>
+                    <ul>
+                        <li><strong>Invalid Department:</strong> Department name doesn't exist in the system</li>
+                        <li><strong>Invalid Position:</strong> Position name doesn't exist in the system</li>
+                        <li><strong>Invalid Line:</strong> Line name doesn't exist in the system</li>
+                        <li><strong>Invalid Employment Type:</strong> Employment type is not valid (should be: Regular, Probationary, OJT)</li>
+                        <li><strong>Duplicate Email:</strong> Email address already exists in the system</li>
+                        <li><strong>Missing Required Fields:</strong> Required fields are empty or missing</li>
+                        <li><strong>Column Names:</strong> Make sure your Excel file has the correct column headers: Id Number, First Name, Last Name, Email Address, Department, Line, Position, Employment Type, Date Hired, TIN Number, SSS Number, HDMF Number, PhilHealth Number, Bank Account</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="downloadErrorReportBtn" style="display: none;">
+                <i class="fas fa-download"></i>
+                Download Error Report
+            </button>
+            <button class="btn btn-outline" id="closeResultsModalBtn">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Employees Modal -->
+<div class="modal modal-md" id="exportEmployeesModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content ">
+        <div class="modal-header">
+            <h4 class="modal-title">Export Employees</h5>
+            <button class="modal-close" id="closeExportEmployeesModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="exportEmployeesForm">
+                <div class="form-group">
+                    <label for="exportDepartment">Department</label>
+                    <select id="exportDepartment" name="department" class="form-input">
+                        <option value="">All</option>
+                    </select>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label for="exportLine">Line</label>
+                        <select id="exportLine" name="line" class="form-input" disabled>
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="exportPosition">Position</label>
+                        <select id="exportPosition" name="position" class="form-input">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label>Employment Type</label>
+                        <div id="exportEmploymentTypeRadios" class="radio-input compact-checkbox-group"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <div id="exportStatusRadios" class="radio-input compact-checkbox-group"></div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="exportEmployeesBtn">
+                <i class="fas fa-download"></i>
+                Export
+            </button>
+            <button class="btn btn-outline" id="cancelExportEmployeesBtn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Confirmation Modal -->
+<div class="modal modal-md" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 class="modal-title">Reset Password</h4>
+            <button class="modal-close" id="closeResetPasswordModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="confirmation-content">
+                <i class="fas fa-key warning-icon"></i>
+                <p>Are you sure you want to reset this employee's password?</p>
+                <p class="reset-details" id="resetPasswordDetails"></p>
+                <div class="info-note">
+                    <i class="fas fa-info-circle"></i>
+                    <span>The new password will be: <strong>Repco_<span id="employeeIdDisplay"></span></strong></span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="confirmResetPasswordBtn">
+                <i class="fas fa-key"></i>
+                Reset Password
+            </button>
+            <button class="btn btn-outline" id="cancelResetPasswordBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+    <script src="{% static 'js/profile/admin-profile.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,163 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - My Surveys{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/survey/survey.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+    <header class="page-header">
+        <div class="page-header-content">
+            <h2>My Surveys</h2>
+            <p>Complete your assigned surveys and track your progress</p>
+        </div>
+    </header>
+    
+    <div class="dashboard-container">
+        <div class="surveys-column">
+            <div class="surveys-header">
+                <h4>Assigned Surveys</h4>
+                <div class="surveys-filter">
+                    <select id="statusFilter" class="form-input">
+                        <option value="all">All Surveys</option>
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="surveys-list" id="surveysList">
+                {% for survey_data in surveys_data %}
+                    <div class="survey-item" data-survey-id="{{ survey_data.survey.id }}" data-status="{{ survey_data.status }}">
+                            <div class="survey-card">
+                                <div class="survey-header" role="button" tabindex="0">
+                                    <div class="survey-title">{{ survey_data.survey.title }}</div>
+                                    <div class="survey-status">
+                                    {% if survey_data.status == 'pending' %}
+                                        <span class="status-pill status-orange">
+                                            Pending
+                                        </span>
+                                    {% elif survey_data.status == 'completed' %}
+                                        <span class="status-pill status-green">
+                                            Completed
+                                        </span>
+                                    {% elif survey_data.status == 'expired' %}
+                                        <span class="status-pill status-red">
+                                            Expired
+                                        </span>
+                                    {% endif %}
+                                    </div>
+                                </div>
+                                <div class="survey-brief">
+                                    <p>{{ survey_data.survey.description|truncatewords:15 }}</p>
+                                </div>
+                                <div class="survey-meta">
+                                    <div class="meta-item">
+                                        <i class="fas fa-list-alt"></i>
+                                        <span>{{ survey_data.survey.questions.count }} questions</span>
+                                    </div>
+                                    {% if survey_data.status == 'completed' %}
+                                        <div class="meta-item">
+                                            <i class="fas fa-check"></i>
+                                            <span>Completed</span>
+                                        </div>
+                                    {% elif survey_data.status == 'expired' %}
+                                        <div class="meta-item">
+                                            <i class="fas fa-calendar-times"></i>
+                                            <span>Expired{% if survey_data.survey.deadline %}: {{ survey_data.survey.deadline|date:"M j, Y" }}{% endif %}</span>
+                                        </div>
+                                    {% else %}
+                                        <div class="meta-item">
+                                            <i class="fas fa-calendar-alt"></i>
+                                            <span>Due: {% if survey_data.survey.deadline %}{{ survey_data.survey.deadline|date:"M j, Y" }}{% else %}No deadline{% endif %}</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="survey-details">
+                                    <div class="details-section">
+                                        <h4>Survey Details</h4>
+                                        <div class="detail-row">
+                                            <span class="label">Estimated Time:</span>
+                                            <span class="value">{{ survey_data.survey.questions.count|floatformat:0 }}-{{ survey_data.survey.questions.count|add:5|floatformat:0 }} minutes</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="survey-actions">
+                                        {% if survey_data.status == 'completed' %}
+                                            <button class="btn btn-outline view-response-btn" data-survey-id="{{ survey_data.survey.id }}">
+                                                <i class="fas fa-eye"></i>
+                                                View Response
+                                            </button>
+                                        {% elif survey_data.status == 'expired' %}
+                                            <button class="btn btn-outline" disabled>
+                                                <i class="fas fa-lock"></i>
+                                                Survey Closed
+                                            </button>
+                                        {% else %}
+                                            <button class="btn btn-primary start-survey-btn" data-survey-id="{{ survey_data.survey.id }}">
+                                                <i class="fas fa-play"></i>
+                                                {% if survey_data.progress > 0 %}Continue Survey{% else %}Start Survey{% endif %}
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                    </div>
+                {% empty %}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h4>No Surveys Assigned</h4>
+                        <p>You don't have any surveys assigned at the moment.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="content-column">
+            <div class="content-area" id="contentArea">
+                <div class="welcome-state">
+                    <div class="welcome-icon">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3>Welcome to Your Survey Dashboard</h3>
+                    <p>Select a survey from the left panel to get started. Click "Start Survey" to begin completing your assigned surveys.</p>
+                    <div class="welcome-stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalSurveys">{{ total_surveys }}</div>
+                            <div class="stat-label">Total Surveys</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="completedSurveys">{{ completed_surveys }}</div>
+                            <div class="stat-label">Completed</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="pendingSurveys">{{ pending_surveys }}</div>
+                            <div class="stat-label">Pending</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    // Survey statistics for JavaScript
+    const SURVEY_STATS = {
+        total: {{ total_surveys }},
+        completed: {{ completed_surveys }},
+        pending: {{ pending_surveys }}
+    };
+</script>
+<script src="{% static 'js/survey/survey_user.js' %}"></script>
+{% endblock extra_js %}

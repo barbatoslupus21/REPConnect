@@ -1,0 +1,535 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - MIS Ticketing{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/ticket/ticket.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content" id="page-content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">MIS Ticketing System</h1>
+            <p class="page-subtitle">Manage your IT support requests and devices</p>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-secondary" onclick="openAddDeviceModal()">
+                <i class="fas fa-laptop"></i> Add Device
+            </button>
+            <button class="btn btn-primary" onclick="openRequestTicketModal()">
+                <i class="fas fa-ticket"></i> Request Ticket
+            </button>
+        </div>
+    </div>
+
+    <div class="dashboard-stats" style="margin-bottom: 0px">
+            <div class="stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon blue">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div class="modern-stat-label">Total Requests</div>
+                    <div class="modern-stat-value">{{ stats.total_requests }}</div>
+                    <div class="modern-stat-change {% if stats.is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.percentage_change }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Approved</div>
+                    <div class="modern-stat-value">{{ stats.approved }}</div>
+                    <div class="modern-stat-change {% if stats.approved_is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.approved_is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.approved_percentage }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon red">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="modern-stat-label">Disapproved</div>
+                    <div class="modern-stat-value">{{ stats.disapproved }}</div>
+                    <div class="modern-stat-change {% if stats.disapproved_is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.disapproved_is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.disapproved_percentage }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+                
+                <div class="modern-stat-card">
+                    <div class="modern-stat-icon orange">
+                        <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <div class="modern-stat-label">Processing</div>
+                    <div class="modern-stat-value">{{ stats.processing }}</div>
+                    <div class="modern-stat-change {% if stats.processing_is_increase %}positive{% else %}negative{% endif %}">
+                        <i class="fas fa-arrow-{% if stats.processing_is_increase %}up{% else %}down{% endif %}"></i>
+                        {{ stats.processing_percentage }}%
+                        <span class="modern-stat-change-text">vs last month</span>
+                    </div>
+                </div>
+            </div>
+    </div>
+
+    <div class="tabs-horizontal">
+        <div class="tab-list">
+            <button class="tab active" data-tab="requests">My Requests</button>
+            <button class="tab" data-tab="devices">My Devices</button>
+        </div>
+    </div>
+            
+    <div class="tab-panel active" id="requests-tab">
+        <div class="table-actions table-actions-bar">
+            <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
+                <form class="search-box" method="get" action="" id="requestsSearchForm">
+                    <input type="text" class="search-input" id="requestsSearchInput" placeholder="Search tickets..." name="search" value="{{ search }}" autocomplete="off" />
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                    {% if search %}
+                        <span class="search-clear">
+                            <a href="#" id="clearRequestsSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ticket #</th>
+                                <th>Requested By</th>
+                                <th>Device</th>
+                                <th>Category</th>
+                                <th style="text-align: center;">Priority</th>
+                                <th style="text-align: center;">Status</th>
+                                <th>Created</th>
+                                <th style="text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestsTableBody">
+                            {% include 'ticketing/partials/tickets_table.html' %}
+                        </tbody>
+                    </table>
+        </div>
+
+        <div class="pagination" id="requestsPaginationContainer">
+            <div class="pagination-info">
+                Showing <span id="requestsStartRecord">{{ tickets.start_index|default:0 }}</span> to <span id="requestsEndRecord">{{ tickets.end_index|default:0 }}</span> of <span id="requestsTotalRecords">{{ tickets.paginator.count|default:0 }}</span> entries
+            </div>
+            <div class="pagination-controls" id="requestsPaginationControls">
+                {% if tickets.has_previous %}
+                    <button class="pagination-btn" onclick="loadRequestsPage({{ tickets.previous_page_number }})">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                {% else %}
+                    <span class="pagination-btn disabled">
+                        <i class="fas fa-chevron-left"></i>
+                    </span>
+                {% endif %}
+                <div id="requestsPageNumbers">
+                    {% if tickets.paginator.page_range %}
+                        {% for num in tickets.paginator.page_range %}
+                            {% if tickets.number == num %}
+                                <span class="pagination-btn active">{{ num }}</span>
+                            {% elif num > tickets.number|add:'-3' and num < tickets.number|add:'3' %}
+                                <button class="pagination-btn" onclick="loadRequestsPage({{ num }})">{{ num }}</button>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span class="pagination-btn active">1</span>
+                    {% endif %}
+                </div>
+                {% if tickets.has_next %}
+                    <button class="pagination-btn" onclick="loadRequestsPage({{ tickets.next_page_number }})">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                {% else %}
+                    <span class="pagination-btn disabled">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                {% endif %}
+            </div>
+        </div>        
+    </div>
+            
+    <div class="tab-panel" id="devices-tab">
+        <div class="table-actions table-actions-bar">
+            <div class="table-actions-left" data-intro="Search for devices" data-step="8">
+                <form class="search-box" method="get" action="" id="devicesSearchForm">
+                    <input type="text" class="search-input" id="devicesSearchInput" placeholder="Search devices..." name="search" value="{{ search }}" autocomplete="off" />
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                    {% if search %}
+                        <span class="search-clear">
+                            <a href="#" id="clearDevicesSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <div class="common-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Device Name</th>
+                                <th>Device Code</th>
+                                <th>Device Type</th>
+                                <th>Location</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devicesTableBody">
+                            {% include 'ticketing/partials/devices_table.html' %}
+                        </tbody>
+                    </table>
+        </div>
+
+        <div class="pagination" id="devicesPaginationContainer">
+            <div class="pagination-info">
+                Showing <span id="devicesStartRecord">{{ devices.start_index|default:0 }}</span> to <span id="devicesEndRecord">{{ devices.end_index|default:0 }}</span> of <span id="devicesTotalRecords">{{ devices.paginator.count|default:0 }}</span> entries
+            </div>
+            <div class="pagination-controls" id="devicesPaginationControls">
+                {% if devices.has_previous %}
+                    <button class="pagination-btn" onclick="loadDevicesPage({{ devices.previous_page_number }})">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                {% else %}
+                    <span class="pagination-btn disabled">
+                        <i class="fas fa-chevron-left"></i>
+                    </span>
+                {% endif %}
+                <div id="devicesPageNumbers">
+                    {% if devices.paginator.page_range %}
+                        {% for num in devices.paginator.page_range %}
+                            {% if devices.number == num %}
+                                <span class="pagination-btn active">{{ num }}</span>
+                            {% elif num > devices.number|add:'-3' and num < devices.number|add:'3' %}
+                                <button class="pagination-btn" onclick="loadDevicesPage({{ num }})">{{ num }}</button>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span class="pagination-btn active">1</span>
+                    {% endif %}
+                </div>
+                {% if devices.has_next %}
+                    <button class="pagination-btn" onclick="loadDevicesPage({{ devices.next_page_number }})">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                {% else %}
+                    <span class="pagination-btn disabled">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                {% endif %}
+            </div>
+        </div> 
+    </div>
+</div>
+
+<!-- Add Device Modal -->
+<div class="modal modal-sm" id="addDeviceModal">
+    <div class="modal-overlay" onclick="closeModal('addDeviceModal')"></div>
+    <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Add New Device</h3>
+                <button class="modal-close" onclick="closeModal('addDeviceModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addDeviceForm">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label">Device Name</label>
+                        <input type="text" name="device_name" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Device Code</label>
+                        <input type="text" name="device_code" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Device Location</label>
+                        <input type="text" name="device_location" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Device Type</label>
+                        <select name="device_type" class="form-input" required>
+                            <option value="">Select Device Type</option>
+                            {% for device_type in device_types %}
+                            <option value="{{ device_type.id }}">{{ device_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('addDeviceModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitAddDevice()">Save Device</button>
+            </div>
+        </div>
+</div>
+
+<!-- Request Ticket Modal -->
+<div class="modal modal-md" id="requestTicketModal">
+    <div class="modal-overlay" onclick="closeModal('requestTicketModal')"></div>
+    <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h4>Request Support Ticket</h4>
+                <button class="modal-close" onclick="closeModal('requestTicketModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="requestTicketForm">
+                    {% csrf_token %}
+                    <div class="form-group" style="display: none;">
+                        <label class="form-label">Requestor</label>
+                        <input type="text" name="requestor_name" class="form-input" value="{{ request.user.full_name }}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Device</label>
+                        <select name="device" class="form-input" required>
+                            <option value="">Select Device</option>
+                            {% for device in devices %}
+                            <option value="{{ device.id }}">{{ device.device_name }} - {{ device.device_code }} ({{ device.device_type.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-row form-row-2col">
+                        <div class="form-group">
+                            <label class="form-label">Priority Level</label>
+                            <select name="priority_level" class="form-input" required>
+                                <option value="">Select Priority</option>
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Urgent">Urgent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <select name="category" class="form-input" required>
+                                <option value="">Select Category</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Problem Details</label>
+                        <textarea name="problem_details" class="form-input" rows="4" required placeholder="Describe the problem in detail"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('requestTicketModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitRequestTicket()">Submit Ticket</button>
+            </div>
+        </div>
+</div>
+
+<!-- View/Edit Ticket Modal -->
+<div class="modal modal-lg" id="viewTicketModal">
+    <div class="modal-overlay" onclick="closeModal('viewTicketModal')"></div>
+    <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h4>Ticket Details</h4>
+                <button class="modal-close" onclick="closeModal('viewTicketModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="ticketDetailsContent">
+                <div class="ticket-details-grid">
+                    <div class="detail-group">
+                        <span class="detail-label">Ticket Number</span>
+                        <span class="detail-value" id="detailTicketNumber">-</span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Status</span>
+                        <span class="detail-value" id="detailTicketStatus">-</span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Requestor</span>
+                        <span class="detail-value" id="detailTicketRequestor">-</span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Device</span>
+                        <span class="detail-value" id="detailTicketDevice">-</span>
+                        <span class="detail-value editable">
+                            <select class="form-input" id="editDevice">
+                                <option value="">Select Device</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Priority Level</span>
+                        <span class="detail-value" id="detailTicketPriority">-</span>
+                        <span class="detail-value editable">
+                            <select class="form-input" id="editPriority">
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Urgent">Urgent</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Category</span>
+                        <span class="detail-value" id="detailTicketCategory">-</span>
+                        <span class="detail-value editable">
+                            <select class="form-input" id="editCategory">
+                                <option value="">Select Category</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="detail-group" style="grid-column: span 2;">
+                        <span class="detail-label">Problem Details</span>
+                        <span class="detail-value" id="detailTicketProblem">-</span>
+                        <span class="detail-value editable">
+                            <textarea class="form-input" id="editProblemDetails" rows="4"></textarea>
+                        </span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Created At</span>
+                        <span class="detail-value" id="detailTicketCreatedAt">-</span>
+                    </div>
+                </div>
+                <div class="review-section" id="reviewSection" style="display: none;">
+                    <h4>Review Information</h4>
+                    <div class="ticket-details-grid">
+                        <div class="detail-group" style="grid-column: span 2;">
+                            <span class="detail-label">Technician</span>
+                            <span class="detail-value" id="detailTechnician">-</span>
+                        </div>
+                        <div class="detail-group" style="grid-column: span 2;">
+                            <span class="detail-label">Diagnosis</span>
+                            <span class="detail-value" id="detailDiagnosis">-</span>
+                        </div>
+                        <div class="detail-group" style="grid-column: span 2;">
+                            <span class="detail-label">Action Taken</span>
+                            <span class="detail-value" id="detailActionTaken">-</span>
+                        </div>
+                        <div class="detail-group" style="grid-column: span 2;">
+                            <span class="detail-label">Possible Reason</span>
+                            <span class="detail-value" id="detailPossibleReason">-</span>
+                        </div>
+                        <div class="detail-group" style="grid-column: span 2;">
+                            <span class="detail-label">Recommendation</span>
+                            <span class="detail-value" id="detailRecommendation">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('viewTicketModal')">Close</button>
+                <button class="btn btn-primary" id="editTicketBtn" onclick="toggleEditTicket()">Edit Ticket</button>
+                <button class="btn btn-primary" id="saveTicketBtn" onclick="saveTicketChanges()" style="display: none;">Save Changes</button>
+                <button class="btn btn-success" id="printTicketBtn" onclick="printTicket()" style="display: none;">
+                    <i class="fas fa-print"></i> Print Ticket
+                </button>
+            </div>
+        </div>
+</div>
+
+<!-- View/Edit Device Modal -->
+<div class="modal modal-md" id="viewDeviceModal">
+    <div class="modal-overlay" onclick="closeModal('viewDeviceModal')"></div>
+    <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Device Details</h4>
+                <button class="modal-close" onclick="closeModal('viewDeviceModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="deviceDetailsContent">
+                <div class="employee-info-grid">
+                    <div class="detail-group">
+                        <span class="detail-label">Device Name</span>
+                        <span class="detail-value" id="detailDeviceName">-</span>
+                        <span class="detail-value editable">
+                            <input type="text" class="form-input" id="editDeviceName" value="" />
+                        </span>
+                    </div>
+
+                    <div class="detail-group">
+                        <span class="detail-label">Device Code</span>
+                        <span class="detail-value" id="detailDeviceCode">-</span>
+                        <span class="detail-value editable">
+                            <input type="text" class="form-input" id="editDeviceCode" value="" />
+                        </span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Device Type</span>
+                        <span class="detail-value" id="detailDeviceType">-</span>
+                        <span class="detail-value editable">
+                            <select class="form-input" id="editDeviceType">
+                                <option value="">Select Device Type</option>
+                            </select>
+                        </span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Location</span>
+                        <span class="detail-value" id="detailDeviceLocation">-</span>
+                        <span class="detail-value editable">
+                            <input type="text" class="form-input" id="editDeviceLocation" value="" />
+                        </span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Owner</span>
+                        <span class="detail-value" id="detailDeviceOwner">-</span>
+                    </div>
+                    <div class="detail-group">
+                        <span class="detail-label">Created At</span>
+                        <span class="detail-value" id="detailDeviceCreatedAt">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('viewDeviceModal')">Close</button>
+                <button class="btn btn-primary" id="editDeviceBtn" onclick="toggleEditDevice()">Edit Device</button>
+                <button class="btn btn-primary" id="saveDeviceBtn" onclick="saveDeviceChanges()" style="display: none;">Save Changes</button>
+            </div>
+        </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal modal-md" id="confirmationModal">
+    <div class="modal-overlay" onclick="closeModal('confirmationModal')"></div>
+    <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h4 id="confirmTitle">Confirm Action</h4>
+                <button class="modal-close" onclick="closeModal('confirmationModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('confirmationModal')">Cancel</button>
+                <button class="btn btn-error" id="confirmButton">Confirm</button>
+            </div>
+        </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/ticket/user_ticket.js' %}"></script>
+{% endblock extra_js %}

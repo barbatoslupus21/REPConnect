@@ -1,0 +1,724 @@
+
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - Finance Management{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/finance/finance.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+    <header class="page-header">
+        <div class="page-header-content">
+            <h2>Financial Management</h2>
+            <p>Uploading and managing employee payslips, loans, and allowances</p>
+        </div>
+    </header>
+    <div class="dashboard-stats-container">
+        <div class="dashboard-stats">
+            <div class="modern-stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon blue">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Total Employees</div>
+                    <div class="modern-stat-value">{{ total_employees }}</div>
+                    <div class="modern-stat-change {% if employees_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if employees_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ employees_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon orange">
+                            <i class="fas fa-file-invoice"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Payslips</div>
+                    <div class="modern-stat-value">{{ total_payslips }}</div>
+                    <div class="modern-stat-change {% if payslips_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if payslips_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ payslips_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon green">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Active Loans</div>
+                    <div class="modern-stat-value">{{ total_loans }}</div>
+                    <div class="modern-stat-change {% if loans_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if loans_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ loans_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon red">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Allowances</div>
+                    <div class="modern-stat-value">{{ total_allowances }}</div>
+                    <div class="modern-stat-change {% if allowances_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if allowances_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ allowances_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overview-two-column">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Finance Overview</h3>
+                <div class="chart-controls">
+                    <div class="chart-filters">
+                        <button class="filter-btn active" data-period="month">This Month</button>
+                        <button class="filter-btn" data-period="quarter">This Quarter</button>
+                        <button class="filter-btn" data-period="year">This Year</button>
+                    </div>
+                    
+                    <div class="chart-type-filters">
+                        <button class="chart-type-btn active" data-type="line">
+                            <i class="fas fa-chart-line"></i>
+                        </button>
+                        <button class="chart-type-btn" data-type="bar">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
+                    </div>
+                    <button id="filterBtn" class="btn btn-action" type="button">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <div id="filterPopover" class="filter-popover">
+                        <form class="filter-popover-content" onsubmit="applyFilter(event)">
+                            <div class="filter-section">
+                                <label class="filter-label">Filter By</label>
+                                <select class="filter-field-select" id="filterCategorySelect" onchange="updateFilterOptions()">
+                                    <option value="">Select Category</option>
+                                    <option value="loans" selected>Loans</option>
+                                    <option value="allowances">Allowances</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-section" id="filterTypeSection" style="display: none;">
+                                <label class="filter-label">Type</label>
+                                <div class="filter-type-options" id="filterTypeOptions">
+                                    <!-- Dynamic options will be loaded here -->
+                                </div>
+                            </div>
+                            
+                            <div class="filter-popover-actions">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="closeFilterPopover()">
+                                    Cancel
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="financeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+        <div class="table-actions table-actions-bar">
+            <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
+                <form class="search-box" method="get" action="">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search..." name="search" value="{{ search }}" />
+                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                    {% if search %}
+                    <span class="search-clear">
+                        <a href="?"> <i class="fas fa-times"></i> </a>
+                    </span>
+                    {% endif %}
+                </form>
+            </div>
+            <div class="table-actions-right" style="position:relative;">
+                <button class="btn btn-action" id="export-finance-btn">
+                    <i class="fas fa-download"></i>
+                    Export
+                </button>
+
+                <button class="btn btn-action" id="importBtn">
+                    <i class="fas fa-file-import"></i>
+                    Import
+                </button>
+                <!-- Main Import Popover -->
+                <div id="importPopover" class="import-popover">
+                    <div class="import-popover-content">
+                        <div class="import-option" data-type="payslips">
+                            <i class="fas fa-share"></i>
+                            <span>Payslips</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="import-option" data-type="loans">
+                            <i class="fas fa-credit-card"></i>
+                            <span>Loans</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="import-option" data-type="allowances">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <span>Allowances</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary Import Options Popover (appears to the left) -->
+                <div id="importOptionsPopover" class="import-options-popover">
+                    <div class="import-options-content">
+                        <!-- Payslips Options -->
+                        <div class="import-options-group" data-group="payslips">
+                            <div class="import-option-item">
+                                <button type="button" class="btn btn-outline import-btn-option" data-import="payslips_regular">Regular/Probationary</button>
+                            </div>
+                            <div class="import-option-item">
+                                <button type="button" class="btn btn-outline import-btn-option" data-import="payslips_ojt">On Job Training</button>
+                            </div>
+                        </div>
+
+                        <!-- Loans Options -->
+                        <div class="import-options-group" data-group="loans" style="display: none;">
+                            <div class="import-option-item">
+                                <button type="button" class="btn btn-outline import-btn-option" data-import="loans_principal">Principal Balance</button>
+                            </div>
+                            <div class="import-option-item">
+                                <button type="button" class="btn btn-outline import-btn-option" data-import="loans_deduction">Deduction</button>
+                            </div>
+                        </div>
+
+                        <!-- Allowances Options -->
+                        <div class="import-options-group" data-group="allowances" style="display: none;">
+                            <div class="import-option-item">
+                                <button type="button" class="btn btn-outline import-btn-option" data-import="allowances">Allowances</button>
+                            </div>
+                            <div class="import-option-item">
+                                <button type="button" class="btn btn-outline import-btn-option" data-import="savings">Savings</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="tour-btn" onclick="startProductTour()">
+                    <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
+                    <span class="tour-tooltip">Page Tour</span>
+                </button>
+            </div>                                
+        </div>
+        <!-- Employee List Table -->
+        <div class="common-table-container" id="employeeTableContainer">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Id Number</th>
+                        <th>Employee Name</th>
+                        <th>Email</th>
+                        <th>Department</th>
+                        <th>Line</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for emp in employee_page_obj %}
+                    <tr>
+                        <td>
+                            <img src="{% if emp.avatar %}{{ emp.avatar.url }}{% else %}{% static 'images/profile/avatar.svg' %}{% endif %}" alt="Avatar" class="avatar">
+                        </td>
+                        <td>{{ emp.idnumber }}</td>
+                        <td>{{ emp.firstname }} {{ emp.lastname }}</td>
+                        <td>{{ emp.email }}</td>
+                        <td>{% if emp.employment_info and emp.employment_info.department %}{{ emp.employment_info.department.department_name }}{% else %}-{% endif %}</td>
+                        <td>{% if emp.employment_info and emp.employment_info.line %}{{ emp.employment_info.line }}{% else %}-{% endif %}</td>
+                        <td>
+                            <a href="{% url 'employee_finance_details' emp.id %}" class="btn btn-icon" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="table-no-data">
+                            <div class="empty-icon"><i class="fas fa-search"></i></div>
+                            <div class="table-no-data-title">No employees found</div>
+                            <div class="table-no-data-desc">Try adjusting your search or filters.</div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            
+        </div>
+
+        <div class="pagination" id="paginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="startRecord">{{ employee_page_obj.start_index }}</span> to <span id="endRecord">{{ employee_page_obj.end_index }}</span> of <span id="totalRecords">{{ employee_page_obj.paginator.count }}</span> entries
+                </div>
+                <div class="pagination-controls" id="paginationControls">
+                    {% if employee_page_obj.has_previous %}
+                        <a class="pagination-btn" id="prevPage" href="?page={{ employee_page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="prevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="pageNumbers">
+                        {% for num in employee_page_obj.paginator.page_range %}
+                            {% if employee_page_obj.number == num %}
+                                <span class="pagination-btn active">{{ num }}</span>
+                            {% elif num > employee_page_obj.number|add:'-3' and num < employee_page_obj.number|add:'3' %}
+                                <a class="pagination-btn" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}">{{ num }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if employee_page_obj.has_next %}
+                        <a class="pagination-btn" id="nextPage" href="?page={{ employee_page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="nextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+        </div> 
+</div>
+
+<!-- Regular/Probationary Import Modal -->
+<div id="regularProbationaryImportModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import Regular/Probationary Payslips</h4>
+            <button class="modal-close" id="closeRegularProbationaryImportModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-actions-header">
+                <p class="import-description">Upload payslip files for Regular/Probationary employees. Only PDF files are allowed.</p>
+            </div>
+            <div class="form-group">
+                <label for="regular-cutoff-date" class="form-label">Cutoff Date</label>
+                <input type="date" id="regular-cutoff-date" name="cutoff_date" class="form-input">
+                <span class="field-error" id="regular-cutoff-date-error"><span class="error-text"></span></span>
+            </div>
+            <div class="file-upload-area" id="regular-upload-area">
+                <div class="file-upload">
+                    <input type="file" id="regular-files" name="files" multiple class="file-input" accept=".pdf">
+                    <label for="regular-files" class="file-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Drag & drop PDF files here or click to browse</span>
+                        <small>Supported format: .pdf (Max size: 10MB)</small>
+                    </label>
+                </div>
+                <div class="selected-files" id="selectedRegularFiles" style="display: none;">
+                    <h4>Selected Files:</h4>
+                    <div class="file-list" id="regular-file-list"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <form id="regular-upload-form" action="/finance/payslips/upload/" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" id="regular-upload-btn">
+                    <i class="fas fa-upload"></i>
+                    Upload Files
+                </button>
+            </form>
+            <button class="btn btn-outline" id="cancelRegularImportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- OJT Import Modal -->
+<div id="ojtImportModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import OJT Payslips</h4>
+            <button class="modal-close" id="closeOjtImportModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-actions-header">
+                <p class="import-description">Upload payslip files for OJT employees. Only Excel or CSV files are allowed.</p>
+                <a class="btn btn-sm btn-outline" id="ojtTemplateBtn" href="{% url 'ojt_payslip_template' %}" download>
+                    <i class="fas fa-download"></i>
+                    Download Template
+                </a>
+            </div>
+            <div class="form-group">
+                <label for="ojt-cutoff-date" class="form-label">Cutoff Date</label>
+                <input type="date" id="ojt-cutoff-date" name="cutoff_date" class="form-input">
+                <span class="field-error" id="ojt-cutoff-date-error"><span class="error-text"></span></span>
+            </div>
+            <div class="file-upload-area" id="ojt-upload-area">
+                <div class="file-upload">
+                    <input type="file" id="ojt-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                    <label for="ojt-files" class="file-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Drag & drop Excel/CSV files here or click to browse</span>
+                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
+                    </label>
+                </div>
+                <div class="selected-files" id="selectedOjtFiles" style="display: none;">
+                    <h4>Selected Files:</h4>
+                    <div class="file-list" id="ojt-file-list"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <form id="ojt-upload-form" action="/finance/payslips/ojt/upload/" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" id="ojt-upload-btn">
+                    <i class="fas fa-upload"></i>
+                    Upload Files
+                </button>
+            </form>
+            <button class="btn btn-outline" id="cancelOjtImportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Principal Balance Import Modal -->
+<div id="principalBalanceImportModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import Principal Balance</h4>
+            <button class="modal-close" id="closePrincipalBalanceImportModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-actions-header">
+                <p class="import-description">Upload principal balance files. Only Excel or CSV files are allowed.</p>
+                <a class="btn btn-sm btn-outline" href="{% url 'export_loan_principal_template' %}" download>
+                    <i class="fas fa-download"></i>
+                    Download Template
+                </a>
+            </div>
+            <div class="file-upload-area" id="principal-balance-upload-area">
+                <div class="file-upload">
+                    <input type="file" id="principal-balance-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                    <label for="principal-balance-files" class="file-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Drag & drop Excel/CSV files here or click to browse</span>
+                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
+                    </label>
+                </div>
+                <div class="selected-files" id="selectedPrincipalBalanceFiles" style="display: none;">
+                    <h4>Selected Files:</h4>
+                    <div class="file-list" id="principal-balance-file-list"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <form id="principal-balance-upload-form" action="{% url "loan_principal_upload" %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" id="principal-balance-upload-btn">
+                    <i class="fas fa-upload"></i>
+                    Upload Files
+                </button>
+            </form>
+            <button class="btn btn-outline" id="cancelPrincipalBalanceImportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Deduction Import Modal -->
+<div id="deductionImportModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import Deduction</h4>
+            <button class="modal-close" id="closeDeductionImportModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-actions-header">
+                <p class="import-description">Upload deduction files. Only Excel or CSV files are allowed.</p>
+                <a class="btn btn-sm btn-outline" href="{% url 'export_loan_deduction_template' %}" download>
+                    <i class="fas fa-download"></i>
+                    Download Template
+                </a>
+            </div>
+            <div class="form-group">
+                <label for="deduction-cutoff-date" class="form-label">Cutoff Date</label>
+                <input type="date" id="deduction-cutoff-date" name="cutoff_date" class="form-input">
+                <span class="field-error" id="deduction-cutoff-date-error"><span class="error-text"></span></span>
+            </div>
+            <div class="file-upload-area" id="deduction-upload-area">
+                <div class="file-upload">
+                    <input type="file" id="deduction-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                    <label for="deduction-files" class="file-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Drag & drop Excel/CSV files here or click to browse</span>
+                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
+                    </label>
+                </div>
+                <div class="selected-files" id="selectedDeductionFiles" style="display: none;">
+                    <h4>Selected Files:</h4>
+                    <div class="file-list" id="deduction-file-list"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <form id="deduction-upload-form" action="{% url "loan_deduction_upload" %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" id="deduction-upload-btn">
+                    <i class="fas fa-upload"></i>
+                    Upload Files
+                </button>
+            </form>
+            <button class="btn btn-outline" id="cancelDeductionImportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Allowances Import Modal -->
+<div id="allowancesImportModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import Allowances</h4>
+            <button class="modal-close" id="closeAllowancesImportModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-actions-header">
+                <p class="import-description">Upload allowance files (XLSX, XLS, CSV). You can upload multiple files at once.</p>
+                <a class="btn btn-sm btn-outline" href="{% url 'export_allowance_template' %}" download>
+                    <i class="fas fa-download"></i>
+                    Download Template
+                </a>
+            </div>
+
+            <div class="file-upload-area" id="allowances-upload-area">
+                <div class="file-upload">
+                    <input type="file" id="allowances-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                    <label for="allowances-files" class="file-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Drag & drop allowance files here or click to browse</span>
+                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
+                    </label>
+                </div>
+                <div class="selected-files" id="selectedAllowanceFiles" style="display: none;">
+                    <h4>Selected Files:</h4>
+                    <div class="file-list" id="allowances-file-list"></div>
+                </div>
+
+                <div class="upload-progress" id="allowanceUploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="allowanceProgressFill"></div>
+                    </div>
+                    <span class="progress-text" id="allowanceProgressText">0%</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <form id="allowances-upload-form" action="/finance/allowances/upload/" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" id="allowances-upload-btn">
+                    <i class="fas fa-upload"></i>
+                    Upload Files
+                </button>
+            </form>
+            <button class="btn btn-outline" id="cancelAllowanceImportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Savings Import Modal -->
+<div id="savingsImportModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import Savings</h4>
+            <button class="modal-close" id="closeSavingsImportModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="import-actions-header">
+                <p class="import-description">Upload savings files (XLSX, XLS, CSV). You can upload multiple files at once.</p>
+                <a class="btn btn-sm btn-outline" href="{% url 'export_savings_template' %}" download>
+                    <i class="fas fa-download"></i>
+                    Download Template
+                </a>
+            </div>
+            <div class="file-upload-area" id="savings-upload-area">
+                <div class="file-upload">
+                    <input type="file" id="savings-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                    <label for="savings-files" class="file-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Drag & drop savings files here or click to browse</span>
+                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
+                    </label>
+                </div>
+                <div class="selected-files" id="selectedSavingsFiles" style="display: none;">
+                    <h4>Selected Files:</h4>
+                    <div class="file-list" id="savings-file-list"></div>
+                </div>
+                <div class="upload-progress" id="savingsUploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="savingsProgressFill"></div>
+                    </div>
+                    <span class="progress-text" id="savingsProgressText">0%</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <form id="savings-upload-form" action="{% url 'savings_upload' %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" id="savings-upload-btn">
+                    <i class="fas fa-upload"></i>
+                    Upload Files
+                </button>
+            </form>
+            <button class="btn btn-outline" id="cancelSavingsImportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Payslip Upload Results Modal -->
+<div id="payslipResultsModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Payslip Upload Results</h4>
+            <button class="modal-close" id="closePayslipResultsModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="results-table-container">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Error</th>
+                        </tr>
+                    </thead>
+                    <tbody id="failedUploadsTable">
+                        <!-- Failed uploads will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="error-help">
+                <h5>Common Issues:</h5>
+                <ul>
+                    <li><strong>Invalid filename format:</strong> Filename must follow pattern: lastname_employeeid.pdf</li>
+                    <li><strong>Employee not found:</strong> Employee ID in filename doesn't exist in system</li>
+                    <li><strong>Wrong employment type:</strong> Only Regular/Probationary employees are allowed</li>
+                    <li><strong>Invalid file type:</strong> Only PDF files are accepted</li>
+                </ul>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="downloadPayslipErrorReportBtn" style="display: none;">
+                <i class="fas fa-download"></i>
+                Download Error Report
+            </button>
+            <button class="btn btn-outline" id="closeResultsModalBtn">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Reports Modal -->
+<div id="exportReportsModal" class="modal modal-md" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Export Finance Reports</h4>
+            <button class="modal-close" id="closeExportModalBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="export-description">Select the type of report you want to export:</p>
+            <form id="exportReportsForm" method="get">
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="exportSavings" name="export_type" value="savings" checked>
+                        <span class="radio-circle"></span>
+                        <label class="radio-label" for="exportSavings">
+                            Total Employee Savings
+                        </label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="exportLoans" name="export_type" value="loans">
+                        <span class="radio-circle"></span>
+                        <label class="radio-label" for="exportLoans">
+                            Total Employee Loans
+                        </label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="exportAllowances" name="export_type" value="allowances">
+                        <span class="radio-circle"></span>
+                        <label class="radio-label" for="exportAllowances">
+                            Total Allowance | Cut-Off
+                        </label>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-primary" id="exportReportBtn">
+                <i class="fas fa-download"></i>
+                Export Report
+            </button>
+            <button type="button" class="btn btn-outline" id="cancelExportBtn">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance/admin-finance.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,597 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - PR-Form{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/prf/prf.css' %}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/minified/introjs.min.css">
+{% endblock %}
+
+{% block content %}
+    <div class="page-content" id="page-content">
+        <header class="page-header">
+            <div class="page-header-content">
+                <h2>Personnel Request Form (PRF)</h2>
+                <p>Submit and manage your personnel request forms</p>
+            </div>
+            <div class="page-actions">
+                <button class="btn btn-primary" onclick="openModal('submitPRFModal')">
+                    <i class="fas fa-plus"></i>
+                    New PRF Request
+                </button>
+            </div>
+        </header>
+
+        {% if prfs %}
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left">
+                    <form class="search-box">
+                        <input type="text" class="search-input" placeholder="Search..." name="search" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    
+                    <button id="filterBtn" class="btn btn-action" type="button" onclick="toggleFilterPopover()">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <div id="filterPopover" class="filter-popover">
+                        <form class="filter-popover-content" onsubmit="applyFilter(event)">
+                            <select class="filter-field-select">
+                                <option value="prf_type">PRF Type</option>
+                                <option value="category">Category</option>
+                                <option value="status" selected>Status</option>
+                            </select>
+                            <div class="filter-condition-group" id="filterConditionGroup">
+                                <label><input type="radio" name="filter_condition" value="is" checked> is</label>
+                                <label><input type="radio" name="filter_condition" value="is_not"> is not</label>
+                                <label><input type="radio" name="filter_condition" value="contains"> contains</label>
+                                <label><input type="radio" name="filter_condition" value="any"> has any value</label>
+                            </div>
+                            <input type="text" class="filter-value-input" placeholder="Value..." id="filterValueInput" />
+                            <div class="filter-popover-actions">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="toggleFilterPopover()">Cancel</button>
+                                <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+                            </div>
+                        </form>
+                    </div>
+                    <button class="tour-btn" onclick="startProductTour()">
+                        <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
+                        <span class="tour-tooltip">Page Tour</span>
+                    </button>
+                </div>
+            </div>
+            <div class="common-table-container no-table-border">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>PRF Type</th>
+                            <th class="hide-column">Category</th>
+                            <th class="hide-column">Purpose</th>
+                            <th>Control Number</th>
+                            <th>Status</th>
+                            <th class="hide-column">Date Submitted</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prfTableBody">
+                        {% for prf in prfs %}
+                        <tr data-status="{{ prf.status }}" data-category="{{ prf.prf_category }}" data-prf_type="{{ prf.prf_type }}" class="prf-row">
+                            <td>
+                                <div class="prf-type-cell">
+                                    {{ prf.get_prf_type_display }}
+                                </div>
+                            </td>
+                            <td class="hide-column">
+                                <span class="prf-category-badge">{{ prf.get_prf_category_display }}</span>
+                            </td>
+                            <td class="hide-column">
+                                <div class="prf-purpose-cell">
+                                    {{ prf.purpose|truncatechars:80 }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if prf.control_number %}
+                                    <span class="control-number">{{ prf.control_number }}</span>
+                                {% else %}
+                                    <span class="no-control">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="status-pill status-{% if prf.get_status_display == 'Approved' %}green{% elif prf.get_status_display == 'Disapproved' %}red{% elif prf.get_status_display == 'Pending' %}yellow{% else %}gray{% endif %}">
+                                    {{ prf.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="hide-column">
+                                <div class="date-cell">
+                                    <i class="fas fa-calendar"></i>
+                                    {{ prf.created_at|date:"M d, Y" }}
+                                </div>
+                            </td>
+                            <td>
+                                <button class="btn btn-icon" {% if forloop.first %}id="tour-view-btn"{% endif %} onclick="viewPRFDetail({{ prf.id }})">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="no-data-row" style="display:none;">
+                            <td colspan="7">
+                                <div class="empty-state table-no-data">
+                                    <i class="fas fa-search"></i>
+                                    <div class="table-no-data-title">No data found.</div>
+                                    <div class="table-no-data-desc">Try adjusting your filter or search.</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <div class="pagination-info">
+                    Showing <span id="startRecord">1</span> to <span id="endRecord">7</span> of <span id="totalRecords">{{ prfs|length }}</span> entries
+                </div>
+                <div class="pagination-controls">
+                    <button class="pagination-btn" id="prevPage" onclick="changePage(-1)" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div id="pageNumbers"></div>
+                    <button class="pagination-btn" id="nextPage" onclick="changePage(1)">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        {% else %}
+        <div class="empty-state" style="text-align: center;">
+                <i class="fas fa-file-alt"></i>
+                <h3>No PRF Requests Yet</h3>
+                <p>You haven't submitted any PRF requests. Click the button above to submit your first request.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="submitPRFModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Submit PRF Request</h4>
+                <button class="modal-close" onclick="closeModal('submitPRFModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="prfForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">PRF Category</label>
+                        {{ form.prf_category }}
+                    </div>
+                    
+                    <div class="form-group" id="prf-type-group" style="display: none;">
+                        <label class="form-label">PRF Type</label>
+                        {{ form.prf_type }}
+                    </div>
+                    
+                    <div class="form-group" id="control-number-group" style="display: none;">
+                        <label class="form-label">Control Number <span class="required">*</span></label>
+                        {{ form.control_number }}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Purpose of Request <span class="required">*</span></label>
+                        {{ form.purpose }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('submitPRFModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="prfDetailModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header details-header">
+                <h4>PRF Request Details</h4>
+                <button class="modal-close" onclick="closeModal('prfDetailModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body details-body">
+                <div class="details-grid">
+                    <div>
+                        <div class="details-label">Category:</div>
+                        <div class="details-value" id="details-category"></div>
+                    </div>
+                    <div>
+                        <div class="details-label">Type:</div>
+                        <div class="details-value" id="details-type"></div>
+                    </div>
+                    <div>
+                        <div class="details-label">Status:</div>
+                        <span id="details-status-badge"></span>
+                    </div>
+                    <div>
+                        <div class="details-label">Submitted:</div>
+                        <div class="details-value" id="details-created"></div>
+                    </div>
+                </div>
+                <div class="details-section details-details">
+                    <div class="details-label">Purpose:</div>
+                    <div class="details-value" id="details-purpose"></div>
+                </div>
+                <div class="details-section details-details" id="emergency-loan-details" style="display: none;">
+                    <div class="details-label">Emergency Loan Details:</div>
+                    <div class="emergency-loan-info">
+                        <div class="details-grid">
+                            <div>
+                                <div class="details-label">Amount:</div>
+                                <div class="details-value" id="emergency-amount"></div>
+                            </div>
+                            <div>
+                                <div class="details-label">Cut-Off Period:</div>
+                                <div class="details-value" id="emergency-cutoff"></div>
+                            </div>
+                            <div>
+                                <div class="details-label">Starting Date:</div>
+                                <div class="details-value" id="emergency-start-date"></div>
+                            </div>
+                            <div>
+                                <div class="details-label">Deduction per Cut-Off:</div>
+                                <div class="details-value" id="emergency-deduction"></div>
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <div class="details-label">Employee Name:</div>
+                                <div class="details-value" id="emergency-employee-name"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="details-section details-details" id="details-remarks-row">
+                    <div class="details-label">Admin Remarks:</div>
+                    <div class="details-value" id="details-remarks"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('prfDetailModal')">Close</button>
+                <button class="btn btn-error" id="cancel-request-btn" style="display:none;" onclick="cancelPRFRequest()">Cancel Request</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Loan Modal -->
+    <div id="emergencyLoanModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h4>Emergency Loan Request</h4>
+                <button class="modal-close" onclick="closeModal('emergencyLoanModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="emergencyLoanForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Amount <span class="required">*</span></label>
+                        <select class="form-input" id="emergency_amount" name="amount" required>
+                            <option value="">Select Amount</option>
+                            {% comment %} <option value="2000">₱2,000</option>
+                            <option value="3000">₱3,000</option>
+                            <option value="4000">₱4,000</option> {% endcomment %}
+                            <option value="5000">₱5,000</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Number of Cut-Off <span class="required">*</span></label>
+                        <select class="form-input" id="emergency_cutoff" name="number_of_cutoff" required disabled>
+                            <option value="">Select Amount First</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Starting Date <span class="required">*</span></label>
+                        <input type="date" class="form-input" id="emergency_start_date" name="starting_date" required>
+                    </div>
+                    
+                    <!-- Agreement Text -->
+                    <div class="agreement-section" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <h4 style="margin-bottom: 10px; color: #495057;">Agreement</h4>
+                        <p id="agreement-text" style="line-height: 1.6; color: #6c757d; font-size: 14px;">
+                            This is to authorize Finance and Accounting Department to deduct from my salary the amount of 
+                            <strong id="deduction-amount">₱0.00</strong> per payroll starting 
+                            <strong id="start-date-display">___________</strong> payroll period.
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Full Name Confirmation <span class="required">*</span></label>
+                        <input type="text" class="form-input" id="employee_full_name" name="employee_full_name" 
+                               placeholder="Enter your full name to confirm" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('emergencyLoanModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="emergency-loan-submit" disabled>
+                        <i class="fas fa-check"></i>
+                        Confirm Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Emergency Loan Error Modal -->
+    <div id="emergencyLoanErrorModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Existing Emergency Loan</h4>
+                <button class="modal-close" onclick="closeModal('emergencyLoanErrorModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="loan-alert">
+                    <i class="fas fa-exclamation-triangle loan-alert-icon"></i>
+                    <div class="loan-alert-content">
+                        <h4 class="loan-alert-title">Notice</h4>
+                        <p>
+                            You have an active Emergency Loan with a remaining balance of 
+                            <strong id="existing-balance" class="loan-alert-balance">₱0.00</strong>.
+                        </p>
+                        <p>
+                            You can apply for a new Emergency Loan when your remaining balance is equal to or less than one monthly deduction payment.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('emergencyLoanErrorModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Loan Confirmation Modal -->
+    <div id="emergencyLoanSuccessModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Request Submitted Successfully</h4>
+                <button class="modal-close" onclick="closeModal('emergencyLoanSuccessModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <div>
+                        <h4>Emergency Loan Request Submitted</h4>
+                        <p><strong>Control Number:</strong> <span id="generated-control-number"></span></p>
+                        <p><strong>Amount:</strong> <span id="confirmed-amount"></span></p>
+                        <p><strong>Deduction per Cut-off:</strong> <span id="confirmed-deduction"></span></p>
+                        <p><strong>Starting Date:</strong> <span id="confirmed-start-date"></span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeModal('emergencyLoanSuccessModal'); location.reload();">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/intro.js/minified/intro.min.js"></script>
+    <script>
+    window.USER_FULL_NAME = "{{ request.user.firstname }} {{ request.user.lastname }}";
+    window.PRF_FILTER_CHOICES = {
+        status: [
+            {value: 'all', label: 'All'},
+            {value: 'pending', label: 'Pending'},
+            {value: 'approved', label: 'Approved'},
+        ],
+        category: [
+            {value: 'all', label: 'All'},
+            {value: 'government', label: 'Government Transaction'},
+            {value: 'banking', label: 'Banking and Finance'},
+            {value: 'hr_payroll', label: 'Human Resources and Payroll'},
+        ],
+        prf_type: [
+            {value: 'all', label: 'All'},
+            {value: 'pagibig_loan', label: 'PAG-IBIG Loan'},
+            {value: 'pagibig_cert_payment', label: 'PAG-IBIG Certificate of Payment'},
+            {value: 'pagibig_cert_contribution', label: 'PAG-IBIG Certificate of Contribution'},
+            {value: 'philhealth_form', label: 'PHILHEALTH Form'},
+            {value: 'sss_loan', label: 'SSS Loan'},
+            {value: 'sss_maternity', label: 'SSS Maternity Benefits'},
+            {value: 'sss_sickness', label: 'SSS Sickness Benefits'},
+            {value: 'bir_form', label: 'BIR Form (2316/1902)'},
+            {value: 'rcbc_maintenance', label: 'RCBC Maintenance Form'},
+            {value: 'bank_deposit', label: 'Bank Deposit'},
+            {value: 'payroll_adjustment', label: 'Payroll Adjustment'},
+            {value: 'id_replacement', label: 'ID Replacement'},
+            {value: 'pcoe_compensation', label: 'PCOE with Compensation'},
+            {value: 'certificate_employment', label: 'Certificate of Employment'},
+            {value: 'clearance_form', label: 'Clearance Form'},
+            {value: 'emergency_loan', label: 'Emergency Loan'},
+            {value: 'medical_loan', label: 'Medical Assistance Loan'},
+            {value: 'educational_loan', label: 'Educational Assistance Loan'},
+            {value: 'coop_loan', label: 'Coop Loan'},
+            {value: 'uniform_ppe', label: 'Uniform / Caps / PPE / T-shirt'},
+            {value: 'others', label: 'Others'},
+        ]
+    };
+
+    function startProductTour() {
+        if (window.introJs) {
+            let modalOpened = false;
+            const modal = document.getElementById('submitPRFModal');
+            const prfCategory = document.getElementById('prf_category');
+            const prfType = document.getElementById('prf_type');
+            const steps = [
+                { 
+                    intro: "Welcome to the PRF page! This tour will guide you through the main features." 
+                },
+                {
+                    element: document.querySelector('.search-box'),
+                    intro: "Use this search bar to quickly find PRF requests."
+                },
+                {
+                    element: document.getElementById('filterBtn'),
+                    intro: "Click here to filter PRF requests by type, category, or status."
+                },
+                {
+                    element: document.querySelector('.tour-btn'),
+                    intro: "Click this button anytime to replay the product tour."
+                },
+                {
+                    element: document.querySelector('.data-table'),
+                    intro: "This table lists all your PRF requests. You can view details or take actions here."
+                },
+                {
+                    element: document.getElementById('tour-view-btn'),
+                    intro: "Click this View button to see the details of a PRF request."
+                },
+                {
+                    element: document.querySelector('.pagination'),
+                    intro: "Use these controls to navigate between pages of requests."
+                },
+                {
+                    element: document.querySelector('.page-actions .btn-primary'),
+                    intro: "Click here to submit a new PRF request. Let's see how!",
+                    position: 'left'
+                },
+                // Modal steps (modal will be shown before this step)
+                {
+                    intro: "This is the PRF Request modal. Let's walk through the fields."
+                },
+                {
+                    element: document.querySelector('#submitPRFModal .form-group:nth-child(1)'),
+                    intro: "Select the PRF Category here."
+                },
+                {
+                    element: document.querySelector('#submitPRFModal .form-group:nth-child(2)'),
+                    intro: "Select the PRF Type here (appears after choosing a category)."
+                },
+                {
+                    element: document.querySelector('#submitPRFModal .form-group:nth-child(3)'),
+                    intro: "Enter the Control Number if required."
+                },
+                {
+                    element: document.querySelector('#submitPRFModal .form-group:nth-child(4)'),
+                    intro: "Describe the purpose of your request here."
+                },
+                {
+                    element: document.querySelector('#submitPRFModal .modal-footer'),
+                    intro: "Use these buttons to submit or cancel your request."
+                }
+            ];
+            introJs().setOptions({
+                steps: steps,
+                showProgress: true,
+                showBullets: false,
+                nextLabel: 'Next',
+                prevLabel: 'Back',
+                doneLabel: 'Finish',
+                skipLabel: 'Skip Tour',
+                exitOnOverlayClick: false,
+                exitOnEsc: true
+            }).onbeforechange(function(targetElement) {
+                // Show the modal only when reaching the modal steps
+                if (!modalOpened && (this._currentStep >= 8)) {
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        modal.classList.add('show');
+                        modal.classList.remove('closing');
+                        modalOpened = true;
+                    }
+                }
+                // Set sample values for the tour in the modal
+                if (modalOpened && this._currentStep === 9) {
+                    if (prfCategory) {
+                        prfCategory.value = 'government';
+                        prfCategory.dispatchEvent(new Event('change'));
+                    }
+                    setTimeout(function() {
+                        if (prfType) {
+                            prfType.value = 'pagibig_loan';
+                            prfType.dispatchEvent(new Event('change'));
+                        }
+                    }, 200);
+                }
+            }).oncomplete(function() {
+                if (modalOpened && modal) closeModal('submitPRFModal');
+            }).onexit(function() {
+                if (modalOpened && modal) closeModal('submitPRFModal');
+            }).start();
+        } else {
+            alert('Product tour library not loaded.');
+        }
+    }
+
+    // Patch the viewPRFDetail function to use the same status badge design as the table
+    const oldViewPRFDetail = window.viewPRFDetail;
+    window.viewPRFDetail = async function(prfId) {
+        try {
+            const response = await fetch(`/prf/detail/${prfId}/`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('details-category').textContent = data.prf_category;
+                document.getElementById('details-type').textContent = data.prf_type;
+                document.getElementById('details-purpose').textContent = data.purpose;
+                document.getElementById('details-control-number').textContent = data.control_number;
+                
+                // Status badge logic
+                const statusSpan = document.getElementById('details-status-badge');
+                statusSpan.className = `status-badge status-${data.status.toLowerCase()}`;
+                let icon = '<i class="fas fa-clock"></i>';
+                if (data.status.toLowerCase() === 'approved') icon = '<i class="fas fa-check"></i>';
+                else if (data.status.toLowerCase() === 'disapproved') icon = '<i class="fas fa-times"></i>';
+                statusSpan.innerHTML = `${icon} ${data.status}`;
+                
+                document.getElementById('details-remarks').textContent = data.admin_remarks;
+                document.getElementById('details-date').textContent = data.created_at;
+                document.getElementById('details-created').textContent = data.created_at;
+                
+                // Handle Emergency Loan details
+                const emergencyLoanSection = document.getElementById('emergency-loan-details');
+                if (data.emergency_loan) {
+                    // Show Emergency Loan section and populate data
+                    emergencyLoanSection.style.display = 'block';
+                    document.getElementById('emergency-amount').textContent = data.emergency_loan.amount_display;
+                    document.getElementById('emergency-cutoff').textContent = data.emergency_loan.cutoff_display;
+                    document.getElementById('emergency-start-date').textContent = data.emergency_loan.starting_date_display;
+                    document.getElementById('emergency-deduction').textContent = data.emergency_loan.deduction_per_cutoff_display;
+                    document.getElementById('emergency-employee-name').textContent = data.emergency_loan.employee_full_name;
+                } else {
+                    // Hide Emergency Loan section for non-emergency loan PRFs
+                    emergencyLoanSection.style.display = 'none';
+                }
+                
+                const controlRow = document.getElementById('details-remarks-row');
+                const remarksRow = document.getElementById('details-remarks-row');
+                controlRow.style.display = data.control_number === 'N/A' ? 'none' : 'grid';
+                remarksRow.style.display = data.admin_remarks === 'No remarks' ? 'none' : 'grid';
+                openModal('prfDetailModal');
+            } else {
+                window.prfManager.showToast('Error loading PRF details', 'error');
+            }
+        } catch (error) {
+            console.error('Error fetching PRF details:', error);
+            window.prfManager.showToast('Error loading PRF details', 'error');
+        }
+    }
+    </script>
+{% endblock content %}
+
+{% block extra_js %}
+    <script src="{% static 'js/prf/user-prf.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,713 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - Employee Finance Details{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/finance/finance.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Toast container for Django messages (handled by script.js) -->
+<div id="toast-container"></div>
+<div class="page-content" id="page-content">
+    <div class="page-header-left">
+        <button class="btn btn-outline" onclick="history.back()">
+            <i class="fas fa-arrow-left"></i>
+            Back
+        </button>
+    </div>      
+    <header class="page-header">
+        <div class="page-header-content" data-tour="page-header">
+            <h2>Employee Finance Details</h2>
+            <p>Financial information for {{ employee.firstname }} {{ employee.lastname }}</p>
+        </div>
+
+        <button class="tour-btn" data-tour="tour-button">
+            <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
+            <span class="tour-tooltip">Page Tour</span>
+        </button>       
+    </header>
+
+    {% if employee.employment_info.employment_type == 'OJT' %}
+            <div class="loans-summary-header">
+                <div class="loans-summary-header-left">
+                    <div class="loans-summary-title-row">
+                        <h2 class="loans-summary-title">Allowance Slips</h2>
+                        <span class="loans-summary-date">as of {{ now|date:'M d, Y' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if ojt_payslips and ojt_payslips|length > 0 %}
+            <div class="section-content">
+                <div class="loans-table-container">
+                    <table class="data-table" id="ojtPayslipTable">
+                        <thead>
+                            <tr>
+                                <th>Cut Off</th>
+                                <th>Deduction</th>
+                                <th>Deduction 2</th>
+                                <th>Net OJT Share</th>
+                                <th>Net OT Pay Allowance</th>
+                                <th>Total Allow</th>
+                                <th>Total Allow</th>
+                                
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payslip in ojt_payslips %}
+                            <tr>
+                                <td>{{ payslip.cut_off }}</td>
+                                <td>{{ payslip.deduction }}</td>
+                                <td>{{ payslip.deduction_2 }}</td>
+                                <td>{{ payslip.net_ojt_share }}</td>
+                                <td>{{ payslip.ot_pay_allowance }}</td>
+                                <td>{{ payslip.total_allow }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-icon view-ojt-payslip-btn" 
+                                        data-payslip-id="{{ payslip.id }}"
+                                        title="View Payslip">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
+                <div class="empty-title">No OJT Payslip Data Found</div>
+                <div class="empty-desc">No OJT payslip data has been uploaded for this employee yet.</div>
+            </div>
+            {% endif %}
+    {% elif employee.employment_info.employment_type == 'Regular' or employee.employment_info.employment_type == 'Probationary' %}
+        <div class="finance-sections">
+            <div class="tabs-horizontal" data-tour="tabs-section">
+                <div class="tab-list">
+                    <button class="tab active" data-tab="payslips-tab" data-tour="payslips-tab-btn">Payslips</button>
+                    <button class="tab" data-tab="loans-tab" data-tour="loans-tab-btn">Loans</button>
+                    <button class="tab" data-tab="allowances-tab" data-tour="allowances-tab-btn">Savings & Allowances</button>
+                </div>
+            </div>
+            <div id="payslips-tab" class="tab-content active">
+                <!-- Payslips Section -->
+                <div class="loans-summary-header">
+                    <div class="loans-summary-header-left">
+                        <div class="loans-summary-title-row">
+                            <h2 class="loans-summary-title">Payslips</h2>
+                            <span class="loans-summary-date">as of {{ now|date:'M d, Y' }}</span>
+                        </div>
+                    </div>
+                    <div class="table-actions table-actions-bar">
+                        <div class="table-actions-right" data-tour="search-functionality">
+                            <form class="search-box" onsubmit="return false;">
+                                <input type="text" class="search-input" id="payslipSearchInput" placeholder="Search payslips..." name="search" value="{{ search }}" />
+                                <span class="search-icon"><i class="fas fa-search"></i></span>
+                                <span class="search-clear" id="payslipSearchClear" style="display: {% if search %}inline-block{% else %}none{% endif %};">
+                                    <a href="javascript:void(0)" onclick="clearPayslipSearch()"> <i class="fas fa-times"></i> </a>
+                                </span>
+                            </form>
+                        </div>                                
+                    </div>
+                </div>
+                <div class="section-content">
+                    {% if payslips %}
+                                <div class="loans-table-container" id="payslipsTableContainer" data-tour="payslips-table">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Cutoff Date</th>
+                                                <th>File</th>
+                                                <th>Date Uploaded</th>
+                                                <th>Uploaded By</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for payslip in payslips %}
+                                            <tr>
+                                                <td>{{ payslip.cutoff_date|date:"F j, Y" }}</td>
+                                                <td>
+                                                    <span class="file-name">{{ payslip.file_path.name }}</span>
+                                                </td>
+                                                <td>{{ payslip.date_uploaded|date:"M j, Y g:i A" }}</td>
+                                                <td>
+                                                    {% if payslip.uploaded_by %}
+                                                        {{ payslip.uploaded_by.firstname }} {{ payslip.uploaded_by.lastname }}
+                                                    {% else %}
+                                                        System
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-icon delete-payslip-btn" 
+                                                        data-payslip-id="{{ payslip.id }}"
+                                                        data-employee-id="{{ payslip.employee.id }}"
+                                                        data-cutoff-date="{{ payslip.cutoff_date }}"
+                                                        title="Delete Payslip">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr>
+                                                <td colspan="7" style="text-align: center;" class="table-no-data">
+                                                    <div class="empty-icon"><i class="fas fa-search"></i></div>
+                                                    <div class="table-no-data-title">No payslip found</div>
+                                                    <div class="table-no-data-desc">Try adjusting your search or filters.</div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="pagination">
+                                    <div class="pagination-info">
+                                        Showing {{ payslips.start_index }} to {{ payslips.end_index }} of {{ payslips.paginator.count }} payslips
+                                    </div>
+                                    <div class="pagination-controls">
+                                        {% if payslips.has_previous %}
+                                            <button class="pagination-btn payslip-pagination" data-page="{{ payslips.previous_page_number }}">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </button>
+                                        {% else %}
+                                            <span class="pagination-btn disabled">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </span>
+                                        {% endif %}
+
+                                        <div class="page-numbers">
+                                            {% for num in payslips.paginator.page_range %}
+                                                {% if payslips.number == num %}
+                                                    <span class="pagination-btn active">{{ num }}</span>
+                                                {% elif num > payslips.number|add:'-3' and num < payslips.number|add:'3' %}
+                                                    <button class="pagination-btn payslip-pagination" data-page="{{ num }}">{{ num }}</button>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+
+                                        {% if payslips.has_next %}
+                                            <button class="pagination-btn payslip-pagination" data-page="{{ payslips.next_page_number }}">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </button>
+                                        {% else %}
+                                            <span class="pagination-btn disabled">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
+                            <div class="empty-title">No Payslips Found</div>
+                            <div class="empty-desc">No payslips have been uploaded for this employee yet.</div>
+                        </div>
+                    {% endif %}                           
+                </div>
+            </div>
+            <div id="loans-tab" class="tab-content">
+                <!-- Loans Section -->
+                    <div class="loans-summary-header">
+                        <div class="loans-summary-header-left">
+                            <div class="loans-summary-title-row">
+                                <h2 class="loans-summary-title">Summary</h2>
+                                <span class="loans-summary-date">as of {{ now|date:'M d, Y' }}</span>
+                            </div>
+                        </div>
+                        <div class="loans-summary-header-right" data-tour="loans-toggle">
+                            <div class="loans-toggle-row">
+                                <span class="toggle-label">Show Only Active Loans</span>
+                                <label class="loans-toggle-switch">
+                                    <input type="checkbox" id="showActiveLoansOnly" checked>
+                                    <span class="loans-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section-content">
+                        {% if loans|length > 0 %}
+                            <div class="loans-table-container" data-tour="loans-table">
+                                <table class="data-table" id="loansTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Loan</th>
+                                            <th>Type</th>
+                                            <th>Min. Monthly Payment</th>
+                                            <th>Principal Balance</th>
+                                            <th data-tour="payment-progress">Payment Progress</th>
+                                            <th>Status</th>
+                                            <th>Balance</th>
+                                            <th data-tour="loan-actions">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for loan in loans %}
+                                        <tr data-active="{{ loan.is_active|yesno:'true,false' }}">
+                                            <td>
+                                                <div>
+                                                    <span class="loan-type-name">{{ loan.loan_type.loan_type }}</span><br>
+                                                    <small class="loan-date-started">{{ loan.created_at|date:"M d, Y" }}</small>
+                                                </div>
+                                            </td>
+                                            <td><span class="loan-type-pill">{{ loan.loan_type.loan_type }}</span></td>
+                                            <td>₱ {{ loan.monthly_deduction|floatformat:2 }}</td>
+                                            <td>₱ {{ loan.principal_amount|floatformat:2 }}</td>
+                                            <td>
+                                                <div class="loan-progress-bar-container">
+                                                    <div class="loan-progress-bar-bg">
+                                                        <div class="loan-progress-bar-fill" data-width="{{ loan.percent_paid|floatformat:0 }}" style="width:0%">
+                                                            <span class="loan-progress-percentage">{{ loan.percent_paid|floatformat:0 }}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="loan-progress-bar-info">
+                                                        ₱{{ loan.paid|floatformat:2 }} of ₱{{ loan.principal_amount|floatformat:2 }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge {% if loan.is_active %}active{% else %}inactive{% endif %}">
+                                                    {% if loan.is_active %}Active{% else %}Inactive{% endif %}
+                                                </span>
+                                            </td>
+                                            <td><strong>₱{{ loan.current_balance|floatformat:2 }}</strong></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-icon view-loan-btn" title="View Loan" data-loan-id="{{ loan.id }}">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-icon delete-loan-btn" title="Delete Loan" data-loan-id="{{ loan.id }}">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th>Total Loan Balance</th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th>₱{{ total_active_loan_balance|floatformat:2 }}</th>
+                                            <th></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                                <div class="empty-title">No Loans Found</div>
+                                <div class="empty-desc">No loans have been recorded for this employee yet.</div>
+                            </div>
+                        {% endif %}
+                    </div>
+            </div>
+            <div id="allowances-tab" class="tab-content">
+                <!-- Allowances Section -->
+                <div class="loans-summary-header">
+                    <div class="loans-summary-header-left">
+                        <div class="loans-summary-title-row">
+                            <h2 class="loans-summary-title">Allowances</h2>
+                            <span class="loans-summary-date">as of {{ now|date:'M d, Y' }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-content">
+                    {% if allowances and allowances|length > 0 %}
+                    <div class="loans-table-container" data-tour="allowances-table">
+                        <table class="data-table" id="allowancesTable">
+                            <thead>
+                                <tr>
+                                    <th>Allowance Type</th>
+                                    <th>Amount</th>
+                                    <th>Deposited Date</th>
+                                    <th>Uploaded at</th>
+                                    <th data-tour="allowance-actions">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for allowance in allowances %}
+                                <tr>
+                                    <td>{{ allowance.allowance_type.allowance_type }}</td>
+                                    <td>₱{{ allowance.amount|floatformat:2 }}</td>
+                                    <td>{{ allowance.deposit_date|date:"Y-m-d" }}</td>
+                                    <td>{{ allowance.created_at|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-icon delete-allowance-btn" title="Delete Allowance" data-allowance-id="{{ allowance.id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th>Total Allowances:</th>
+                                    <th>₱{{ total_allowances|floatformat:2 }}</th>
+                                    <th></th>
+                                    <th></th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-gift"></i></div>
+                        <div class="empty-title">No Allowances Found</div>
+                        <div class="empty-desc">No allowances have been recorded for this employee yet.</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Savings Section -->
+                <div class="loans-summary-header">
+                    <div class="loans-summary-header-left">
+                        <div class="loans-summary-title-row">
+                            <h2 class="loans-summary-title">Savings</h2>
+                            <span class="loans-summary-date">as of {{ now|date:'M d, Y' }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-content">
+                    {% if savings and savings|length > 0 %}
+                    <div class="loans-table-container" data-tour="allowances-table">
+                        <table class="data-table" id="savingsTable">
+                            <thead>
+                                <tr>
+                                    <th>Savings Type</th>
+                                    <th>Total Savings</th>
+                                    <th>Status</th>
+                                    <th>Updated at</th>
+                                    <th data-tour="savings-actions">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for saving in savings %}
+                                <tr>
+                                    <td>Personal Savings</td>
+                                    <td>₱{{ saving.amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if not saving.is_withdrawn %}
+                                            <span class="status-badge active">Active</span>
+                                        {% else %}
+                                            <span class="status-badge inactive">Withdrawn</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ saving.updated_at|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        {% if not saving.is_withdrawn %}
+                                            <button class="btn btn-sm btn-icon withdraw-savings-btn" title="Withdraw Savings" data-savings-id="{{ saving.id }}">
+                                                <i class="fas fa-money-bill-wave"></i>
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted">Withdrawn</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-gift"></i></div>
+                        <div class="empty-title">No Savings Found</div>
+                        <div class="empty-desc">No savings have been recorded for this employee yet.</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deletePayslipModal" class="modal modal-md" style="display:none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Delete Payslip</h4>
+            <button type="button" class="modal-close close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this payslip?</p>
+        </div>
+        <div class="modal-footer">
+            <form id="deletePayslipForm" method="post" action="" style="display: flex; gap: 0.5rem;">
+                {% csrf_token %}
+                <input type="hidden" name="payslip_id" id="deletePayslipId" value="">
+                <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                <button type="button" class="btn btn-outline close-modal">Cancel</button>
+                <button type="submit" class="btn btn-error">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Loan Deductions Modal -->
+<div id="loanDeductionsModal" class="modal modal-md" style="display:none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Loan Deductions</h4>
+            <button type="button" class="modal-close close-loan-modal">&times;</button>
+        </div>
+        <div class="modal-body" id="loanDeductionsBody">
+            <div class="loading-spinner" style="margin:2rem auto;"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline close-loan-modal">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Allowance Confirmation Modal -->
+<div id="deleteAllowanceModal" class="modal modal-md" style="display:none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Delete Allowance</h4>
+            <button type="button" class="modal-close close-allowance-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this allowance?</p>
+        </div>
+        <div class="modal-footer">
+            <form id="deleteAllowanceForm" method="post" action="" style="display: flex; gap: 0.5rem;">
+                {% csrf_token %}
+                <input type="hidden" name="allowance_id" id="deleteAllowanceId" value="">
+                <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                <button type="button" class="btn btn-outline close-allowance-modal">Cancel</button>
+                <button type="submit" class="btn btn-error">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Loan Confirmation Modal -->
+<div id="deleteLoanModal" class="modal modal-md" style="display:none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Delete Loan</h4>
+            <button type="button" class="modal-close close-loan-delete-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this loan?</p>
+            <div class="form-group" style="margin-top:1rem;">
+                <input type="text" id="confirmDeleteLoanInput" class="form-input" autocomplete="off" placeholder="Type 'delete' to enable delete button">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <form id="deleteLoanForm" method="post" action="" style="display: flex; gap: 0.5rem;">
+                {% csrf_token %}
+                <input type="hidden" name="loan_id" id="deleteLoanId" value="">
+                <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                <button type="button" class="btn btn-outline close-loan-delete-modal">Cancel</button>
+                <button type="submit" class="btn btn-error" id="confirmDeleteLoanBtn" disabled>Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- OJT Payslip View Modal -->
+<div id="ojtPayslipViewModal" class="modal modal-lg" style="display:none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Allowance Slip Details</h4>
+            <button type="button" class="modal-close close-ojt-payslip-modal">&times;</button>
+        </div>
+        <div class="modal-body" id="ojtPayslipModalBody">
+            <div class="ojt-payslip-container">
+                <!-- Basic Information Group -->
+                <div class="ojt-info-group">
+                    <h5 class="ojt-group-title">Basic Information</h5>
+                    <div class="ojt-info-grid two-column">
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Cut Off</div>
+                            <div class="ojt-info-value" id="modal-cut-off">-</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Holiday Hours</div>
+                            <div class="ojt-info-value" id="modal-holiday-hours">0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Rest Day OT Days</div>
+                            <div class="ojt-info-value" id="modal-rd-ot-days">0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Regular Day</div>
+                            <div class="ojt-info-value" id="modal-regular-day">0.00 Days</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Allowance | Day</div>
+                            <div class="ojt-info-value" id="modal-allowance-day">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Regular ND Rate</div>
+                            <div class="ojt-info-value" id="modal-reg-nd-rate">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Regular ND OT Rate</div>
+                            <div class="ojt-info-value" id="modal-reg-nd-ot-rate">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Regular OT Rate</div>
+                            <div class="ojt-info-value" id="modal-reg-ot-rate">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Rest OT Rate</div>
+                            <div class="ojt-info-value" id="modal-rest-ot-rate">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Legal Rate</div>
+                            <div class="ojt-info-value" id="modal-legal-rate">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Saturday Off Rate</div>
+                            <div class="ojt-info-value" id="modal-sat-off-rate">₱ 0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Allowances & Benefits Group -->
+                <div class="ojt-info-group">
+                    <h5 class="ojt-group-title">Allowances & Benefits</h5>
+                    <div class="ojt-info-grid two-column">
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Basic OJT Share</div>
+                            <div class="ojt-info-value" id="modal-basic-ojt-share">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Night Differential Allowance</div>
+                            <div class="ojt-info-value" id="modal-nd-allowance">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Rice Allowance</div>
+                            <div class="ojt-info-value" id="modal-rice-allowance">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Perfect Attendance</div>
+                            <div class="ojt-info-value" id="modal-perfect-attendance">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Saturday Off Allowance</div>
+                            <div class="ojt-info-value" id="modal-satoff-allowance">₱ 0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Holidays & Overtime Group -->
+                <div class="ojt-info-group">
+                    <h5 class="ojt-group-title">Holidays & Overtime</h5>
+                    <div class="ojt-info-grid two-column">
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Night Differential OT Allowance</div>
+                            <div class="ojt-info-value" id="modal-nd-ot-allowance">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">OT Allowance</div>
+                            <div class="ojt-info-value" id="modal-ot-allowance">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Rest Day OT</div>
+                            <div class="ojt-info-value" id="modal-rd-ot">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Special Holiday</div>
+                            <div class="ojt-info-value" id="modal-special-holiday">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Legal Holiday</div>
+                            <div class="ojt-info-value" id="modal-legal-holiday">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Adjustment</div>
+                            <div class="ojt-info-value" id="modal-adjustment">₱ 0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shares & Deductions Group -->
+                <div class="ojt-info-group">
+                    <h5 class="ojt-group-title">Shares & Deductions</h5>
+                    <div class="ojt-info-grid two-column">
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Basic School Share</div>
+                            <div class="ojt-info-value" id="modal-basic-school-share">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Deduction</div>
+                            <div class="ojt-info-value" id="modal-deduction">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Deduction 2</div>
+                            <div class="ojt-info-value" id="modal-deduction-2">₱ 0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Totals Group -->
+                <div class="ojt-info-group totals-section">
+                    <h5 class="ojt-group-title">Totals</h5>
+                    <div class="ojt-info-grid one-column">
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Net OJT Share</div>
+                            <div class="ojt-info-value highlight" id="modal-net-ojt-share">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">OT Pay Allowance</div>
+                            <div class="ojt-info-value" id="modal-ot-pay-allowance">₱ 0.00</div>
+                        </div>
+                        <div class="ojt-info-item">
+                            <div class="ojt-info-label">Total Allow</div>
+                            <div class="ojt-info-value highlight" id="modal-total-allow">₱ 0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline close-ojt-payslip-modal">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Withdraw Savings Confirmation Modal -->
+<div id="withdrawSavingsModal" class="modal modal-md" style="display:none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Withdraw Savings</h4>
+            <button type="button" class="modal-close close-withdraw-savings-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to withdraw this savings? This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+            <form id="withdrawSavingsForm" method="post" action="" style="display: flex; gap: 0.5rem;">
+                {% csrf_token %}
+                <input type="hidden" name="savings_id" id="withdrawSavingsId" value="">
+                <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                <button type="button" class="btn btn-outline close-withdraw-savings-modal">Cancel</button>
+                <button type="submit" class="btn btn-error">Withdraw</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance/employee-finance-details.js' %}"></script>
+{% endblock %}
+

@@ -1,0 +1,33 @@
+{% if deductions and deductions|length > 0 %}
+<div class="user-section-content">
+    <p class="section-description">Here are the deductions made from your loan.</p>
+    <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for deduction in deductions %}
+                <tr>
+                    <td>{{ deduction.created_at|date:'M d, Y' }}</td>
+                    <td style="color:red;">- ₱ {{ deduction.amount|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Total</th>
+                    <th colspan="2">₱ {{ total_deduction|floatformat:2 }}</th>
+                </tr>
+            </tfoot>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-receipt"></i></div>
+    <div class="empty-title">No Deductions Found</div>
+    <div class="empty-desc">There are no deductions recorded for this loan yet.</div>
+</div>
+{% endif %}

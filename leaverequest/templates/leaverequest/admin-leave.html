@@ -1,0 +1,691 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Leave Management{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/leave/leave.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">Employee Leave Management</h1>
+            <p class="page-subtitle">Manage all leave requests and employee balances</p>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="dashboard-stats-container">
+        <div class="dashboard-stats">
+            <div class="modern-stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon blue">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Total Requests</div>
+                    <div class="modern-stat-value">{{ total_requests }}</div>
+                    <div class="modern-stat-change {% if total_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if total_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ total_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon orange">
+                            <i class="fas fa-route"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Routing Requests</div>
+                    <div class="modern-stat-value">{{ routing_requests }}</div>
+                    <div class="modern-stat-change {% if routing_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if routing_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ routing_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon green">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Approved Requests</div>
+                    <div class="modern-stat-value">{{ approved_requests }}</div>
+                    <div class="modern-stat-change {% if approved_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if approved_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ approved_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon red">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Disapproved Requests</div>
+                    <div class="modern-stat-value">{{ disapproved_requests }}</div>
+                    <div class="modern-stat-change {% if disapproved_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if disapproved_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ disapproved_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Requests Overview Chart -->
+    <div class="overview-two-column">
+        <div class="chart-card">
+                <div class="chart-header">
+                    <h3>Leave Requests Overview</h3>
+                    <div class="chart-controls">
+                        <div class="chart-filters">
+                            <button class="filter-btn active" data-period="month">This Month</button>
+                            <button class="filter-btn" data-period="quarter">This Quarter</button>
+                            <button class="filter-btn" data-period="year">This Year</button>
+                        </div>
+
+                        <div class="chart-type-filters">
+                            <button class="chart-type-btn active" data-type="line" title="Line Chart">
+                                <i class="fas fa-chart-line"></i>
+                            </button>
+                            <button class="chart-type-btn" data-type="bar" title="Bar Chart">
+                                <i class="fas fa-chart-bar"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="adminLeaveChart"></canvas>
+                    </div>
+                </div>
+        </div>
+    </div>
+
+    <!-- Leave Requests Tab -->
+    <div class="overlay-two-column">
+        <div class="tabs-horizontal" data-tour="tabs-section">
+            <div class="tab-list">
+                <button class="tab active" data-target="leave-requests">Leave Requests</button>
+                <button class="tab" data-target="leave-balances">Leave Balances</button>
+            </div>
+        </div>    
+
+        <div id="leave-requests" class="tab-panel active">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
+                    <form class="search-box" method="get" action="" id="liveSearchForm">
+                        <input type="text" class="search-input" id="searchInput" placeholder="Search..." name="search" value="{{ search }}" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        {% if search %}
+                        <span class="search-clear">
+                            <a href="?" id="clearSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" id="filterBtn" data-action="open-modal" data-modal="filterModal">
+                        <i class="fa fa-filter"></i>
+                        Filter
+                    </button>
+                    <button class="btn btn-action" id="export-leave-report-btn">
+                        <i class="fas fa-download"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="leave-table-container" style="margin-top: 8px !important;">
+                <table class="data-table" id="leaveRequestsTable">
+                    <thead>
+                        <tr>
+                            <th>Control Number</th>
+                            <th>Employee Name</th>
+                            <th>Department</th>
+                            <th>Leave Type</th>
+                            <th>Leave Reason</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Date Prepared</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for leave in leave_requests %}
+                            <tr data-leave-id="{{ leave.id }}">
+                                <td>
+                                    <span class="control-number">{{ leave.control_number }}</span>
+                                </td>
+                                <td>
+                                    <div class="employee-info">
+                                        <span class="employee-name">{{ leave.employee.full_name }}</span>
+                                        <small class="employee-id">{{ leave.employee.idnumber }}</small>
+                                    </div>
+                                </td>
+                                <td>{{ leave.employee.employment_info.department.department_name|default:"N/A" }}</td>
+                                <td>{{ leave.leave_type.name }}</td>
+                                <td>{{ leave.leave_reason.reason_text|default:"N/A" }}</td>
+                                <td>{{ leave.duration_display }}</td>
+                                <td>
+                                    <span class="status-badge status-{{ leave.status }}">
+                                        {{ leave.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ leave.date_prepared|date:"M d, Y" }}</td>
+                                <td>
+                                    <div class="center-align">
+                                        {% with last_action=leave.approval_actions.last %}
+                                            {% if last_action and last_action.approver == request.user and last_action.status == 'routing' %}
+                                                <button class="btn btn-sm btn-primary" data-action="open-approval" data-control-number="{{ leave.control_number }}" title="Review & Approve">
+                                                    <i class="fas fa-check"></i> Review
+                                                </button>
+                                            {% else %}
+                                                <button class="btn btn-icon" data-action="view-details" data-control-number="{{ leave.control_number }}" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            {% endif %}
+                                        {% endwith %}
+
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center">
+                                    <div class="empty-state">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <h5>No Leave Requests Found</h5>
+                                        <p>No leave requests match your current filters.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination" id="leaveRequestsPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="leaveRequestsStartRecord">{{ leave_requests.start_index|default:0 }}</span> to <span id="leaveRequestsEndRecord">{{ leave_requests.end_index|default:0 }}</span> of <span id="leaveRequestsTotalRecords">{{ leave_requests.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="leaveRequestsPaginationControls">
+                    {% if leave_requests.has_previous %}
+                        <a class="pagination-btn" id="leaveRequestsPrevPage" href="?page={{ leave_requests.previous_page_number }}{% if search %}&search={{ search }}{% endif %}#leave-requests">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="leaveRequestsPrevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="leaveRequestsPageNumbers">
+                        {% if leave_requests.paginator.page_range %}
+                            {% for num in leave_requests.paginator.page_range %}
+                                {% if leave_requests.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > leave_requests.number|add:'-3' and num < leave_requests.number|add:'3' %}
+                                    <a class="pagination-btn" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}#leave-requests">{{ num }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if leave_requests.has_next %}
+                        <a class="pagination-btn" id="leaveRequestsNextPage" href="?page={{ leave_requests.next_page_number }}{% if search %}&search={{ search }}{% endif %}#leave-requests">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="leaveRequestsNextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <div id="leave-balances" class="tab-panel">
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
+                    <form class="search-box" method="get" action="" id="balanceSearchForm">
+                        <input type="text" class="search-input" id="balanceSearchInput" placeholder="Search..." name="balance_search" value="{{ balance_search }}" autocomplete="off" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        {% if balance_search %}
+                        <span class="search-clear">
+                            <a href="?" id="clearBalanceSearch"> <i class="fas fa-times"></i> </a>
+                        </span>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" id="importBtn" data-action="open-modal" data-modal="addBalanceModal">
+                        <i class="fas fa-file-import"></i>
+                        Import Balances
+                    </button>
+                </div>
+            </div>
+
+            <div class="leave-table-container" style="margin-top: 8px !important;">
+                <table class="data-table" id="leaveBalancesTable">
+                    <thead>
+                        <tr>
+                            <th>Id Number</th>
+                            <th>Employee Name</th>
+                            <th>Department</th>
+                            <th>Leave Type</th>
+                            <th>Entitled</th>
+                            <th>Used</th>
+                            <th>Remaining</th>
+                            <th>Valid From</th>
+                            <th>Valid To</th>
+                            <th style="text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="balanceTableBody">
+                        {% include 'leaverequest/partials/balance_table.html' %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination" id="leaveBalancesPaginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="leaveBalancesStartRecord">{{ leave_balances.start_index|default:0 }}</span> to <span id="leaveBalancesEndRecord">{{ leave_balances.end_index|default:0 }}</span> of <span id="leaveBalancesTotalRecords">{{ leave_balances.paginator.count|default:0 }}</span> entries
+                </div>
+                <div class="pagination-controls" id="leaveBalancesPaginationControls">
+                    {% if leave_balances.has_previous %}
+                        <a class="pagination-btn" id="leaveBalancesPrevPage" href="?balance_page={{ leave_balances.previous_page_number }}{% if balance_search %}&balance_search={{ balance_search }}{% endif %}#leave-balances">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="leaveBalancesPrevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="leaveBalancesPageNumbers">
+                        {% if leave_balances.paginator.page_range %}
+                            {% for num in leave_balances.paginator.page_range %}
+                                {% if leave_balances.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > leave_balances.number|add:'-3' and num < leave_balances.number|add:'3' %}
+                                    <a class="pagination-btn" href="?balance_page={{ num }}{% if balance_search %}&balance_search={{ balance_search }}{% endif %}#leave-balances">{{ num }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="pagination-btn active">1</span>
+                        {% endif %}
+                    </div>
+                    {% if leave_balances.has_next %}
+                        <a class="pagination-btn" id="leaveBalancesNextPage" href="?balance_page={{ leave_balances.next_page_number }}{% if balance_search %}&balance_search={{ balance_search }}{% endif %}#leave-balances">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" id="leaveBalancesNextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>  
+
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div id="filterModal" class="modal modal-md" style="display:none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+                <div class="modal-header">
+                    <h4>Filter Leave Requests</h4>
+                    <button class="modal-close" data-action="close-modal" data-modal="filterModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="searchFilterForm" method="get">
+                    <div class="modal-body">
+                        <div class="form-row form-row-2col">
+                            <div class="form-group">
+                                <label for="filter_search">Search</label>
+                                <input type="text" id="filter_search" name="search" class="form-control" placeholder="Control number, employee name..." value="{{ search|default:'' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="filter_status">Status</label>
+                                <select id="filter_status" name="status" class="form-control">
+                                    <option value="">All Status</option>
+                                    <option value="routing" {% if filter_status == 'routing' %}selected{% endif %}>Routing</option>
+                                    <option value="approved" {% if filter_status == 'approved' %}selected{% endif %}>Approved</option>
+                                    <option value="disapproved" {% if filter_status == 'disapproved' %}selected{% endif %}>Disapproved</option>
+                                    <option value="cancelled" {% if filter_status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row form-row-2col">
+                            <div class="form-group">
+                                <label for="filter_leave_type">Leave Type</label>
+                                <select id="filter_leave_type" name="leave_type" class="form-control">
+                                    <option value="">All Leave Types</option>
+                                    {% for leave_type in leave_types %}
+                                    <option value="{{ leave_type.id }}" {% if filter_leave_type == leave_type.id|stringformat:"s" %}selected{% endif %}>{{ leave_type.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filter_department">Department</label>
+                                <select id="filter_department" name="department" class="form-control">
+                                    <option value="">All Departments</option>
+                                    {% for dept in departments %}
+                                    <option value="{{ dept.department_name }}" {% if filter_department == dept.department_name %}selected{% endif %}>{{ dept.department_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row form-row-2col">
+                            <div class="form-group">
+                                <label for="filter_date_from">Date From</label>
+                                <input type="date" id="filter_date_from" name="date_from" class="form-control" value="{{ filter_date_from|default:'' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="filter_date_to">Date To</label>
+                                <input type="date" id="filter_date_to" name="date_to" class="form-control" value="{{ filter_date_to|default:'' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" id="resetFilters">
+                            <i class="fas fa-undo"></i>
+                            Reset
+                        </button>
+                        <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="filterModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                            Apply Filter
+                        </button>
+                    </div>
+                </form>
+    </div>
+</div>        
+
+<!-- Leave Details Modal -->
+<div id="leaveDetailsModal" class="modal modal-lg">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Leave Request Details</h3>
+            <button class="modal-close" data-action="close-modal" data-modal="leaveDetailsModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="leaveDetailsContent">
+            <!-- Content loaded via AJAX -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="leaveDetailsModal">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Modal -->
+<div id="approvalModal" class="modal modal-lg">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Review Leave Request</h4>
+            <button class="modal-close" data-action="close-modal" data-modal="approvalModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="approvalContent">
+            <!-- Content loaded via AJAX -->
+             
+        </div>
+        <div class="modal-footer" style="flex-direction: column; align-items: stretch;">
+            <div class="form-group" style="margin-bottom: 15px; text-align: left; width: 100%;">
+                <label for="approvalComments">Comments (Optional)</label>
+                <textarea id="approvalComments" class="form-control" rows="2" placeholder="Add comments for this decision..."></textarea>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end; width: 100%;">
+                <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="approvalModal">Cancel</button>
+                <button type="button" class="btn btn-error" data-action="process-approval" data-approval-action="disapproved">
+                    <i class="fas fa-times"></i>
+                    Disapprove
+                </button>
+                <button type="button" class="btn btn-success" data-action="process-approval" data-approval-action="approved">
+                    <i class="fas fa-check"></i>
+                    Approve
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Balance Modal -->
+<div id="addBalanceModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Import Leave Balance</h4>
+            <button class="modal-close" data-action="close-modal" data-modal="addBalanceModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="addBalanceForm" method="post">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="import-actions-header">
+                    <p class="import-description">Upload balance files (XLSX, XLS). You can upload multiple files at once.</p>
+                    <a class="btn btn-sm btn-outline" href="{% url 'download_balance_template' %}" download>
+                        <i class="fas fa-download"></i>
+                        Download Template
+                    </a>
+                </div>
+                
+                <div class="file-upload-area" id="balance-upload-area">
+                    <div class="file-upload">
+                        <input type="file" id="balance-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                        <label for="balance-files" class="file-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Drag & drop balance files here or click to browse</span>
+                            <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
+                        </label>
+                    </div>
+                    <div class="selected-files" id="selectedBalanceFiles" style="display: none;">
+                        <h4>Selected Files:</h4>
+                        <div class="file-list" id="balance-file-list"></div>
+                    </div>
+                    <div class="upload-progress" id="balanceUploadProgress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="balanceProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="balanceProgressText">0%</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="standard-checkbox">
+                        <input type="checkbox" id="deleteAllBalances" name="delete_all">
+                        <span class="checkmark"></span>
+                        Delete all current balances before importing
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="addBalanceModal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="import-balance-btn">
+                    <i class="fas fa-upload"></i>
+                    Import Balances
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Export Report Modal -->
+<div id="exportModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Export Data</h4>
+            <button class="modal-close" data-action="close-modal" data-modal="exportModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Date Range</label>
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <input type="date" id="exportDateFrom" name="exportDateFrom" class="form-control" placeholder="From Date">
+                    </div>
+                    <div class="form-group">
+                        <input type="date" id="exportDateTo" name="exportDateTo" class="form-control" placeholder="To Date">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="exportModal">Cancel</button>
+            <button type="button" class="btn btn-primary" data-action="start-export">
+                <i class="fas fa-download"></i>
+                Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Balance Details Modal -->
+<div id="balanceDetailsModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Leave Balance Details</h4>
+            <button class="modal-close" data-action="close-modal" data-modal="balanceDetailsModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="balanceDetailsContent">
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label>Employee ID Number</label>
+                    <input type="text" id="balance-employee-id" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Employee Name</label>
+                    <input type="text" id="balance-employee-name" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label>Leave Type</label>
+                    <input type="text" id="balance-leave-type" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Entitled</label>
+                    <input type="number" id="balance-entitled" class="form-control" step="0.01">
+                </div>
+            </div>
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label>Used</label>
+                    <input type="number" id="balance-used" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Remaining</label>
+                    <input type="number" id="balance-remaining" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label>Valid From</label>
+                    <input type="date" id="balance-valid-from" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Valid To</label>
+                    <input type="date" id="balance-valid-to" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="balanceDetailsModal">Close</button>
+            <button type="button" class="btn btn-primary" id="edit-balance-btn" style="display: none;">
+                <i class="fas fa-save"></i>
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Balance Confirmation Modal -->
+<div id="deleteBalanceModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Delete Leave Balance</h4>
+            <button class="modal-close" data-action="close-modal" data-modal="deleteBalanceModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="warning-message">
+               <p>Are you sure you want to delete this leave balance? This action cannot be undone.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="deleteBalanceModal">Cancel</button>
+            <button type="button" class="btn btn-error" id="confirm-delete-balance-btn">
+                <i class="fas fa-trash"></i>
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Import Confirmation Modal -->
+<div id="importConfirmModal" class="modal modal-sm">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Confirm Import</h4>
+            <button class="modal-close" data-action="close-modal" data-modal="importConfirmModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="warning-message">
+                <p>You have selected to delete all current balances before importing. This will permanently remove all existing leave balance data. Are you sure you want to continue?</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="importConfirmModal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="confirm-import-btn">
+                <i class="fas fa-check"></i>
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/leave/admin_leave.js' %}"></script>
+{% endblock extra_js %}

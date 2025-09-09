@@ -1,0 +1,46 @@
+{% load static %}
+{% if allowances and allowances|length > 0 %}
+<div class="loans-table-container" data-tour="allowances-table">
+    <table class="data-table" id="allowancesTable">
+        <thead>
+            <tr>
+                <th>Allowance Type</th>
+                <th>Amount</th>
+                <th>Deposited Date</th>
+                <th>Uploaded at</th>
+                <th data-tour="allowance-actions">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for allowance in allowances %}
+            <tr>
+                <td>{{ allowance.allowance_type.allowance_type }}</td>
+                <td>₱{{ allowance.amount|floatformat:2 }}</td>
+                <td>{{ allowance.deposit_date|date:"Y-m-d" }}</td>
+                <td>{{ allowance.created_at|date:"M d, Y H:i" }}</td>
+                <td>
+                    <button class="btn btn-sm btn-icon delete-allowance-btn" title="Delete Allowance" data-allowance-id="{{ allowance.id }}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>Total Allowances:</th>
+                <th>₱{{ total_allowances|floatformat:2 }}</th>
+                <th></th>
+                <th></th>
+                <th></th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-gift"></i></div>
+    <div class="empty-title">No Allowances Found</div>
+    <div class="empty-desc">No allowances have been recorded for this employee yet.</div>
+</div>
+{% endif %}

@@ -1,0 +1,87 @@
+<!-- Payslips Table -->
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Cutoff Date</th>
+            <th>File</th>
+            <th>Date Uploaded</th>
+            <th>Uploaded By</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for payslip in payslips %}
+        <tr>
+            <td>{{ payslip.cutoff_date|date:"F j, Y" }}</td>
+            <td>
+                <span class="file-name">{{ payslip.file_path.name }}</span>
+            </td>
+            <td>{{ payslip.date_uploaded|date:"M j, Y g:i A" }}</td>
+            <td>
+                {% if payslip.uploaded_by %}
+                    {{ payslip.uploaded_by.firstname }} {{ payslip.uploaded_by.lastname }}
+                {% else %}
+                    System
+                {% endif %}
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-icon delete-payslip-btn" 
+                    data-payslip-id="{{ payslip.id }}"
+                    data-employee-id="{{ payslip.employee.id }}"
+                    data-cutoff-date="{{ payslip.cutoff_date }}"
+                    title="Delete Payslip">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" style="text-align: center;" class="table-no-data">
+                <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
+                <div class="table-no-data-title">No payslips found</div>
+                <div class="table-no-data-desc">No payslips match your search criteria.</div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Pagination -->
+{% if payslips.has_other_pages %}
+<div class="pagination">
+    <div class="pagination-info">
+        Showing {{ payslips.start_index }} to {{ payslips.end_index }} of {{ payslips.paginator.count }} payslips
+    </div>
+    <div class="pagination-controls">
+        {% if payslips.has_previous %}
+            <button class="pagination-btn payslip-pagination" data-page="{{ payslips.previous_page_number }}" type="button">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        {% else %}
+            <span class="pagination-btn disabled">
+                <i class="fas fa-chevron-left"></i>
+            </span>
+        {% endif %}
+
+        <div class="page-numbers">
+            {% for num in payslips.paginator.page_range %}
+                {% if payslips.number == num %}
+                    <span class="pagination-btn active">{{ num }}</span>
+                {% elif num > payslips.number|add:'-3' and num < payslips.number|add:'3' %}
+                    <button class="pagination-btn payslip-pagination" data-page="{{ num }}" type="button">{{ num }}</button>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if payslips.has_next %}
+            <button class="pagination-btn payslip-pagination" data-page="{{ payslips.next_page_number }}" type="button">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        {% else %}
+            <span class="pagination-btn disabled">
+                <i class="fas fa-chevron-right"></i>
+            </span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

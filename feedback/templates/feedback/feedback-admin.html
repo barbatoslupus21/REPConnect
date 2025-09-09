@@ -1,0 +1,256 @@
+{% extends "main.html" %}
+{% load static %}
+{% load dashboard_extras %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Feedback{% endblock title %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+        <header class="page-header" style="margin-bottom: 0 !important;">
+            <div class="page-header-content">
+                <h2>Feedback Management</h2>
+                <p>View and manage employee feedback submissions</p>
+            </div>
+        </header>
+
+        <div class="table-actions table-actions-bar" style="margin-top: 0 !important;">
+            <div class="table-actions-right">
+                <button class="btn btn-action" id="exportBtn">
+                    <i class="fas fa-download"></i>
+                    Export
+                </button>
+            </div>
+        </div>
+
+        <div class="common-table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Submitted By</th>
+                        <th class="hide-column">Department</th>
+                        <th class="hide-column">Line</th>
+                        <th>Subject</th>
+                        <th class="hide-column" style="text-align: center;">Status</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in feedback %}
+                    <tr>
+                        <td>{{ item.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="user-info" style="gap:8px;">
+                                <span class="user-name"> {{ item.display_name }} </span>
+                                {% if not item.is_anonymous %}
+                                <small class="user-email"> {{ item.display_email }}</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="hide-column">
+                            {% if not item.is_anonymous %}
+                                {{ item.submitter.employment_info.department.department_name }}
+                            {% else %}
+                                Anonymous
+                            {% endif %}
+                        </td>
+                        <td class="hide-column">
+                            {% if not item.is_anonymous %}
+                                {{ item.submitter.employment_info.line.line_name }}
+                            {% else %}
+                                Anonymous
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="feedback-subject">
+                                <span class="subject-text">{{ item.subject|truncatechars:50 }}</span>
+                                {% if item.is_anonymous %}
+                                <span class="badge badge-routing">Anonymous</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td style="text-align: center;" class="hide-column">
+                            {% if item.is_read %}
+                                <span class="status-pill status-blue">Read</span>
+                            {% else %}
+                                <span class="status-pill status-orange">Unread</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <div class="action-dropdown">
+                                <button class="btn btn-icon" type="button" onclick="viewFeedbackDetail({{ item.id }})">
+                                    <i class="fa fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Server-rendered hidden detail block to avoid dynamic JS loading -->
+                    <div id="feedback-detail-{{ item.id }}" class="feedback-detail-server-block" style="display:none;">
+                        <div class="details-header">
+                            <div>
+                                <h3 class="details-id">{{ item.subject }}</h3>
+                                <p class="details-date">Submitted on {{ item.created_at|date:"F d, Y" }}</p>
+                            </div>
+                            <div>
+                                {% if item.is_anonymous %}
+                                    <span class="badge badge-routing">Anonymous</span>
+                                {% endif %}
+                                {% if item.is_read %}
+                                    <span class="badge badge-green">Read</span>
+                                {% else %}
+                                    <span class="badge badge-routing">Unread</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="employee-info-modal">
+                            <h4>Employee Information</h4>
+                            <hr class="employee-info-divider">
+                            <div class="employee-info-grid">
+                                <div>
+                                    <div class="info-label">Name</div>
+                                    <div class="info-value">{{ item.display_name }}</div>
+                                </div>
+                                <div>
+                                    <div class="info-label">Email</div>
+                                    <div class="info-value">{% if not item.is_anonymous %}{{ item.display_email }}{% else %}Anonymous{% endif %}</div>
+                                </div>
+                                <div>
+                                    <div class="info-label">Department</div>
+                                    <div class="info-value">{% if item.is_anonymous %}Anonymous{% else %}{{ item.submitter.employment_info.department.department_name }}{% endif %}</div>
+                                </div>
+                                <div>
+                                    <div class="info-label">Line</div>
+                                    <div class="info-value">{% if item.is_anonymous %}Anonymous{% else %}{{ item.submitter.employment_info.line.line_name }}{% endif %}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="employee-info-modal">
+                            <hr class="employee-info-divider">
+                            <h4>Feedback Details</h4>
+                            <hr class="employee-info-divider">
+                            <div class="employee-info-grid">
+                                <div>
+                                    <div class="info-label">Subject</div>
+                                    <div class="info-value">{{ item.subject }}</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <div class="details-label">Message</div>
+                                <div class="details-value" style="white-space: pre-wrap; background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); margin-top: 0.5rem;">{{ item.message|linebreaksbr }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="table-no-data">
+                            <div class="empty-state">
+                                <i class="fas fa-inbox empty-icon"></i>
+                                <h4>No feedback found</h4>
+                                <p>No feedback submissions match your current search criteria.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <div class="pagination-info">
+                Showing {{ feedback.start_index }} to {{ feedback.end_index }} of {{ feedback.paginator.count }} entries
+            </div>
+            <div class="pagination-controls">
+                {% if feedback.has_previous %}
+                    <a href="?page=1&search={{ search_query }}" class="pagination-btn">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                    <a href="?page={{ feedback.previous_page_number }}&search={{ search_query }}" class="pagination-btn">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                {% endif %}
+
+                {% for num in feedback.paginator.page_range %}
+                    {% if feedback.number == num %}
+                        <span class="pagination-btn active">{{ num }}</span>
+                    {% elif num > feedback.number|add:'-3' and num < feedback.number|add:'3' %}
+                        <a href="?page={{ num }}&search={{ search_query }}" class="pagination-btn">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if feedback.has_next %}
+                    <a href="?page={{ feedback.next_page_number }}&search={{ search_query }}" class="pagination-btn">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                    <a href="?page={{ feedback.paginator.num_pages }}&search={{ search_query }}" class="pagination-btn">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal modal-md" id="exportModal">
+    <div class="modal-overlay" onclick="closeExportModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>Export Feedback to Excel</h4>
+            <button class="modal-close" type="button" onclick="closeExportModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="exportForm" method="post" action="{% url 'export_feedback' %}">
+                {% csrf_token %}
+                <div class="form-row form-row-2col">
+                    <div class="form-group">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" name="start_date" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date</label>
+                        <input type="date" name="end_date" class="form-input" required>
+                    </div>
+                </div>
+                <p class="text-muted">Select the date range for the feedback you want to export. The Excel file will contain two sheets: Feedback Summary and Feedback Details.</p>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeExportModal()">Cancel</button>
+            <button type="submit" form="exportForm" class="btn btn-primary">
+                <i class="fas fa-download"></i>
+                Export Excel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Detail Modal -->
+<div class="modal modal-lg" id="feedbackDetailModal">
+    <div class="modal-overlay" onclick="closeFeedbackDetailModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Feedback Details</h3>
+            <button class="modal-close" type="button" onclick="closeFeedbackDetailModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="feedbackDetailBody">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading feedback details...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'js/feedback/feedback.js' %}"></script>
+{% endblock %}

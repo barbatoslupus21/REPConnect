@@ -1,0 +1,63 @@
+{% for survey in recent_surveys %}
+<tr>
+  <td>
+    <div class="survey-info">
+      <strong>{{ survey.title }}</strong>
+      <div class="text-muted">{{ survey.description|truncatewords:10 }}</div>
+    </div>
+  </td>
+  <td class="hide-column">
+    {% if survey.category %}
+    <span
+      class="status-pill"
+      style="background-color: {{ survey.category.color }}20; color: {{ survey.category.color }};"
+    >
+      <i class="{{ survey.category.icon }}"></i>
+      {{ survey.category.name }}
+    </span>
+    {% else %}
+    <span class="text-muted">No Category</span>
+    {% endif %}
+  </td>
+
+  <td class="hide-column">
+    {% if survey.template %}
+    <span class="text-primary">{{ survey.template }}</span>
+    {% else %}
+    <span class="text-muted">No template</span>
+    {% endif %}
+  </td>
+
+  <td>
+    <span
+      class="status-pill status-{% if survey.status == 'active' %}green{% elif survey.status == 'draft' %}yellow{% elif survey.status == 'closed' %}red{% else %}gray{% endif %}"
+    >
+      {{ survey.get_status_display }}
+    </span>
+  </td>
+  <td class="hide-column">{{ survey.created_at|date:"M d, Y" }}</td>
+  <td style="text-align: center">
+      <div style="display:flex; justify-content: center;">
+        <a class="btn btn-icon" href="{% url 'survey_detail' survey.id %}" title="View">
+          <i class="fas fa-eye"></i>
+        </a>
+        <button class="btn btn-icon survey-edit-btn" data-survey-id="{{ survey.id }}" title="Edit">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button class="btn btn-icon btn-error survey-delete-btn" data-survey-id="{{ survey.id }}" title="Delete">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="6" class="text-center">
+    <div class="empty-state">
+      <i class="fa fa-pie-chart"></i>
+      <h5>No Survey</h5>
+      <p>No survey found in the database</p>
+    </div>
+  </td>
+</tr>
+{% endfor %}

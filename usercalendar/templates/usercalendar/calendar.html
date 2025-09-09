@@ -1,0 +1,375 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - Company Calendar{% endblock title %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/calendar/calendar.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js/minified/introjs.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+    
+    <div class="calendar-layout">
+        <div class="calendar-main">
+            <div class="calendar-controls" data-step="1" data-intro="This is the calendar control bar. Use these buttons to switch between Day, Week, Month, Year views, or jump to Today.">
+                <div class="controls-row">
+                    <div class="view-toggles">
+                        <button class="view-toggle" data-view="day">Day</button>
+                        <button class="view-toggle" data-view="week">Week</button>
+                        <button class="view-toggle active" data-view="month">Month</button>
+                        <button class="view-toggle" data-view="year">Year</button>
+                        <button class="view-toggle" id="todayBtn">Today</button>
+                    </div>
+
+                    <button class="tour-btn">
+                        <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
+                        <span class="tour-tooltip">Page Tour</span>
+                    </button>
+                </div>
+                <div class="calendar-navigation-row">
+                    <div class="calendar-navigation">
+                        <button class="btn btn-outline btn-icon btn-sm" id="prevMonth">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <h2 class="calendar-title" id="calendarTitle">{{ month_name }} {{ year }}</h2>
+                        <button class="btn btn-outline btn-icon btn-sm" id="nextMonth">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="calendar-legend" data-step="2" data-intro="This is the legend. Each color represents a different type of holiday or event. Dates in the calendar will be highlighted based on these colors.">
+                <div class="legend-item">
+                    <span class="legend-color legal-holiday"></span>
+                    <span>Legal Holiday</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color special-holiday"></span>
+                    <span>Special Holiday</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color day-off"></span>
+                    <span>Day Off</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color company-holiday"></span>
+                    <span>Company Holiday</span>
+                </div>
+            </div>
+
+            <div class="calendar-grid" data-step="3" data-intro="This is the month view. Each cell is a date. Holidays are highlighted by color. A warning icon (⚠️) means you have an incomplete time log. Click a date to see more details.">
+                <div class="calendar-weekdays">
+                    <div class="weekday">Sun</div>
+                    <div class="weekday">Mon</div>
+                    <div class="weekday">Tue</div>
+                    <div class="weekday">Wed</div>
+                    <div class="weekday">Thu</div>
+                    <div class="weekday">Fri</div>
+                    <div class="weekday">Sat</div>
+                </div>
+                
+                <div class="calendar-days" id="calendarDays">
+                    {% for week in month_days %}
+                        {% for day in week %}
+                            {% if day == 0 %}
+                                <div class="calendar-day empty"></div>
+                            {% else %}
+                                <div class="calendar-day" 
+                                     data-date="{{ year }}-{{ month|stringformat:'02d' }}-{{ day|stringformat:'02d' }}"
+                                     data-day="{{ day }}"
+                                     data-step="4" data-intro="If the date is a holiday, it will be highlighted. If you see a warning icon, you have an incomplete time log. Click the date to see events, time logs, and your to-do list.">
+                                    <span class="day-number">{{ day }}</span>
+                                    <span class="timelog-indicator" data-date="{{ year }}-{{ month|stringformat:'02d' }}-{{ day|stringformat:'02d' }}"></span>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="calendar-sidebar">
+            <div class="selected-date-display">
+                <div class="date-number" id="selectedDateNumber">{{ today|date:"d" }}</div>
+                <div class="date-details">
+                    <div class="date-month" id="selectedDateMonth">{{ today|date:"M" }}</div>
+                    <div class="date-weekday" id="selectedDateWeekday">{{ today|date:"l" }}</div>
+                </div>
+            </div>
+
+            <div class="sidebar-tabs">
+                <div class="tab-list">
+                    <button class="tab active" data-target="events-panel" data-step="5" data-intro="This is the Events tab. It lists all events for the selected date. Holidays are highlighted with the legend color.">Events</button>
+                    <button class="tab" data-target="timelogs-panel" data-step="6" data-intro="This is the Time Logs tab. It lists your time in and out for the date. If incomplete, a reminder and a button to go to the PRF form will appear.">Time Logs</button>
+                    <button class="tab" data-target="todos-panel" data-step="7" data-intro="This is the To-Do List tab. Manage your tasks for the selected date here.">To-do List</button>
+                </div>
+
+                <div class="tab-panels">
+                    <div id="events-panel" class="tab-panel active">
+                        <div class="panel-content" id="eventsContent">
+                            <div class="events-header-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md);">
+                                <div class="events-header-title"><h4 style="margin:0;">Events</h4></div>
+                                
+                            </div>
+                            <div class="no-data-message">
+                                <div class="no-data-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div class="no-data-text">
+                                    <h4>No Events</h4>
+                                    <p>No events scheduled for this date</p>
+                                </div>
+                            </div> 
+                                                   
+                        </div>
+                    </div>
+
+                    <div id="timelogs-panel" class="tab-panel">
+                        <div class="panel-content" id="timelogsContent">
+                            <div id="timelogCardsContainer">
+                                <!-- Time log cards will be rendered here by JS -->
+                                <noscript>
+                                    <div class="event-card">
+                                        <div class="event-avatar" style="background:#2563eb;"><i class="fas fa-sign-in-alt"></i></div>
+                                        <div class="event-info">
+                                            <div class="event-title">Time In</div>
+                                            <div class="event-description">08:00 AM</div>
+                                        </div>
+                                    </div>
+                                    <div class="event-card">
+                                        <div class="event-avatar" style="background:#ef4444;"><i class="fas fa-sign-out-alt"></i></div>
+                                        <div class="event-info">
+                                            <div class="event-title">Time Out</div>
+                                            <div class="event-description" style="color:#ef4444;">Missing</div>
+                                        </div>
+                                    </div>
+                                </noscript>
+                            </div>
+                            <div class="no-data-message" id="timelogsNoData">
+                                <div class="no-data-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="no-data-text">
+                                    <h4>No Time Logs</h4>
+                                    <p>No time logs recorded for this date</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="todos-panel" class="tab-panel">
+                        <div class="panel-content" id="todosContent">
+                            <div class="no-data-message">
+                                <div class="no-data-icon">
+                                    <i class="fas fa-tasks"></i>
+                                </div>
+                                <div class="no-data-text">
+                                    <h4>No Tasks</h4>
+                                    <p>No tasks scheduled for this date</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-actions" id="sidebarActions">
+                <!-- The sidebar action buttons (Go to Timelogs, Request PR-Form, Add Event, Add To-Do List) are now dynamically rendered by JS. -->
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="holiday-tooltip" id="holidayTooltip">
+        <div class="tooltip-content">
+            <div class="tooltip-header">
+                <h4 id="tooltipDate"></h4>
+            </div>
+            <div class="tooltip-body" id="tooltipHolidays"></div>
+        </div>
+    </div>
+</div>
+
+<!-- To-Do Modal: Use the same modal structure as other modals, no extra style -->
+<div id="addTodoModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add To-Do Item</h3>
+            <button class="modal-close" onclick="closeModal('addTodoModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="add-todo-form" autocomplete="off">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="todo-time-input">Time</label>
+                    <input type="time" id="todo-time-input" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="todo-desc-input">Description</label>
+                    <input type="text" id="todo-desc-input" class="form-input" maxlength="255" required>
+                </div>
+                <input type="hidden" id="todo-date">
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Add To-Do</button>
+                <button type="button" class="btn btn-outline" onclick="closeModal('addTodoModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- End To-Do Modal -->
+
+{% if hr_admin %}
+    <div id="addHolidayModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Event</h3>
+                <button class="modal-close" onclick="closeModal('addHolidayModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form method="post" action="{% url 'add_holiday' %}" enctype="multipart/form-data">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label">Holiday Name</label>
+                        {{ holiday_form.name }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Holiday Type</label>
+                        {{ holiday_form.holiday_type }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Repetition</label>
+                        {{ holiday_form.repetition }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        {{ holiday_form.date }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description (Optional)</label>
+                        {{ holiday_form.description }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Add Event</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('addHolidayModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="editEventModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Event</h3>
+                <button class="modal-close" onclick="closeModal('editEventModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="edit-event-form" method="post" action="#" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" id="edit-event-date" name="date">
+                    <div class="form-group">
+                        <label class="form-label">Event Name</label>
+                        <input type="text" id="edit-event-name" name="name" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Event Type</label>
+                        <select id="edit-event-type" name="holiday_type" class="form-input">
+                            <option value="legal">Legal Holiday</option>
+                            <option value="special">Special Holiday</option>
+                            <option value="day_off">Day Off</option>
+                            <option value="company">Company Holiday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Repetition</label>
+                        <select id="edit-event-repetition" name="repetition" class="form-input">
+                            <option value="none">None</option>
+                            <option value="yearly">Yearly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="daily">Daily</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description (Optional)</label>
+                        <textarea id="edit-event-description" name="description" class="form-input" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('editEventModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="deleteEventModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Delete Event</h3>
+                <button class="modal-close" onclick="closeModal('deleteEventModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="delete-event-form" method="post" action="#">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this event?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-error">Delete</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('deleteEventModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+window.hr_admin = {{ hr_admin|yesno:'true,false' }};
+window.CALENDAR_DEFAULT_YEAR = {{ year }};
+window.CALENDAR_DEFAULT_MONTH = {{ month }};
+window.CALENDAR_DEFAULT_TODAY = '{{ today }}';
+window.CALENDAR_HOLIDAYS = {{ holidays|safe }};
+window.CALENDAR_TIMELOG_STATUS = {{ timelog_status|safe }};
+window.CALENDAR_TIMELOGS = {{ calendar_timelogs|safe }};
+</script>
+<script src="{% static 'js/calendar/calendar.js' %}?v=2"></script>
+<script src="https://cdn.jsdelivr.net/npm/intro.js/minified/intro.min.js"></script>
+<script>
+document.querySelector('.tour-btn').addEventListener('click', function() {
+    introJs().setOptions({
+        nextLabel: 'Next',
+        prevLabel: 'Back',
+        doneLabel: 'Finish',
+        showProgress: true,
+        showBullets: false,
+        scrollToElement: true,
+        steps: [
+            { element: document.querySelector('.calendar-controls'), intro: 'This is the calendar control bar. Use these buttons to switch between Day, Week, Month, Year views, or jump to Today.' },
+            { element: document.querySelector('.calendar-legend'), intro: 'This is the legend. Each color represents a different type of holiday or event. Dates in the calendar will be highlighted based on these colors.' },
+            { element: document.querySelector('.calendar-grid'), intro: 'This is the month view. Each cell is a date. Holidays are highlighted by color. A warning icon (⚠️) means you have an incomplete time log. Click a date to see more details.' },
+            { element: document.querySelector('.calendar-day:not(.empty)'), intro: 'If the date is a holiday, it will be highlighted. If you see a warning icon, you have an incomplete time log. Click the date to see events, time logs, and your to-do list.' },
+            { element: document.querySelector('.tab-list .tab[data-target="events-panel"]'), intro: 'This is the Events tab. It lists all events for the selected date. Holidays are highlighted with the legend color.' },
+            { element: document.querySelector('.tab-list .tab[data-target="timelogs-panel"]'), intro: 'This is the Time Logs tab. It lists your time in and out for the date. If incomplete, a reminder and a button to go to the PRF form will appear.' },
+            { element: document.querySelector('.tab-list .tab[data-target="todos-panel"]'), intro: 'This is the To-Do List tab. Manage your tasks for the selected date here.' }
+        ]
+    }).start();
+});
+</script>
+{% endblock %}

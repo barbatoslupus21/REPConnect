@@ -1,0 +1,190 @@
+<!-- finance/emails/payslip_email.html -->
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <title>Payslip - {{ payslip.cutoff_date|date:"M d, Y" }}</title>
+    <style>
+
+        *{
+            font-family: 'poppins';
+            cursor: pointer;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .company-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 10px;
+        }
+        .email-title {
+            font-size: 20px;
+            color: #333;
+            margin: 0;
+        }
+        .employee-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .info-value {
+            color: #333;
+        }
+        .payslip-details {
+            background-color: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            margin-bottom: 25px;
+        }
+        .amount-highlight {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .footer {
+            border-top: 2px solid #dee2e6;
+            padding-top: 20px;
+            margin-top: 30px;
+            text-align: left;
+            color: #666;
+            font-size: 14px;
+        }
+        .disclaimer {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #856404;
+        }
+        .contact-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .logo-section{
+            display: flex;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 8px;
+            margin-bottom: 40px;
+        }
+
+        .logo-font1{
+            font-style: italic;
+            font-size:20px;
+            font-weight: 700;
+            color: #313638;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        .logo-font2{
+            font-style: italic;
+            font-size: 13px;
+            font-weight: 600;
+            color: green;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        .company-logo{
+            width: 70px;
+            height: 0px;
+            padding: 40 !important;
+            margin: 0 !important;
+        }
+
+        .company-name{
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            .email-container {
+                padding: 20px;
+            }
+            .info-row {
+                flex-direction: column;
+            }
+            .info-label {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <p>Dear {{ employee.full_name }},</p>
+        
+        <p>Please find attached your payslip for the cutoff period of <strong>{{ payslip.cutoff_date|date:"F d, Y" }}</strong>.</p>
+        
+        {% if payslip.employee.personal_info and payslip.employee.personal_info.employment_type == 'ojt' %}
+        <p>As an OJT employee, your payslip contains details about your training allowance and other applicable benefits during your on-the-job training period.</p>
+        {% else %}
+        <p>This payslip contains your salary details, deductions, and other compensation information for the specified period.</p>
+        {% endif %}
+        
+        <p>Please review the attached document carefully. If you have any questions or notice any discrepancies, please contact the Finance and Accounting Department immediately.</p>
+
+
+
+        <div class="disclaimer">
+            <strong>Important Notice:</strong> This payslip is confidential and intended solely for the named recipient. Please keep this document secure and do not share it with unauthorized persons. If you received this email in error, please notify the sender immediately and delete this email.
+        </div>
+
+        <div class="footer">
+            <p><strong>Best regards,</strong><br>
+            Accounting Department<br>
+            Ryonan Electric Philippines</p>
+            
+            <p style="margin-top: 20px; font-size: 12px; color: #999;">
+                This is an automated email. Please do not reply to this message.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

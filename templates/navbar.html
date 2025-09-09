@@ -1,0 +1,162 @@
+{% load static %}
+{% csrf_token %}
+<div class="navbar-container">
+  <!-- Search Bar -->
+  <div class="navbar-search-container">
+    <div class="navbar-search-input-wrapper">
+      <i class="fas fa-search navbar-search-icon"></i>
+      <input type="text" class="navbar-search-input" placeholder="Search modules..." id="searchInput">
+      <div class="navbar-search-suggestions" id="searchSuggestions"></div>
+    </div>
+  </div>
+
+  <!-- Header Actions -->
+  <div class="header-actions">
+    {% comment %} <button class="header-action-btn">
+      <i class="far fa-comments"></i>
+      <span class="notification-badge">3</span>
+    </button> {% endcomment %}
+    
+    <!-- Notification Button with Popover -->
+    <div class="notification-wrapper">
+      <button class="header-action-btn notification-btn" id="notificationBtn">
+        <i class="far fa-bell"></i>
+        <span class="notification-badge" id="notificationCount">0</span>
+      </button>
+      
+      <!-- Notification Popover -->
+      <div class="notification-popover" id="notificationPopover">
+        <div class="notification-header">
+          <h3>Notifications</h3>
+        </div>
+        
+        <div class="notification-list" id="notificationList">
+          {% for notification in request.user.received_notifications.all|slice:":10" %}
+          <div class="notification-item {% if notification.is_read %}read{% else %}unread{% endif %}" 
+               data-notification-id="{{ notification.id }}" 
+               data-notification-url="{{ notification.module }}"
+               data-notification-type="{{ notification.notification_type }}">
+            <div class="notification-content">
+              <div class="sender-avatar">
+                {% if notification.sender.avatar %}
+                  <img src="{{ notification.sender.avatar.url }}" alt="{{ notification.sender.full_name }}">
+                {% else %}
+                  <div class="avatar-placeholder">
+                    {{ notification.sender.firstname.0 }}{{ notification.sender.lastname.0 }}
+                  </div>
+                {% endif %}
+              </div>
+              <div class="notification-details">
+                <div class="user-name">{{ notification.sender.full_name }}</div>
+                <div class="notification-text">{{ notification.message }}</div>
+                <div class="notification-time">{{ notification.created_at|timesince }} ago</div>
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="notification-item">
+            <div class="notification-content">
+              <div class="notification-details">
+                <div class="notification-text">No notifications yet</div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      
+      </div>
+    </div>
+    
+    <button class="header-action-btn" id="feedbackBtn" title="Feedback">
+      <i class="far fa-envelope-open"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Feedback Popover (centered) -->
+<div class="feedback-popover" id="feedbackPopover" role="dialog" aria-hidden="true">
+  <div class="popover-content">
+    <div class="popover-header">
+      <h4>Send Feedback</h4>
+    </div>
+    <div class="popover-body">
+      <form id="feedbackModalForm" method="post" action="/feedback/submit/">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Subject</label>
+          <input type="text" name="subject" class="form-input" placeholder="Brief subject" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea name="message" class="form-input" rows="6" placeholder="Write your feedback here..." required></textarea>
+        </div>
+        <div class="checkbox-group">
+          <label class="standard-checkbox">
+            <input type="checkbox" name="is_anonymous" id="isAnonymousCheckbox">
+            <span class="checkmark"></span>
+            <span style="color: var(--text-muted); font-style:italic; font-size:var(--font-size-sm);">Hide my identity</span>
+          </label>
+
+        </div>
+      </form>
+    </div>
+    <div class="popover-footer">
+      <button type="submit" form="feedbackModalForm" class="btn btn-sm btn-primary" id="submitFeedbackBtn">
+        <i class="fas fa-paper-plane"></i>
+        Send Feedback
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Example module list (replace or fetch from backend as needed)
+const MODULES = [
+  { name: 'Dashboard', url: '/dashboard/' },
+  { name: 'Personnel Request Form', url: '/prf/' },
+  { name: 'Finance', url: '/finance/' },
+  { name: 'Notification', url: '/notification/' },
+  { name: 'User Profile', url: '/userprofile/' },
+  { name: 'Calendar', url: '/usercalendar/' },
+  { name: 'Certificate', url: '/certificate/' },
+  { name: 'Leave Request', url: '/leaverequest/' },
+  { name: 'General Settings', url: '/generalsettings/' },
+  { name: 'PRF Admin', url: '/prf/admin/' },
+  // ...add more modules as needed
+];
+
+const searchInput = document.getElementById('searchInput');
+const suggestionsBox = document.getElementById('searchSuggestions');
+
+searchInput.addEventListener('input', function() {
+  const query = this.value.trim().toLowerCase();
+  suggestionsBox.innerHTML = '';
+  if (!query) {
+    suggestionsBox.style.display = 'none';
+    return;
+  }
+  const matches = MODULES.filter(m => m.name.toLowerCase().includes(query));
+  if (matches.length === 0) {
+    suggestionsBox.style.display = 'none';
+    return;
+  }
+  suggestionsBox.style.display = 'block';
+  matches.forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'search-suggestion-item';
+    item.textContent = m.name;
+    item.onclick = () => {
+      searchInput.value = m.name;
+      suggestionsBox.style.display = 'none';
+      if (m.url) window.location.href = m.url;
+    };
+    suggestionsBox.appendChild(item);
+  });
+});
+
+document.addEventListener('click', function(e) {
+  if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+    suggestionsBox.style.display = 'none';
+  }
+});
+</script>

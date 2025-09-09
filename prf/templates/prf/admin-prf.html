@@ -1,0 +1,636 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - PR-Form{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/prf/prf.css' %}">
+{% endblock %}
+
+{% block content %}
+    {% csrf_token %}
+    <div class="page-content" id="page-content">
+        <header class="page-header">
+            <div class="page-header-content">
+                <h2>PRF Administration</h2>
+                <p>Manage and process personnel request forms</p>
+            </div>
+        </header>
+
+        <div class="dashboard-stats">
+            <div class="modern-stats-grid">
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon blue">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Total Requests</div>
+                    <div class="modern-stat-value">{{ total_requests }}</div>
+                    <div class="modern-stat-change {% if total_requests_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if total_requests_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ total_requests_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon orange">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Pending Requests</div>
+                    <div class="modern-stat-value">{{ pending_requests }}</div>
+                    <div class="modern-stat-change {% if pending_requests_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if pending_requests_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ pending_requests_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon green">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Approved Requests</div>
+                    <div class="modern-stat-value">{{ approved_requests }}</div>
+                    <div class="modern-stat-change {% if approved_requests_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if approved_requests_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ approved_requests_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+                <div class="modern-stat-card">
+                    <div class="modern-stat-header">
+                        <div class="modern-stat-icon red">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                    </div>
+                    <div class="modern-stat-label">Disapproved Requests</div>
+                    <div class="modern-stat-value">{{ disapproved_requests }}</div>
+                    <div class="modern-stat-change {% if disapproved_requests_positive %}positive{% else %}negative{% endif %}">
+                        <span class="modern-stat-change-icon">
+                            <i class="fas {% if disapproved_requests_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                        </span>
+                        {{ disapproved_requests_percent }}%
+                        <span class="modern-stat-change-text">vs prev. month</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overview-two-column">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>PRF Requests Overview</h3>
+                    <div class="chart-controls">
+                        <div class="chart-filters">
+                            <button class="filter-btn {% if request.GET.period == 'week' %}active{% endif %}" onclick="updateChartPeriod('week')">This Week</button>
+                            <button class="filter-btn {% if request.GET.period == 'month' or not request.GET.period %}active{% endif %}" onclick="updateChartPeriod('month')">This Month</button>
+                            <button class="filter-btn {% if request.GET.period == 'quarter' %}active{% endif %}" onclick="updateChartPeriod('quarter')">This Quarter</button>
+                        </div>
+                        
+                        <div class="chart-type-filters">
+                            <button class="chart-type-btn active" onclick="switchChartType('line')">
+                                <i class="fas fa-chart-line"></i>
+                            </button>
+                            <button class="chart-type-btn" onclick="switchChartType('bar')">
+                                <i class="fas fa-chart-bar"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="prfChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-actions table-actions-bar">
+                <div class="table-actions-left">
+                    <form class="search-box">
+                        <input type="text" class="search-input" id="searchInput" placeholder="Search..." name="search" value="{{ search }}" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        {% if search %}
+                        <span class="search-clear" onclick="clearSearch()">
+                            <i class="fas fa-times"></i>
+                        </span>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button id="bulkDeleteBtn" class="btn btn-error btn-sm" style="display:none;" onclick="confirmBulkDelete()">
+                        <i class="fas fa-trash"></i>
+                        Delete
+                    </button>
+                    <button id="filterBtn" class="btn btn-action" type="button" onclick="toggleFilterPopover()">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <div id="filterPopover" class="filter-popover">
+                        <form class="filter-popover-content" onsubmit="applyFilter(event)">
+                            <select class="filter-field-select">
+                                <option value="prf_type">PRF Type</option>
+                                <option value="category">Category</option>
+                                <option value="status" selected>Status</option>
+                            </select>
+                            <div class="filter-condition-group" id="filterConditionGroup">
+                                <label><input type="radio" name="filter_condition" value="is" checked> is</label>
+                                <label><input type="radio" name="filter_condition" value="is_not"> is not</label>
+                                <label><input type="radio" name="filter_condition" value="contains"> contains</label>
+                                <label><input type="radio" name="filter_condition" value="any"> has any value</label>
+                            </div>
+                            <input type="text" class="filter-value-input" placeholder="Value..." id="filterValueInput" />
+                            <div class="filter-popover-actions">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="toggleFilterPopover()">Cancel</button>
+                                <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+                            </div>
+                        </form>
+                    </div>
+                    <button class="btn btn-action" onclick="openModal('exportModal')">
+                        <i class="fas fa-download"></i>
+                        Export
+                    </button>
+                    <button class="tour-btn" onclick="startProductTour()">
+                        <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
+                        <span class="tour-tooltip">Page Tour</span>
+                    </button>
+                </div>
+        </div>
+
+        <div class="common-table-container" id="tableContainer">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <label class="standard-checkbox">
+                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </th>
+                            <th>Control Number</th>
+                            <th>Employee</th>
+                            <th>PRF Type</th>
+                            <th>Purpose</th>
+                            <th style="text-align: center;">Status</th>
+                            <th>Created At</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        {% for prf in prfs %}
+                        <tr>
+                            <td>
+                                <label class="standard-checkbox">
+                                    <input type="checkbox" class="row-checkbox" value="{{ prf.id }}" onchange="updateBulkDeleteButton()">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </td>
+                            <td>{{ prf.prf_control_number }}</td>
+                            <td>
+                                <div class="employee-info">
+                                    <strong>{{ prf.employee.username }}</strong>
+                                    <small>{{ prf.employee.firstname }} {{ prf.employee.lastname }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="prf-type-info">
+                                    <strong>{{ prf.get_prf_type_display }}</strong>
+                                    <small>{{ prf.get_prf_category_display }}</small>
+                                </div>
+                            </td>
+                            <td>{{ prf.purpose|truncatechars:50 }}</td>
+                            <td style="text-align: center;">
+                                <span class="status-pill status-{% if prf.status == 'approved' %}green{% elif prf.status == 'disapproved' %}red {% elif prf.status == 'cancelled' %}gray{% else %}yellow{% endif %}">
+                                    {{ prf.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ prf.created_at|date:"M d, Y" }}</td>
+                            <td style="text-align: center;">
+                                {% if prf.status == 'pending' %}
+                                    <button class="btn btn-primary btn-sm" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
+                                        <i class="fa fa-check"></i>
+                                        Review
+                                    </button>
+                                {% else %}
+                                    <button class="btn btn-icon" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
+                                        <i class="fa fa-eye"></i>
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <div class="empty-state">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <h5>No PRF Requests Found</h5>
+                                    <p>No PRF requests match your current filters.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+        </div>
+
+        <div class="pagination" id="paginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="startRecord">{{ page_obj.start_index }}</span> to <span id="endRecord">{{ page_obj.end_index }}</span> of <span id="totalRecords">{{ page_obj.paginator.count }}</span> entries
+                </div>
+                <div class="pagination-controls" id="paginationControls">
+                    {% if page_obj.has_previous %}
+                        <button class="pagination-btn" id="prevPage" onclick="loadPage({{ page_obj.previous_page_number }})">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% else %}
+                        <button class="pagination-btn" id="prevPage" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                    {% endif %}
+                    <div id="pageNumbers">
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <span class="pagination-btn active">{{ num }}</span>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <button class="pagination-btn" onclick="loadPage({{ num }})">{{ num }}</button>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if page_obj.has_next %}
+                        <button class="pagination-btn" id="nextPage" onclick="loadPage({{ page_obj.next_page_number }})">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% else %}
+                        <button class="pagination-btn" id="nextPage" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    {% endif %}
+                </div>
+        </div> 
+    </div>
+
+    <div id="filterModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>Filter PRF Requests</h3>
+                <button class="modal-close" onclick="closeModal('filterModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form method="get" id="filterForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">PRF Type</label>
+                        {{ filter_form.prf_type }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Date</label>
+                        {{ filter_form.start_date }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date</label>
+                        {{ filter_form.end_date }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="clearFilters()">Clear</button>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="exportModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>Export PRF Requests</h3>
+                <button class="modal-close" onclick="closeModal('exportModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="exportForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">PRF Type</label>
+                        <select name="prf_type" class="form-input">
+                            <option value="">All</option>
+                            {% for value, label in filter_form.prf_type.field.choices %}
+                                {% if value %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Date <span class="required">*</span></label>
+                        <input type="date" name="start_date" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">End Date <span class="required">*</span></label>
+                        <input type="date" name="end_date" class="form-input" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('exportModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-download"></i>
+                        Export to Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="prfDetailModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header details-header">
+                <h3>PRF Request Details</h3>
+                <button class="modal-close" onclick="closeModal('prfDetailModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body details-body">
+                <div class="details-grid">
+                    <div>
+                        <div class="details-label">Requestor:</div>
+                        <div class="details-value" id="details-requestor"></div>
+                    </div>
+                    <div>
+                        <div class="details-label">ID Number:</div>
+                        <div class="details-value" id="details-idnumber"></div>
+                    </div>
+                    <div>
+                        <div class="details-label">Category:</div>
+                        <div class="details-value" id="details-category"></div>
+                    </div>
+                    <div>
+                        <div class="details-label">Type:</div>
+                        <div class="details-value" id="details-type"></div>
+                    </div>
+                    <div>
+                        <div class="details-label">PRF Number:</div>
+                        <div class="details-value" id="details-prf-number"></div>
+                    </div>
+                    <div id="details-control-row" style="display:none;">
+                        <div class="details-label">Control Number:</div>
+                        <div class="details-value" id="details-control"></div>
+                    </div>
+                    <div>
+                        <div class="details-label">Status:</div>
+                        <span id="details-status-badge"></span>
+                    </div>
+                    <div>
+                        <div class="details-label">Submitted:</div>
+                        <div class="details-value" id="details-created"></div>
+                    </div>
+                </div>
+                <div class="details-section details-details">
+                    <div class="details-label">Purpose:</div>
+                    <div class="details-value" id="details-purpose"></div>
+                </div>
+                
+                <!-- Emergency Loan Details Section -->
+                <div class="details-section details-details" id="emergency-loan-details" style="display: none;">
+                    <div class="section-header">
+                        <h4>Emergency Loan Details</h4>
+                    </div>
+                    <div class="details-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <div class="details-label">Control Number:</div>
+                            <div class="details-value" id="emergency-control-number"></div>
+                        </div>
+                        <div>
+                            <div class="details-label">Loan Amount:</div>
+                            <div class="details-value" id="emergency-amount"></div>
+                        </div>
+                        <div>
+                            <div class="details-label">Number of Cut-offs:</div>
+                            <div class="details-value" id="emergency-number-of-cutoff"></div>
+                        </div>
+                        <div>
+                            <div class="details-label">Starting Date:</div>
+                            <div class="details-value" id="emergency-starting-date"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="details-section details-details" id="details-remarks-row">
+                    <div class="details-label">Admin Remarks:</div>
+                    <div class="details-value" id="details-remarks"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="approveBtn" onclick="processPRFAction('approved')">Approve</button>
+                <button class="btn btn-error" id="disapproveBtn" onclick="processPRFAction('disapproved')">Disapprove</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="processModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>Process PRF Request</h3>
+                <button class="modal-close" onclick="closeModal('processModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="processForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Decision <span class="required">*</span></label>
+                        <select name="status" class="form-input" required>
+                            <option value="">Select Decision</option>
+                            <option value="approved">Approve</option>
+                            <option value="disapproved">Disapprove</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Remarks</label>
+                        <textarea name="admin_remarks" class="form-input" rows="3" 
+                                placeholder="Add remarks (optional)..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('processModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Process Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="confirmDeleteModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Deletion</h3>
+                <button class="modal-close" onclick="closeModal('confirmDeleteModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="confirm-content">
+                    <div class="confirm-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <p>Are you sure you want to delete the selected PRF requests? This action cannot be undone.</p>
+                    <p id="deleteCount"></p>
+                    <div class="form-group">
+                        <label class="form-label">Type "delete" to confirm:</label>
+                        <input type="text" id="deleteConfirmationInput" class="form-input" placeholder="Type 'delete' to confirm..." oninput="checkDeleteConfirmation()">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('confirmDeleteModal')">Cancel</button>
+                <button class="btn btn-error" id="confirmDeleteBtn" onclick="executeBulkDelete()" disabled>Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="disapprovalRemarksModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Disapproval Remarks</h3>
+                <button class="modal-close" onclick="closeModal('disapprovalRemarksModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Reason for Disapproval <span class="required">*</span></label>
+                    <textarea id="disapprovalRemarks" class="form-input" rows="4" 
+                            placeholder="Please provide a reason for disapproving this request..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('disapprovalRemarksModal')">Cancel</button>
+                <button class="btn btn-error" onclick="submitDisapproval()">Disapprove Request</button>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/intro.js/minified/intro.min.js"></script>
+<script>
+function startProductTour() {
+    if (window.introJs) {
+        // Show the bulk delete button for the tour if it's hidden
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+        let originalBulkDeleteDisplay = '';
+        if (bulkDeleteBtn && bulkDeleteBtn.style.display === 'none') {
+            originalBulkDeleteDisplay = bulkDeleteBtn.style.display;
+            bulkDeleteBtn.style.display = 'inline-flex';
+        }
+        const steps = [
+            { element: document.querySelectorAll('.modern-stat-card')[0], intro: "This card shows the total number of PRF requests." },
+            { element: document.querySelectorAll('.modern-stat-card')[1], intro: "This card shows the number of pending PRF requests." },
+            { element: document.querySelectorAll('.modern-stat-card')[2], intro: "This card shows the number of approved PRF requests." },
+            { element: document.querySelectorAll('.modern-stat-card')[3], intro: "This card shows the number of disapproved PRF requests." },
+            { element: document.querySelector('.chart-filters'), intro: "Use these buttons to filter the chart by period (week, month, quarter).", position: 'bottom' },
+            { element: document.querySelector('.chart-type-filters'), intro: "Switch between line and bar chart views here.", position: 'bottom' },
+            { element: document.getElementById('prfChart'), intro: "This chart visualizes PRF request trends and status distribution." },
+            { element: document.querySelector('.search-box'), intro: "Use this search bar to quickly find PRF requests." },
+            { element: bulkDeleteBtn, intro: "This button is for multiple deletion. You must check the rows in the table to enable it." },
+            { element: document.getElementById('filterBtn'), intro: "Click here to filter PRF requests by type, category, or status." },
+            { element: document.querySelector('.btn-action[onclick*="openModal(\'exportModal\')"]'), intro: "Export filtered PRF requests to Excel here." },
+            { element: document.querySelector('.data-table'), intro: "This table lists all PRF requests. You can view details or take actions here." },
+            { element: document.querySelector('.pagination'), intro: "Use these controls to navigate between pages of requests." }
+        ];
+        introJs().setOptions({
+            steps: steps,
+            showProgress: true,
+            showBullets: false,
+            nextLabel: 'Next',
+            prevLabel: 'Back',
+            doneLabel: 'Finish',
+            skipLabel: 'Skip Tour',
+            exitOnOverlayClick: false,
+            exitOnEsc: true
+        }).oncomplete(function() {
+            if (bulkDeleteBtn && originalBulkDeleteDisplay === 'none') {
+                bulkDeleteBtn.style.display = 'none';
+            }
+        }).onexit(function() {
+            if (bulkDeleteBtn && originalBulkDeleteDisplay === 'none') {
+                bulkDeleteBtn.style.display = 'none';
+            }
+        }).start();
+    } else {
+        alert('Product tour library not loaded.');
+    }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    window.chartData = {{ chart_data|safe }};
+    console.log('Chart data:', window.chartData);
+    
+    window.PRF_FILTER_CHOICES = {
+        status: [
+            {value: 'all', label: 'All'},
+            {value: 'pending', label: 'Pending'},
+            {value: 'approved', label: 'Approved'},
+            {value: 'disapproved', label: 'Disapproved'},
+        ],
+        category: [
+            {value: 'all', label: 'All'},
+            {value: 'government', label: 'Government Transaction'},
+            {value: 'banking', label: 'Banking and Finance'},
+            {value: 'hr_payroll', label: 'Human Resources and Payroll'},
+        ],
+        prf_type: [
+            {value: 'all', label: 'All'},
+            {value: 'pagibig_loan', label: 'PAG-IBIG Loan'},
+            {value: 'pagibig_cert_payment', label: 'PAG-IBIG Certificate of Payment'},
+            {value: 'pagibig_cert_contribution', label: 'PAG-IBIG Certificate of Contribution'},
+            {value: 'philhealth_form', label: 'PHILHEALTH Form'},
+            {value: 'sss_loan', label: 'SSS Loan'},
+            {value: 'sss_maternity', label: 'SSS Maternity Benefits'},
+            {value: 'sss_sickness', label: 'SSS Sickness Benefits'},
+            {value: 'bir_form', label: 'BIR Form (2316/1902)'},
+            {value: 'rcbc_maintenance', label: 'RCBC Maintenance Form'},
+            {value: 'bank_deposit', label: 'Bank Deposit'},
+            {value: 'payroll_adjustment', label: 'Payroll Adjustment'},
+            {value: 'id_replacement', label: 'ID Replacement'},
+            {value: 'pcoe_compensation', label: 'PCOE with Compensation'},
+            {value: 'certificate_employment', label: 'Certificate of Employment'},
+            {value: 'clearance_form', label: 'Clearance Form'},
+            {value: 'emergency_loan', label: 'Emergency Loan'},
+            {value: 'medical_loan', label: 'Medical Assistance Loan'},
+            {value: 'educational_loan', label: 'Educational Assistance Loan'},
+            {value: 'coop_loan', label: 'Coop Loan'},
+            {value: 'uniform_ppe', label: 'Uniform / Caps / PPE / T-shirt'},
+            {value: 'others', label: 'Others'},
+        ]
+    };
+</script>
+    <script src="{% static 'js/prf/admin-prf.js' %}"></script>
+<script>
+function setIntroJsThemeForDarkMode() {
+    const darkThemeLink = document.getElementById('introjs-dark-theme');
+    if (!darkThemeLink) return;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    darkThemeLink.disabled = !isDark;
+}
+setIntroJsThemeForDarkMode();
+const observer = new MutationObserver(() => setIntroJsThemeForDarkMode());
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>
+{% endblock %}

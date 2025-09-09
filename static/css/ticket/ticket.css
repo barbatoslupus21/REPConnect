@@ -1,0 +1,338 @@
+.page-subtitle {
+    color: var(--text-secondary);
+    font-size: var(--font-size-md);
+    margin-top: 0.25rem;
+}
+
+.mb-4 {
+    margin-bottom: 2rem;
+}
+
+.my-4 {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+.text-danger {
+    color: var(--error-color);
+}
+
+.text-center {
+    text-align: center;
+}
+
+#ticketInfoSection {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+#ticketInfoSection h4 {
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+#ticketInfoSection .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+#ticketInfoSection .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+#ticketInfoSection .info-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+#ticketInfoSection .info-value {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.device-details-grid,
+.ticket-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.detail-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.detail-value {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    font-weight: 400;
+    margin-bottom: 0.5em;
+}
+
+.detail-value.editable {
+    display: none;
+}
+
+.edit-mode .detail-value:not(.editable):not(#detailTicketNumber):not(#detailTicketStatus):not(#detailTicketRequestor):not(#detailTicketCreatedAt):not(#detailDeviceOwner):not(#detailDeviceCreatedAt) {
+    display: none;
+}
+
+.edit-mode .detail-value.editable {
+    display: block;
+}
+
+.review-section {
+    background: var(--bg-tertiary);
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    margin-top: 1.5rem;
+}
+
+.review-section h4 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+.chart-analytics-container {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--space-lg);
+}
+
+.chart-analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.chart-analytics-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.fiscal-year-indicator {
+    background: var(--primary-color);
+    color: var(--text-inverse);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.chart-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    margin-top: var(--space-lg);
+}
+
+.chart-card {
+    width: 100%;
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    border: 0.5px solid var(--border-color);
+    transition: all var(--transition-normal);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal.closing {
+    animation: modalFadeOut 0.3s ease-out;
+}
+
+@keyframes modalFadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.modal.show {
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.form-row {
+    display: grid;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.form-row.form-row-2col {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.form-row.form-row-3col {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--space-md);
+    }
+    
+    .form-row.form-row-2col,
+    .form-row.form-row-3col {
+        grid-template-columns: 1fr;
+    }
+    
+    .device-details-grid,
+    .ticket-details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    #ticketInfoSection .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .page-actions {
+        flex-direction: row;
+        gap: var(--space-sm);
+    }
+    
+    .page-actions .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .tab-list {
+        flex-direction: column;
+    }
+    
+    .tab {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+#viewDeviceModal .modal-body.edit-animate .editable {
+    animation: fadeInEdit 0.4s;
+}
+@keyframes fadeInEdit {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#viewDeviceModal .detail-group .detail-label,
+#viewDeviceModal .detail-group .detail-value#detailDeviceOwner,
+#viewDeviceModal .detail-group .detail-value#detailDeviceCreatedAt {
+    opacity: 1 !important;
+}
+
+@keyframes modalZoomOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.85);
+    }
+}
+
+.center-align {
+    text-align: center;
+}
+
+.control-number {
+    font-weight: 600;
+    color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.1);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* Device History Styles */
+.tickets-history-list {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.ticket-history-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.ticket-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ticket-number {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.ticket-date {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.ticket-history-details {
+    display: grid;
+    gap: 0.5rem;
+}

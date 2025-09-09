@@ -1,0 +1,36 @@
+{% for template in templates %}
+<tr>
+  <td>{{ template.name }}</td>
+  <td class="hide-column">{{ template.description }}</td>
+  <td style="text-align:center;">
+    {% if template.is_active %}
+      <span class="status-pill status-green" >Active</span>
+    {% else %}
+      <span class="status-pill status-red" >Inactive</span>
+    {% endif %}
+  </td>
+  <td class="hide-column">{{ template.created_at|date:'M d, Y' }}</td>
+  <td class="hide-column">{{ template.updated_at|date:'M d, Y' }}</td>
+  <td style="text-align: center">
+    <div style="display:flex; justify-content: center;">
+      <a class="btn btn-icon" href="{% url 'edit_template' template.id %}" title="View / Edit">
+        <i class="fa fa-eye"></i>
+      </a>
+
+      <button class="btn btn-icon btn-error template-delete-btn" data-template-id="{{ template.id }}" title="Delete">
+        <i class="fa fa-trash"></i>
+      </button>
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr>
+  <td colspan="6" class="text-center">
+    <div class="empty-state">
+      <i class="fas fa-poll"></i>   
+      <h5>No Survey Template</h5>
+      <p>No survey template found in the database</p>
+    </div>
+  </td>
+</tr>
+{% endfor %}

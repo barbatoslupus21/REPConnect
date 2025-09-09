@@ -1,0 +1,79 @@
+<table class="data-table" id="loansTable">
+    <thead>
+        <tr>
+            <th>Loan</th>
+            <th>Type</th>
+            <th>Min. Monthly Payment</th>
+            <th>Principal Balance</th>
+            <th>Payment Progress</th>
+            <th>Status</th>
+            <th>Balance</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if loans and loans|length > 0 %}
+            {% for loan in loans %}
+            <tr data-active="{{ loan.is_active|yesno:'true,false' }}">
+                <td>
+                    <div>
+                        <span class="loan-type-name">{{ loan.loan_type.loan_type }}</span><br>
+                        <small class="text-muted">{{ loan.created_at|date:"M d, Y" }}</small>
+                    </div>
+                </td>
+                <td><span class="loan-type-pill">{{ loan.loan_type.loan_type }}</span></td>
+                <td>₱ {{ loan.monthly_deduction|floatformat:2 }}</td>
+                <td>₱ {{ loan.principal_amount|floatformat:2 }}</td>
+                <td>
+                    <div class="loan-progress-bar-container">
+                        <div class="loan-progress-bar-bg">
+                            <div class="loan-progress-bar-fill" data-width="{{ loan.percent_paid|floatformat:0 }}" style="width:0%">
+                                <span class="loan-progress-percentage">{{ loan.percent_paid|floatformat:0 }}%</span>
+                            </div>
+                        </div>
+                        <div class="loan-progress-bar-info">
+                            ₱{{ loan.paid|floatformat:2 }} of ₱{{ loan.principal_amount|floatformat:2 }}
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="status-badge {% if loan.is_active %}active{% else %}inactive{% endif %}">
+                        {% if loan.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </td>
+                <td><strong>₱{{ loan.current_balance|floatformat:2 }}</strong></td>
+                <td>
+                    <button class="btn btn-sm btn-icon view-loan-btn" title="View Loan" data-loan-id="{{ loan.id }}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-icon delete-loan-btn" title="Delete Loan" data-loan-id="{{ loan.id }}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="8" class="text-center">
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                        <div class="empty-title">No Loans Found</div>
+                        <div class="empty-desc">No loans have been recorded for this employee yet.</div>
+                    </div>
+                </td>
+            </tr>
+        {% endif %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <th>Total Loan Balance</th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th>₱{{ total_active_loan_balance|floatformat:2 }}</th>
+            <th></th>
+        </tr>
+    </tfoot>
+</table>

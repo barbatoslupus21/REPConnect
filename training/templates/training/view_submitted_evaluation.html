@@ -1,0 +1,338 @@
+<div class="supervisor-assessment-container">
+    <div class="assessment-header">
+        <h3>Training Evaluation Review</h3>
+        <p class="assessment-subtitle">Review your submitted evaluation and supervisor assessment</p>
+        <div class="training-info">
+            <h4>{{ training.title }}</h4>
+            <div class="training-meta">
+                <span class="meta-item">
+                    <i class="fas fa-calendar"></i>
+                    {{ training.training_date|date:"F j, Y" }}
+                </span>
+                <span class="meta-item">
+                    <i class="fas fa-user"></i>
+                    {{ training.speaker }}
+                </span>
+                <span class="meta-item">
+                    <i class="fas fa-clock"></i>
+                    Submitted: {{ evaluation.submitted_at|date:"M j, Y g:i A" }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="assessment-content">
+        <div class="subordinate-evaluation-summary">
+            <h4>Your Evaluation Summary</h4>
+            
+            <div class="evaluation-grid">
+                <div class="evaluation-section">
+                    <h5>Content Evaluation</h5>
+                    <div class="rating-items">
+                        <div class="rating-item">
+                            <span class="rating-label">Content related to job:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.content_related_to_job and i|add:0 <= evaluation.content_related_to_job %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.content_related_to_job|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Content explained clearly:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.content_explained_clearly and i|add:0 <= evaluation.content_explained_clearly %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.content_explained_clearly|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Content suitable for topic:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.content_suitable_for_topic and i|add:0 <= evaluation.content_suitable_for_topic %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.content_suitable_for_topic|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="evaluation-section">
+                    <h5>Program Evaluation</h5>
+                    <div class="rating-items">
+                        <div class="rating-item">
+                            <span class="rating-label">Program had clear goals:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.program_clear_goals and i|add:0 <= evaluation.program_clear_goals %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.program_clear_goals|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Program met goals:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.program_met_goals and i|add:0 <= evaluation.program_met_goals %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.program_met_goals|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Easy to follow:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.program_easy_to_follow and i|add:0 <= evaluation.program_easy_to_follow %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.program_easy_to_follow|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Easy to understand:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.program_easy_to_understand and i|add:0 <= evaluation.program_easy_to_understand %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.program_easy_to_understand|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="evaluation-section">
+                    <h5>Speaker Evaluation</h5>
+                    <div class="rating-items">
+                        <div class="rating-item">
+                            <span class="rating-label">Speaker knowledge:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.speaker_knowledge and i|add:0 <= evaluation.speaker_knowledge %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.speaker_knowledge|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Clear communication:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.speaker_clear_communication and i|add:0 <= evaluation.speaker_clear_communication %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.speaker_clear_communication|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Answered questions well:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.speaker_answered_questions and i|add:0 <= evaluation.speaker_answered_questions %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.speaker_answered_questions|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="evaluation-section">
+                    <h5>Training Environment</h5>
+                    <div class="rating-items">
+                        <div class="rating-item">
+                            <span class="rating-label">Training organization:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.training_organization and i|add:0 <= evaluation.training_organization %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.training_organization|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Suitable facilities:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.suitable_facilities and i|add:0 <= evaluation.suitable_facilities %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.suitable_facilities|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                        
+                        <div class="rating-item">
+                            <span class="rating-label">Helpful materials:</span>
+                            <div class="rating-display">
+                                {% for i in "12345" %}
+                                    <span class="star {% if evaluation.helpful_materials and i|add:0 <= evaluation.helpful_materials %}filled{% endif %}">★</span>
+                                {% endfor %}
+                                <span class="rating-value">({{ evaluation.helpful_materials|default:"Not rated" }})</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if evaluation.most_interesting_topic or evaluation.feedback_recommendations or evaluation.future_training_topics or evaluation.new_things_learned_work or evaluation.how_apply_at_work or evaluation.target_implementation_date or evaluation.actual_implementation_date or evaluation.new_things_learned_personal or evaluation.how_apply_daily_life %}
+            <div class="text-responses">
+                <h4>Your Detailed Responses</h4>
+                
+                <div class="response-grid">
+                    <div class="response-section">
+                        <h5>Training Feedback</h5>
+                        
+                        {% if evaluation.most_interesting_topic %}
+                        <div class="text-response">
+                            <h6>Most Interesting Topic</h6>
+                            <p>{{ evaluation.most_interesting_topic }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if evaluation.feedback_recommendations %}
+                        <div class="text-response">
+                            <h6>Feedback and Recommendations</h6>
+                            <p>{{ evaluation.feedback_recommendations }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if evaluation.future_training_topics %}
+                        <div class="text-response">
+                            <h6>Future Training Topics</h6>
+                            <p>{{ evaluation.future_training_topics }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="response-section">
+                        <h5>Application to Work</h5>
+                        
+                        {% if evaluation.new_things_learned_work %}
+                        <div class="text-response">
+                            <h6>New Things Learned (Work)</h6>
+                            <p>{{ evaluation.new_things_learned_work }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if evaluation.how_apply_at_work %}
+                        <div class="text-response">
+                            <h6>How to Apply at Work</h6>
+                            <p>{{ evaluation.how_apply_at_work }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if evaluation.target_implementation_date or evaluation.actual_implementation_date %}
+                        <div class="text-response">
+                            <h6>Implementation Dates</h6>
+                            {% if evaluation.target_implementation_date %}
+                            <p><strong>Target Date:</strong> {{ evaluation.target_implementation_date|date:"F j, Y" }}</p>
+                            {% endif %}
+                            {% if evaluation.actual_implementation_date %}
+                            <p><strong>Actual Date:</strong> {{ evaluation.actual_implementation_date|date:"F j, Y" }}</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="response-section">
+                        <h5>Personal Development</h5>
+                        
+                        {% if evaluation.new_things_learned_personal %}
+                        <div class="text-response">
+                            <h6>New Things Learned (Personal)</h6>
+                            <p>{{ evaluation.new_things_learned_personal }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if evaluation.how_apply_daily_life %}
+                        <div class="text-response">
+                            <h6>How to Apply in Daily Life</h6>
+                            <p>{{ evaluation.how_apply_daily_life }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if evaluation.result_and_impact or evaluation.recommendations or evaluation.overall_assessment %}
+            <div class="text-responses">
+                <h4>Supervisor Assessment</h4>
+                {% for routing in evaluation.routing_steps.all %}
+                    {% if routing.sequence == 1 and routing.is_completed %}
+                        <p class="form-description">Assessment completed by {{ routing.approver.firstname }} {{ routing.approver.lastname }} on {{ routing.completed_at|date:"M d, Y" }}</p>
+                    {% endif %}
+                {% endfor %}
+
+                <div class="response-grid">
+                    <div class="response-section">
+                        <h5>Result and Impact</h5>
+                        {% if evaluation.most_interesting_topic %}
+                        <div class="text-response">
+                            <p>{{ evaluation.result_and_impact|linebreaks|default:"Not provided" }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="response-section">
+                        <h5>Result and Impact</h5>
+                        {% if evaluation.most_interesting_topic %}
+                        <div class="text-response">
+                            <p>{{ evaluation.recommendations|linebreaks|default:"Not provided" }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="response-section">
+                        <h5>Overall Assessment</h5>
+                        {% if evaluation.most_interesting_topic %}
+                        <div class="text-response">
+                            <p>
+                                <div class="readonly-content">
+                                    {% if evaluation.overall_assessment %}
+                                        {{ evaluation.overall_assessment }}/5
+                                        {% if evaluation.overall_assessment == 1 %} - Poor
+                                        {% elif evaluation.overall_assessment == 2 %} - Fair
+                                        {% elif evaluation.overall_assessment == 3 %} - Good
+                                        {% elif evaluation.overall_assessment == 4 %} - Very Good
+                                        {% elif evaluation.overall_assessment == 5 %} - Excellent
+                                        {% endif %}
+                                    {% else %}
+                                        Not provided
+                                    {% endif %}
+                                </div>
+                            </p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <div class="evaluation-form-actions">
+
+            <button type="button" class="btn btn-outline mobile-back-btn">
+                <i class="fas fa-arrow-left"></i>
+                Back to Dashboard
+            </button>
+
+            <button type="button" class="btn btn-outline" onclick="goBackToTrainingsList()">
+                <i class="fas fa-arrow-left"></i>
+                Back to List
+            </button>
+            
+            {% if evaluation.status == 'participant_reviewed' %}
+                <button type="button" class="btn btn-primary confirm-evaluation-btn" data-training-id="{{ training.id }}">
+                    <i class="fas fa-check"></i>
+                    Confirm Evaluation
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+

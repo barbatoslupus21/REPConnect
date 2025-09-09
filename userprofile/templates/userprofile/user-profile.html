@@ -1,0 +1,576 @@
+{% extends "main.html" %}
+{% load static %}
+
+{% block title %}REPConnect - Profile{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/profile/profile.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-content" id="page-content">
+    <div class="profile-container">
+        <!-- Left Column - Main Content (60%) -->
+        <div class="profile-left-column">
+            <!-- Profile Header -->
+            <div class="profile-header" style="position: relative;">
+                <div class="profile-banner-bg"></div>
+                <button class="tour-btn" id="btn-tour" style="position: absolute; top: 1.5rem; right: 1.5rem; z-index: 10;">
+                    <i class="fa-regular fa-circle-question"></i>
+                </button>
+                <div class="profile-avatar-container">
+                    <img src="{{ user.avatar.url }}" alt="Profile Picture" class="profile-avatar">
+                        <div class="avatar-edit-overlay">
+                            <i class="fas fa-camera"></i>
+                        </div>
+                </div>
+                <div class="profile-main-info">
+                    <div class="profile-meta-joined">@{{ user.username }}</div>
+                    <div class="profile-main-name">
+                        {{ user.firstname }} {{ user.lastname }}
+                        {% if user.active and not user.locked %}
+                            <span class="profile-verified-badge" style="color:#22c55e"><i class="fas fa-check-circle"></i></span>
+                        {% elif user.active and user.locked %}
+                            <span class="profile-verified-badge" style="color:#f59e42"><i class="fas fa-lock"></i></span>
+                        {% else %}
+                            <span class="profile-verified-badge" style="color:#ef4444"><i class="fas fa-times-circle"></i></span>
+                        {% endif %}
+                    </div>
+                    <div class="profile-main-meta">
+                        {% if employment_info and employment_info.position and employment_info.department and employment_info.date_hired %}
+                            <span class="profile-meta-item">{{ employment_info.department.department_name }}</span>
+                            <span class="profile-meta-dot">•</span>
+                            <span class="profile-meta-item">{{ employment_info.position.position }}</span>
+                            <span class="profile-meta-dot">•</span>
+                            <span class="profile-meta-item">{{ request.user.email }}</span>
+                        {% else %}
+                            <span class="profile-meta-item">{{ user.idnumber }}</span>
+                            <span class="profile-meta-dot">•</span>
+                            <span class="profile-meta-item">{{ request.user.email }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="profile-main-meta"><span class="profile-meta-joined">Joined {{ employment_info.date_hired|date:'F Y' }}</span></div>
+                </div>
+            </div>
+
+            <div class="information-card">
+                <!-- Sticky Tabs -->
+                <div class="profile-tabs-container tabs-horizontal">
+                    <div class="tab-list">
+                        <button class="tab active" data-target="personal-info">
+                            Personal Details
+                        </button>
+                        <button class="tab" data-target="work-info">
+                            Work Information
+                        </button>
+                        <button class="tab" data-target="background-info">
+                            Background & Education
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="profile-tab-content">
+                    <!-- Personal Information Tab -->
+                    <div id="personal-info" class="tab-panel active">
+                        <div class="profile-card editable-card" data-group="personal-info">
+                            <div class="profile-card-header">
+                                <button type="button" class="edit-btn edit-card-btn" data-group="personal-info">
+                                    <i class="fas fa-edit"></i>
+                                    Edit
+                                </button>
+                            </div>
+                            <div class="profile-card-content">
+                                <div class="form-section">
+                                    <h4 class="section-title">Basic Information</h4>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label class="form-label">First Name</label>
+                                            <div class="form-value">{{ user.firstname|default:'-' }}</div>
+                                            <input type="text" name="first_name" value="{{ user.firstname }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Middle Name</label>
+                                            <div class="form-value">{{ personal_info.middle_name|default:'-' }}</div>
+                                            <input type="text" name="middle_name" value="{{ personal_info.middle_name|default:'' }}" class="form-input">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Last Name</label>
+                                            <div class="form-value">{{ user.lastname|default:'-' }}</div>
+                                            <input type="text" name="last_name" value="{{ user.lastname }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Nickname</label>
+                                            <div class="form-value">{{ personal_info.nickname|default:'-' }}</div>
+                                            <input type="text" name="nickname" value="{{ personal_info.nickname|default:'' }}" class="form-input">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Email Address</label>
+                                            <div class="form-value">{{ user.email|default:'-' }}</div>
+                                            <input type="email" name="email" value="{{ user.email }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Work Email</label>
+                                            <div class="form-value">{{ personal_info.work_email|default:'-' }}</div>
+                                            <input type="email" name="work_email" value="{{ personal_info.work_email|default:'' }}" class="form-input">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Gender</label>
+                                            <div class="form-value">{{ personal_info.gender|default:'-' }}</div>
+                                            <select name="gender" class="form-input" required>
+                                                <option value="">Select Gender</option>
+                                                <option value="Male" {% if personal_info.gender == 'Male' %}selected{% endif %}>Male</option>
+                                                <option value="Female" {% if personal_info.gender == 'Female' %}selected{% endif %}>Female</option>
+                                                <option value="Other" {% if personal_info.gender == 'Other' %}selected{% endif %}>Other</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Birth Date</label>
+                                            <div class="form-value">{{ personal_info.birth_date|date:'F d, Y'|default:'-' }}</div>
+                                            <input type="date" name="birth_date" value="{{ personal_info.birth_date|date:'Y-m-d' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Birth Place</label>
+                                            <div class="form-value">{{ personal_info.birth_place|default:'-' }}</div>
+                                            <input type="text" name="birth_place" value="{{ personal_info.birth_place|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Contact Number</label>
+                                            <div class="form-value">{{ personal_info.contact_number|default:'-' }}</div>
+                                            <input type="tel" name="contact_number" value="{{ personal_info.contact_number|default:'' }}" class="form-input" required>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-section">
+                                    <h4 class="section-title">Present Address</h4>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label class="form-label">Country</label>
+                                            <div class="form-value">{{ personal_info.present_country|default:'Philippines' }}</div>
+                                            <select name="present_country" class="form-input" required>
+                                                <option value="Philippines" {% if personal_info.present_country == 'Philippines' %}selected{% endif %}>Philippines</option>
+                                                <option value="United States" {% if personal_info.present_country == 'United States' %}selected{% endif %}>United States</option>
+                                                <option value="Canada" {% if personal_info.present_country == 'Canada' %}selected{% endif %}>Canada</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Province</label>
+                                            <div class="form-value">{{ personal_info.present_province|default:'-' }}</div>
+                                            <input type="text" name="present_province" value="{{ personal_info.present_province|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">City/Municipality</label>
+                                            <div class="form-value">{{ personal_info.present_city|default:'-' }}</div>
+                                            <input type="text" name="present_city" value="{{ personal_info.present_city|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Barangay</label>
+                                            <div class="form-value">{{ personal_info.present_barangay|default:'-' }}</div>
+                                            <input type="text" name="present_barangay" value="{{ personal_info.present_barangay|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Street</label>
+                                            <div class="form-value">{{ personal_info.present_street|default:'-' }}</div>
+                                            <input type="text" name="present_street" value="{{ personal_info.present_street|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Block/Lot</label>
+                                            <div class="form-value">{{ personal_info.present_block_lot|default:'-' }}</div>
+                                            <input type="text" name="present_block_lot" value="{{ personal_info.present_block_lot|default:'' }}" class="form-input">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-section">
+                                    <h4 class="section-title">Provincial Address</h4>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label class="form-label">Country</label>
+                                            <div class="form-value">{{ personal_info.provincial_country|default:'Philippines' }}</div>
+                                            <select name="provincial_country" class="form-input" required>
+                                                <option value="Philippines" {% if personal_info.provincial_country == 'Philippines' %}selected{% endif %}>Philippines</option>
+                                                <option value="United States" {% if personal_info.provincial_country == 'United States' %}selected{% endif %}>United States</option>
+                                                <option value="Canada" {% if personal_info.provincial_country == 'Canada' %}selected{% endif %}>Canada</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Province</label>
+                                            <div class="form-value">{{ personal_info.provincial_province|default:'-' }}</div>
+                                            <input type="text" name="provincial_province" value="{{ personal_info.provincial_province|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">City/Municipality</label>
+                                            <div class="form-value">{{ personal_info.provincial_city|default:'-' }}</div>
+                                            <input type="text" name="provincial_city" value="{{ personal_info.provincial_city|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Barangay</label>
+                                            <div class="form-value">{{ personal_info.provincial_barangay|default:'-' }}</div>
+                                            <input type="text" name="provincial_barangay" value="{{ personal_info.provincial_barangay|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Street</label>
+                                            <div class="form-value">{{ personal_info.provincial_street|default:'-' }}</div>
+                                            <input type="text" name="provincial_street" value="{{ personal_info.provincial_street|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Block/Lot</label>
+                                            <div class="form-value">{{ personal_info.provincial_block_lot|default:'-' }}</div>
+                                            <input type="text" name="provincial_block_lot" value="{{ personal_info.provincial_block_lot|default:'' }}" class="form-input">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-section">
+                                    <h4 class="section-title">Emergency Contact</h4>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label class="form-label">Contact Name</label>
+                                            <div class="form-value">{{ contact_person.name|default:'-' }}</div>
+                                            <input type="text" name="contact_name" value="{{ contact_person.name|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Relationship</label>
+                                            <div class="form-value">{{ contact_person.relationship|default:'-' }}</div>
+                                            <select name="contact_relationship" class="form-input" required>
+                                                <option value="">Select Relationship</option>
+                                                <option value="Father" {% if contact_person.relationship == 'Father' %}selected{% endif %}>Father</option>
+                                                <option value="Mother" {% if contact_person.relationship == 'Mother' %}selected{% endif %}>Mother</option>
+                                                <option value="Spouse" {% if contact_person.relationship == 'Spouse' %}selected{% endif %}>Spouse</option>
+                                                <option value="Sibling" {% if contact_person.relationship == 'Sibling' %}selected{% endif %}>Sibling</option>
+                                                <option value="Child" {% if contact_person.relationship == 'Child' %}selected{% endif %}>Child</option>
+                                                <option value="Friend" {% if contact_person.relationship == 'Friend' %}selected{% endif %}>Friend</option>
+                                                <option value="Other" {% if contact_person.relationship == 'Other' %}selected{% endif %}>Other</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Contact Number</label>
+                                            <div class="form-value">{{ contact_person.contact_number|default:'-' }}</div>
+                                            <input type="tel" name="contact_contact_number" value="{{ contact_person.contact_number|default:'' }}" class="form-input" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Address</label>
+                                            <div class="form-value">{{ contact_person.address|default:'-' }}</div>
+                                            <textarea name="contact_address" class="form-input" rows="3" required>{{ contact_person.address|default:'' }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-outline cancel-card-btn" data-group="personal-info">
+                                    <i class="fas fa-times"></i>
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary save-card-btn" data-group="personal-info">
+                                    <i class="fas fa-save"></i>
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Work Information Tab -->
+                    <div id="work-info" class="tab-panel">
+                        <div class="profile-card editable-card" data-group="employment-info">
+                            <div class="profile-card-header">
+                                <button type="button" class="edit-btn edit-card-btn" data-group="employment-info">
+                                    <i class="fas fa-edit"></i>
+                                    Edit
+                                </button>
+                            </div>
+                            <div class="profile-card-content">
+                                <div class="form-section">
+                                    <h4 class="section-title">Department & Role</h4>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label class="form-label">Department</label>
+                                            <div class="form-value">{{ employment_info.department.department_name|default:'-' }}</div>
+                                            <select name="department" class="form-input department-select" required data-current-value="{{ employment_info.department.department_name|default:'' }}">
+                                                <option value="">Select Department</option>
+                                                {% for dept in departments %}
+                                                    <option value="{{ dept.department_name }}" data-lines="{{ dept.lines.all|join:',' }}" {% if employment_info.department.department_name == dept.department_name %}selected{% endif %}>{{ dept.department_name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Line</label>
+                                            <div class="form-value">{{ employment_info.line.line_name|default:'-' }}</div>
+                                            <select name="line" class="form-input line-select" required data-current-value="{{ employment_info.line.line_name|default:'' }}" disabled>
+                                                <option value="">Select Line</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Approver</label>
+                                            <div class="form-value">{{ employment_info.approver.firstname|default:'-' }} {{ employment_info.approver.lastname|default:'' }}</div>
+                                            <select name="approver" class="form-input approver-select" required disabled data-current-value="{{ employment_info.approver.id|default:'' }}">
+                                                <option value="">Select Approver</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-outline cancel-card-btn" data-group="employment-info">
+                                    <i class="fas fa-times"></i>
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary save-card-btn" data-group="employment-info">
+                                    <i class="fas fa-save"></i>
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Background & Education Tab -->
+                    <div id="background-info" class="tab-panel">
+                        <!-- Family Background Card -->
+                        <div class="profile-card editable-card" data-group="family-info">
+                            <div class="profile-card-header">
+                                <button type="button" class="edit-btn edit-card-btn" data-group="family-info">
+                                    <i class="fas fa-edit"></i>
+                                    Edit
+                                </button>
+                            </div>
+                            <div class="profile-card-content">
+                                <div class="form-section">
+                                    <h4 class="section-title">Family Background</h4>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label class="form-label">Mother's Name</label>
+                                            <div class="form-value">{{ family_background.mother_name|default:'-' }}</div>
+                                            <input type="text" name="mother_name" value="{{ family_background.mother_name|default:'' }}" class="form-input">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Father's Name</label>
+                                            <div class="form-value">{{ family_background.father_name|default:'-' }}</div>
+                                            <input type="text" name="father_name" value="{{ family_background.father_name|default:'' }}" class="form-input">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Spouse's Name</label>
+                                            <div class="form-value">{{ family_background.spouse_name|default:'-' }}</div>
+                                            <input type="text" name="spouse_name" value="{{ family_background.spouse_name|default:'' }}" class="form-input">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Children's Names</label>
+                                            <div class="form-value">{{ family_background.children_names|default:'-' }}</div>
+                                            <textarea name="children_names" class="form-input" rows="3" placeholder="Enter children's names (one per line)">{{ family_background.children_names|default:'' }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-outline cancel-card-btn" data-group="family-info">
+                                    <i class="fas fa-times"></i>
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary save-card-btn" data-group="family-info">
+                                    <i class="fas fa-save"></i>
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Educational Background Card -->
+                        <div class="profile-card">  
+                            <div class="profile-card-content">
+                                <div class="educ-card-header">
+                                    <h4 class="section-title">Educational Background</h4>
+                                    <button type="button" class="btn btn-primary add-education-btn" id="add-education-btn">
+                                        <i class="fas fa-plus"></i>
+                                        Add Education
+                                    </button>
+                                </div>
+                                <div class="timeline-container">
+                                    <div class="timeline-list" id="education-timeline">
+                                        {% for education in education_records %}
+                                            <div class="timeline-item" data-education-id="{{ education.id }}">
+                                                <div class="timeline-content">
+                                                    <div class="timeline-level-badge level-{{ education.level|lower }}">
+                                                        {{ education.level }}
+                                                    </div>
+                                                    <div class="timeline-school">{{ education.school_name }}</div>
+                                                    <div class="timeline-degree">{{ education.degree_course }}</div>
+                                                    <div class="timeline-year">{{ education.year_graduated|default:"Ongoing" }}</div>
+                                                    {% if education.honors_awards %}
+                                                        <div class="timeline-honors">🏆 {{ education.honors_awards }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="timeline-actions">
+                                                    <button type="button" class="timeline-action-btn edit" onclick="editEducation({{ education.id }})">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button type="button" class="timeline-action-btn delete" onclick="deleteEducation({{ education.id }})">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        {% empty %}
+                                            <div class="timeline-empty">
+                                                <div class="timeline-empty-icon">
+                                                    <i class="fas fa-graduation-cap"></i>
+                                                </div>
+                                                <p>No educational background added yet</p>
+                                                <p style="font-size: 0.9rem; opacity: 0.7;">Click "Add Education" to get started</p>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Cards (40%) -->
+        <div class="profile-right-column">
+            <!-- Profile Completion Progress Card -->
+            <div class="progress-card">
+                <div class="progress-card-header">
+                    <h3 class="progress-card-title">Profile Completion</h3>
+                    <h2 class="progress-percentage" id="completion-percentage">75%</h2>
+                    <p class="progress-subtitle" id="completion-message"></p>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: 75%"></div>
+                    </div>
+                </div>
+                <div class="progress-card-content">
+                    <ul class="progress-group-list">
+                        <li class="progress-group-item" id="group-personal">
+                            <span class="progress-group-icon" id="icon-personal"></span>
+                            Personal Information
+                        </li>
+                        <li class="progress-group-item" id="group-contact">
+                            <span class="progress-group-icon" id="icon-contact"></span>
+                            Contact Person
+                        </li>
+                        <li class="progress-group-item" id="group-employment">
+                            <span class="progress-group-icon" id="icon-employment"></span>
+                            Employment Information
+                        </li>
+                        <li class="progress-group-item" id="group-education">
+                            <span class="progress-group-icon" id="icon-education"></span>
+                            Education
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Certificate Received Card -->
+            <div class="certificates-card">
+                <h3 class="certificates-card-title">Certificates Received</h3>
+                <div class="certificates-pill-list">
+                    {% with max_pills=4 %}
+                        {% for cert in certificates|slice:":max_pills" %}
+                            <span class="certificate-pill">
+                                {{ cert.title }}
+                            </span>
+                        {% endfor %}
+                        {% if certificates|length > max_pills %}
+                            <a href="{% url 'user_cert' %}" class="certificate-pill certificate-pill-more">See more...</a>
+                        {% endif %}
+                        {% if certificates|length == 0 %}
+                            <span class="certificate-pill-empty">No certificates received yet.</span>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+
+            <!-- Employment Details Card -->
+            <div class="employment-details-card">
+                <h3 class="employment-details-title">Employment Details</h3>
+                <div class="employment-details-content">
+                    <div class="employment-detail-item">
+                        <span class="employment-detail-label">Approver</span>
+                        <span class="employment-detail-value">{% if employment_info.approver %}{% if employment_info.gender == "Female" %}Ms. {% elif employment_info.gender == "Male" %}Mr. {% else %}{% endif %}{{ employment_info.approver.firstname}} {{ employment_info.approver.lastname}}{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="employment-detail-item">
+                        <span class="employment-detail-label">Line</span>
+                        <span class="employment-detail-value">{{ employment_info.line.line_name|default:'-' }}</span>
+                    </div>
+                    <div class="employment-detail-item">
+                        <span class="employment-detail-label">TIN Number</span>
+                        <span class="employment-detail-value">{{ employment_info.tin_number|default:'-' }}</span>
+                    </div>
+                    <div class="employment-detail-item">
+                        <span class="employment-detail-label">SSS Number</span>
+                        <span class="employment-detail-value">{{ employment_info.sss_number|default:'-' }}</span>
+                    </div>
+                    <div class="employment-detail-item">
+                        <span class="employment-detail-label">HDMF/PAG-IBIG Number</span>
+                        <span class="employment-detail-value">{{ employment_info.hdmf_number|default:'-' }}</span>
+                    </div>
+                    <div class="employment-detail-item">
+                        <span class="employment-detail-label">PhilHealth Number</span>
+                        <span class="employment-detail-value">{{ employment_info.philhealth_number|default:'-' }}</span>
+                    </div>
+                    <div class="employment-detail-item">
+                        <span class="employment-detail-label">Bank Account</span>
+                        <span class="employment-detail-value">{{ employment_info.bank_account|default:'-' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden form for CSRF token -->
+    <form id="hidden-csrf-form" style="display: none;">
+        {% csrf_token %}
+    </form>
+</div>
+
+<!-- Education Modal -->
+<div id="educationModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="educationModalTitle">Add Education</h5>
+            <button type="button" class="modal-close" id="closeEducationModal">&times;</button>
+        </div>
+        <form id="education-form">
+            {% csrf_token %}
+            <input type="hidden" name="education_id" id="education_id">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Education Level</label>
+                    <select name="level" class="form-input" required>
+                        <option value="">Select Level</option>
+                        <option value="Primary">Primary</option>
+                        <option value="Secondary">Secondary</option>
+                        <option value="Tertiary">Tertiary</option>
+                        <option value="Vocational">Vocational</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>School Name</label>
+                    <input type="text" name="school_name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Degree/Course</label>
+                    <input type="text" name="degree_course" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Year Graduated</label>
+                    <input type="number" name="year_graduated" class="form-input" min="1950" max="2030">
+                </div>
+                <div class="form-group">
+                    <label>Honors/Awards</label>
+                    <textarea name="honors_awards" class="form-input" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="cancelEducationBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-education-btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.min.js"></script>
+    <script src="{% static 'js/profile/user-profile.js' %}"></script>
+{% endblock %}
