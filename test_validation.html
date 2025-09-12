@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supervisor Rating Validation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; }
+        .supervisor-rating-row { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border: 1px solid #ccc; 
+            background: #f9f9f9;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .supervisor-rating-row.error {
+            border: 2px solid #e74c3c !important;
+            border-radius: 4px !important;
+            background-color: rgba(231, 76, 60, 0.05);
+        }
+        .rating-stars-row { display: inline-block; }
+        .rating-star { cursor: pointer; margin: 0 2px; color: #ddd; }
+        .rating-star.filled { color: #ffc107; }
+        .rating-star.hover { color: #ffeb3b; }
+        .btn { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .error-message { background-color: #fdebea; border: 1px solid #e74c3c; padding: 12px; margin: 16px 0; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Supervisor Rating Validation Test</h1>
+    
+    <div class="test-section">
+        <h3>Task Ratings</h3>
+        <div class="rating-row">
+            <div class="rating-question">Task 1: Project Management</div>
+            <div class="supervisor-rating-row">
+                <div class="rating-stars-row" data-question-name="supervisor_task_rating_1">
+                    <i class="fas fa-star rating-star empty" data-value="1" data-question="supervisor_task_rating_1">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="2" data-question="supervisor_task_rating_1">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="3" data-question="supervisor_task_rating_1">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="4" data-question="supervisor_task_rating_1">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="5" data-question="supervisor_task_rating_1">★</i>
+                </div>
+                <input type="hidden" name="supervisor_task_rating_1" value="">
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>Behavioral Criteria</h3>
+        <div class="behavioral-rating-row">
+            <div class="behavioral-question">Cost Consciousness</div>
+            <div class="supervisor-rating-row">
+                <div class="rating-stars-row" data-question-name="cost_consciousness_rating">
+                    <i class="fas fa-star rating-star empty" data-value="1" data-question="cost_consciousness_rating">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="2" data-question="cost_consciousness_rating">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="3" data-question="cost_consciousness_rating">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="4" data-question="cost_consciousness_rating">★</i>
+                    <i class="fas fa-star rating-star empty" data-value="5" data-question="cost_consciousness_rating">★</i>
+                </div>
+                <input type="hidden" name="cost_consciousness_rating" value="">
+            </div>
+        </div>
+    </div>
+
+    <button class="btn" onclick="testValidation()">Test Validation</button>
+    <button class="btn" onclick="clearErrors()">Clear Errors</button>
+    
+    <div id="messages"></div>
+
+    <script>
+        // Copy validation functions from the main JS file
+        function validateSupervisorRatings() {
+            let hasErrors = false;
+            const missingRatings = [];
+            
+            // Clear previous error styles
+            document.querySelectorAll('.supervisor-rating-row').forEach(row => {
+                row.classList.remove('error');
+            });
+            
+            // Check task list supervisor ratings
+            const taskRatingRows = document.querySelectorAll('.rating-row');
+            taskRatingRows.forEach(row => {
+                const supervisorRatingRow = row.querySelector('.supervisor-rating-row');
+                const hiddenInput = row.querySelector('input[name^="supervisor_task_rating_"]');
+                const taskName = row.querySelector('.rating-question')?.textContent?.trim();
+                
+                if (supervisorRatingRow && hiddenInput && taskName !== 'No tasks evaluated') {
+                    const rating = hiddenInput.value;
+                    if (!rating || rating === '') {
+                        hasErrors = true;
+                        supervisorRatingRow.classList.add('error');
+                        missingRatings.push(`Task: ${taskName}`);
+                    }
+                }
+            });
+            
+            // Check behavioral criteria ratings
+            const behavioralRatingRows = document.querySelectorAll('.behavioral-rating-row');
+            behavioralRatingRows.forEach(row => {
+                const supervisorRatingRow = row.querySelector('.supervisor-rating-row');
+                const hiddenInput = row.querySelector('input[type="hidden"]');
+                const criteriaName = row.querySelector('.behavioral-question')?.textContent?.trim();
+                
+                if (supervisorRatingRow && hiddenInput && criteriaName) {
+                    const rating = hiddenInput.value;
+                    if (!rating || rating === '') {
+                        hasErrors = true;
+                        supervisorRatingRow.classList.add('error');
+                        missingRatings.push(`Behavioral Criteria: ${criteriaName}`);
+                    }
+                }
+            });
+            
+            const messagesDiv = document.getElementById('messages');
+            if (hasErrors) {
+                const errorMessage = `Please provide ratings for all required fields:<br>• ${missingRatings.join('<br>• ')}`;
+                messagesDiv.innerHTML = `<div class="error-message">${errorMessage}</div>`;
+                return false;
+            } else {
+                messagesDiv.innerHTML = '<div style="color: green; padding: 10px;">✓ All validations passed!</div>';
+                return true;
+            }
+        }
+
+        function clearRatingError(supervisorRatingRow) {
+            if (supervisorRatingRow && supervisorRatingRow.classList.contains('error')) {
+                supervisorRatingRow.classList.remove('error');
+            }
+        }
+
+        // Star click handler
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('rating-star')) {
+                const star = e.target;
+                const value = parseInt(star.getAttribute('data-value'));
+                const question = star.getAttribute('data-question');
+                const starsRow = star.closest('.rating-stars-row');
+                const supervisorRatingRow = star.closest('.supervisor-rating-row');
+                const hiddenInput = document.querySelector(`input[name="${question}"]`);
+                
+                if (hiddenInput) {
+                    hiddenInput.value = value;
+                    
+                    const allStars = starsRow.querySelectorAll('.rating-star');
+                    allStars.forEach((s, index) => {
+                        if (index < value) {
+                            s.classList.remove('empty');
+                            s.classList.add('filled');
+                        } else {
+                            s.classList.remove('filled');
+                            s.classList.add('empty');
+                        }
+                    });
+                    
+                    clearRatingError(supervisorRatingRow);
+                }
+            }
+        });
+
+        function testValidation() {
+            validateSupervisorRatings();
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.supervisor-rating-row').forEach(row => {
+                row.classList.remove('error');
+            });
+            document.getElementById('messages').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

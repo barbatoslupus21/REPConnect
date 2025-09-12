@@ -20,6 +20,12 @@ from .forms import (
 )
 from userlogin.models import EmployeeLogin
 from openpyxl.styles import Font, PatternFill, Alignment
+from .models import EvaluationInstance, EmployeeEvaluation
+from .utils import create_missing_instances, update_overdue_instances
+from datetime import timedelta, datetime
+import calendar
+from openpyxl.worksheet.datavalidation import DataValidation
+from notification.models import Notification
 
 @login_required
 def evaluation_dashboard(request):
@@ -30,28 +36,21 @@ def evaluation_dashboard(request):
     
 @login_required
 def evaluation_user_view(request):
-    from django.utils import timezone
-    from .models import EvaluationInstance, EmployeeEvaluation
-    from .utils import create_missing_instances, update_overdue_instances
     
-    # Ensure all evaluation instances are up to date
     create_missing_instances()
     update_overdue_instances()
     
-    # Get all evaluation instances for the current user
     user_instances = EvaluationInstance.objects.filter(
         employee=request.user,
         evaluation__is_active=True
     ).select_related('evaluation').order_by('-created_at')
     
-    # Calculate statistics
     total_evaluations = user_instances.count()
     pending_evaluations = user_instances.filter(status='pending').count()
     in_progress_evaluations = user_instances.filter(status='in_progress').count()
     completed_evaluations = user_instances.filter(status='completed').count()
     overdue_evaluations = user_instances.filter(status='overdue').count()
     
-    # Prepare evaluations data for template
     evaluations_data = []
     for instance in user_instances:
         evaluation_data = {
@@ -67,67 +66,55 @@ def evaluation_user_view(request):
         }
         evaluations_data.append(evaluation_data)
     
-    # Check if user is an approver (supervisor or manager)
     is_approver = False
-    pending_supervisor_assessments = []
+    pending_approver_assessments = []
     pending_routing_count = 0
-    approval_tab_label = "Supervisor Assessments"
+    approval_tab_label = "Employee Evaluation"
     
-    # Check if user has employment_info and is an approver
     if hasattr(request.user, 'employment_info') and request.user.employment_info:
-        # Check if user is a supervisor (has subordinates)
-        subordinates = EmployeeLogin.objects.filter(
-            employment_info__approver=request.user,
-            active=True
-        )
-        
-        if subordinates.exists():
+        # Count supervisor pending evaluations
+        supervisor_pending_count = EmployeeEvaluation.objects.filter(
+            supervisor=request.user,
+            status='supervisor_review'
+        ).select_related('evaluation', 'employee')
+
+        # Count manager pending evaluations
+        manager_pending_count = EmployeeEvaluation.objects.filter(
+            manager=request.user,
+            status='manager_review'
+        ).select_related('evaluation', 'employee')
+
+        # Combine pending evaluations for display
+        evals_for_supervisor = EmployeeEvaluation.objects.filter(
+            supervisor=request.user
+        ).select_related('evaluation', 'employee')
+
+        evals_for_manager = EmployeeEvaluation.objects.filter(
+            manager=request.user
+        ).select_related('evaluation', 'employee')
+
+        # Calculate total pending count
+        pending_routing_count = supervisor_pending_count.count() + manager_pending_count.count()
+
+        if evals_for_supervisor.exists() or evals_for_manager.exists():
             is_approver = True
-            approval_tab_label = "Supervisor Assessments"
-            
-            # Get evaluations that need supervisor review
-            pending_supervisor_assessments = EmployeeEvaluation.objects.filter(
-                employee__in=subordinates,
-                status__in=['supervisor_review', 'manager_review']
-            ).select_related('evaluation', 'employee')
-            
-            pending_routing_count = pending_supervisor_assessments.count()
-    
-    # Check if user is a manager (additional check)
-    if hasattr(request.user, 'employment_info') and request.user.employment_info:
-        # Users who have others reporting to their subordinates (manager level)
-        manager_subordinates = EmployeeLogin.objects.filter(
-            employment_info__approver__employment_info__approver=request.user,
-            active=True
-        )
-        
-        if manager_subordinates.exists():
-            is_approver = True
-            approval_tab_label = "Manager Reviews"
-            
-            # Get evaluations that need manager review
-            manager_assessments = EmployeeEvaluation.objects.filter(
-                employee__in=manager_subordinates,
-                status='manager_review'
-            ).select_related('evaluation', 'employee')
-            
-            # Combine with supervisor assessments
-            if pending_supervisor_assessments:
-                pending_supervisor_assessments = list(pending_supervisor_assessments) + list(manager_assessments)
+            approval_tab_label = 'Employee Evaluation' if evals_for_supervisor.exists() else 'Employee Evaluation'
+
+            if evals_for_supervisor.exists() and evals_for_manager.exists():
+                pending_qs = (evals_for_supervisor | evals_for_manager).distinct()
+            elif evals_for_supervisor.exists():
+                pending_qs = evals_for_supervisor
             else:
-                pending_supervisor_assessments = manager_assessments
-            
-            pending_routing_count = len(pending_supervisor_assessments)
-    
-    # Prepare assessment data for template
+                pending_qs = evals_for_manager
+
+            pending_approver_assessments = pending_qs
+
     assessment_data = []
-    for assessment in pending_supervisor_assessments:
-        # Determine the approver for this assessment
+    for assessment in pending_approver_assessments:
         approver = None
         if assessment.status == 'supervisor_review' and hasattr(assessment.employee, 'employment_info'):
             approver = assessment.employee.employment_info.approver if assessment.employee.employment_info else None
         elif assessment.status == 'manager_review' and hasattr(assessment.employee, 'employment_info') and assessment.employee.employment_info.approver:
-            # Manager is the approver of the supervisor
             supervisor = assessment.employee.employment_info.approver
             if hasattr(supervisor, 'employment_info') and supervisor.employment_info:
                 approver = supervisor.employment_info.approver
@@ -143,24 +130,21 @@ def evaluation_user_view(request):
         'evaluations_data': evaluations_data,
         'total_evaluations': total_evaluations,
         'pending_evaluations': pending_evaluations,
-        'pendinsg_evaluations': pending_evaluations,  # Fix typo in template
+        'pendinsg_evaluations': pending_evaluations,
         'in_progress_evaluations': in_progress_evaluations,
         'completed_evaluations': completed_evaluations,
         'overdue_evaluations': overdue_evaluations,
         'is_approver': is_approver,
-        'pending_supervisor_assessments': assessment_data,
+        'pending_approver_assessments': assessment_data,
         'pending_routing_count': pending_routing_count,
         'approval_tab_label': approval_tab_label,
+        'user_has_approver': hasattr(request.user, 'employment_info') and request.user.employment_info and request.user.employment_info.approver is not None,
     }
     
     return render(request, 'evaluation/user_evaluation.html', context)
 
 @login_required
 def evaluation_admin_view(request):
-    from django.utils import timezone
-    from datetime import timedelta
-    import calendar
-    from django.core.paginator import Paginator
     
     # Get search query
     search_query = request.GET.get('search', '').strip()
@@ -527,7 +511,6 @@ def get_evaluation_detail(request, evaluation_id):
 @login_required
 @require_http_methods(['POST'])
 def update_evaluation(request, evaluation_id):
-    """Update evaluation from admin edit modal form POST"""
     evaluation = get_object_or_404(Evaluation, pk=evaluation_id)
 
     # Reuse EvaluationCreateForm to validate incoming data
@@ -651,8 +634,7 @@ def export_tasklist_template(request):
         for col in ['A', 'B']:
             tasklist_sheet[f'{col}{row_num}'].border = border
     
-    # Add instructions below the table (starting from row 7)
-    instructions_start_row = len(sample_data) + 3  # Start after sample data + 1 empty row
+    instructions_start_row = len(sample_data) + 3
     
     tasklist_sheet[f'A{instructions_start_row}'] = "INSTRUCTIONS:"
     tasklist_sheet[f'A{instructions_start_row}'].font = Font(bold=True, size=12)
@@ -678,7 +660,7 @@ def export_tasklist_template(request):
         tasklist_sheet[f'A{i}'] = instruction
     
     # Add data validation for Id Number column in Tasklists sheet
-    from openpyxl.worksheet.datavalidation import DataValidation
+    
     dv = DataValidation(
         type="list",
         formula1="'Registered Employee'!$A$2:$A$" + str(len(employees) + 1),
@@ -690,9 +672,8 @@ def export_tasklist_template(request):
     dv.promptTitle = 'Id Number Selection'
     
     tasklist_sheet.add_data_validation(dv)
-    dv.add('A2:A1000')  # Apply to A2 to A1000
+    dv.add('A2:A1000')
     
-    # Auto-adjust column widths for tasklist sheet
     for col in ['A', 'B']:
         max_length = 0
         column = tasklist_sheet.column_dimensions[col]
@@ -969,6 +950,12 @@ def get_evaluation_instance(request, instance_id):
     try:
         instance = get_object_or_404(EvaluationInstance, id=instance_id, employee=request.user)
         
+        # Check if user has an approver set
+        if not hasattr(request.user, 'employment_info') or not request.user.employment_info or not request.user.employment_info.approver:
+            return JsonResponse({
+                'error': 'User must set her/his approver to start evaluation.'
+            }, status=400)
+        
         # Get or create employee evaluation
         employee_eval = instance.get_or_create_employee_evaluation()
         
@@ -1033,16 +1020,13 @@ def submit_evaluation_instance(request, employee_evaluation_id):
             employee=request.user
         )
         
-        # Update evaluation status and assign supervisor from request user's employment_info.approver
         if not employee_eval.self_completed_at:
             employee_eval.self_completed_at = timezone.now()
             employee_eval.status = 'supervisor_review'
-            # Assign supervisor if the current user has employment_info with an approver
             if hasattr(request.user, 'employment_info') and request.user.employment_info and getattr(request.user.employment_info, 'approver', None):
                 employee_eval.supervisor = request.user.employment_info.approver
             employee_eval.save()
         
-        # Process task ratings
         task_lists = TaskList.objects.filter(employee=request.user, is_active=True)
         
         for task in task_lists:
@@ -1059,8 +1043,16 @@ def submit_evaluation_instance(request, employee_evaluation_id):
                         'comments': comments
                     }
                 )
+
+        Notification.objects.create(
+            title="Self-Evaluation Submitted",
+            sender=request.user,
+            recipient= request.user.employment_info.approver,
+            message=f'{request.user.firstname} {request.user.lastname} has completed and submitted their evaluation for your review',
+            module='evaluation',
+            notification_type='approval'
+        )
         
-        # Update evaluation instance status
         if employee_eval.evaluation_instance:
             employee_eval.evaluation_instance.status = 'completed' if employee_eval.status in ['approved', 'disapproved'] else 'in_progress'
             employee_eval.evaluation_instance.save()
@@ -1126,3 +1118,666 @@ def view_completed_evaluation(request, instance_id):
             'success': False,
             'error': str(e)
         }, status=400)
+
+@login_required
+def get_supervisor_evaluation(request, evaluation_id):
+    """Get evaluation for supervisor review"""
+    try:
+        employee_eval = get_object_or_404(
+            EmployeeEvaluation,
+            id=evaluation_id,
+            status__in=['supervisor_review', 'manager_review']
+        )
+        
+        # Check if user is the approver
+        is_supervisor_approver = False
+        is_manager_approver = False
+        
+        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
+            supervisor = employee_eval.employee.employment_info.approver
+            if supervisor == request.user:
+                is_supervisor_approver = True
+            elif hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
+                is_manager_approver = True
+        
+        if not (is_supervisor_approver or is_manager_approver):
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not authorized to review this evaluation'
+            }, status=403)
+        
+        is_read_only = employee_eval.status not in ['supervisor_review', 'manager_review']
+        
+        form = SupervisorEvaluationForm(instance=employee_eval)
+        
+        # Get task ratings
+        task_ratings = employee_eval.task_ratings.all().select_related('task')
+        task_ratings_data = []
+        for rating in task_ratings:
+            task_ratings_data.append({
+                'task': rating.task.tasklist,
+                'task_id': rating.task.id,
+                'rating': rating.rating,
+                'supervisor_rating': rating.supervisor_rating,
+                'comments': rating.comments
+            })
+        
+        context_data = {
+            'form': form,
+            'employee_eval': employee_eval,
+            'task_ratings': task_ratings_data,
+            'is_read_only': is_read_only,
+            'is_supervisor_review': employee_eval.status == 'supervisor_review',
+            'is_manager_review': employee_eval.status == 'manager_review'
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'html': render_to_string('evaluation/supervisor_evaluation_content.html', context_data, request=request)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+@login_required
+@require_http_methods(["POST"])
+def submit_supervisor_evaluation(request, evaluation_id):
+    try:
+        employee_eval = get_object_or_404(
+            EmployeeEvaluation,
+            id=evaluation_id,
+            status__in=['supervisor_review', 'manager_review']
+        )
+        
+        is_supervisor_approver = False
+        is_manager_approver = False
+        
+        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
+            supervisor = employee_eval.employee.employment_info.approver
+            if supervisor == request.user:
+                is_supervisor_approver = True
+            elif hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
+                is_manager_approver = True
+        
+        if not (is_supervisor_approver or is_manager_approver):
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not authorized to review this evaluation'
+            }, status=403)
+        
+        if not hasattr(request.user, 'employment_info') or not request.user.employment_info or not request.user.employment_info.approver:
+            return JsonResponse({
+                'success': False,
+                'error': 'Please set your approver first in your profile settings before submitting evaluations.'
+            }, status=400)
+        
+        form = SupervisorEvaluationForm(request.POST, instance=employee_eval)
+        if form.is_valid():
+            employee_eval = form.save(commit=False)
+            
+            if is_supervisor_approver:
+                employee_eval.manager = request.user.employment_info.approver
+                employee_eval.supervisor_completed_at = timezone.now()
+                if employee_eval.status == 'supervisor_review':
+                    employee_eval.status = 'manager_review'
+            
+            employee_eval.save()
+            
+            for key, value in request.POST.items():
+                if key.startswith('supervisor_task_rating_') and value:
+                    try:
+                        task_id = int(key.replace('supervisor_task_rating_', ''))
+                        rating_value = int(value)
+                        
+                        task_rating = TaskRating.objects.filter(
+                            employee_evaluation=employee_eval,
+                            task_id=task_id
+                        ).first()
+                        
+                        if task_rating:
+                            task_rating.supervisor_rating = rating_value
+                            task_rating.save()
+                            
+                    except (ValueError, TaskRating.DoesNotExist):
+                        continue
+            
+            Notification.objects.create(
+                title="Evaluation Submitted",
+                sender=request.user,
+                recipient= request.user.employment_info.approver,
+                message=f'{request.user.firstname} {request.user.lastname} has finished evaluating {employee_eval.employee.firstname} {employee_eval.employee.lastname} and is ready for your approval',
+                module='evaluation',
+                notification_type='approval'
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Evaluation assessment submitted successfully!'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Please correct the errors in the form.',
+                'form_errors': form.errors
+            }, status=400)
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def view_supervisor_evaluation(request, evaluation_id):
+    try:
+        employee_eval = get_object_or_404(
+            EmployeeEvaluation,
+            id=evaluation_id
+        )
+        
+        is_supervisor_approver = False
+        is_manager_approver = False
+        is_employee = employee_eval.employee == request.user
+        
+        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
+            supervisor = employee_eval.employee.employment_info.approver
+            if supervisor == request.user:
+                is_supervisor_approver = True
+            elif hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
+                is_manager_approver = True
+        
+        if not (is_supervisor_approver or is_manager_approver or is_employee):
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not authorized to view this evaluation'
+            }, status=403)
+        
+        task_ratings = employee_eval.task_ratings.all().select_related('task')
+        task_ratings_data = []
+        for rating in task_ratings:
+            task_ratings_data.append({
+                'task': rating.task.tasklist,
+                'task_id': rating.task.id,
+                'rating': rating.rating,
+                'supervisor_rating': rating.supervisor_rating,
+                'comments': rating.comments
+            })
+
+        can_edit = False
+        if employee_eval.status == 'supervisor_review' and is_supervisor_approver:
+            can_edit = True
+        elif employee_eval.status == 'manager_review' and is_manager_approver:
+            can_edit = True
+        
+        context_data = {
+            'employee_eval': employee_eval,
+            'task_ratings': task_ratings_data,
+            'can_edit': can_edit,
+            'is_supervisor_view': is_supervisor_approver,
+            'is_manager_view': is_manager_approver,
+            'is_employee_view': is_employee
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'html': render_to_string('evaluation/supervisor_evaluation_view.html', context_data, request=request)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def get_manager_evaluation(request, evaluation_id):
+    """Get evaluation for manager review (read-only view before approval)"""
+    try:
+        employee_eval = get_object_or_404(
+            EmployeeEvaluation,
+            id=evaluation_id,
+            status='manager_review'
+        )
+        
+        # Check if user is the manager
+        is_manager_approver = False
+        
+        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
+            supervisor = employee_eval.employee.employment_info.approver
+            if hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
+                is_manager_approver = True
+        
+        if not is_manager_approver:
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not authorized to review this evaluation'
+            }, status=403)
+        
+        # Get task ratings
+        task_ratings = employee_eval.task_ratings.all().select_related('task')
+        task_ratings_data = []
+        for rating in task_ratings:
+            task_ratings_data.append({
+                'task': rating.task.tasklist,
+                'task_id': rating.task.id,
+                'rating': rating.rating,
+                'supervisor_rating': rating.supervisor_rating,
+                'comments': rating.comments
+            })
+        
+        context_data = {
+            'employee_eval': employee_eval,
+            'task_ratings': task_ratings_data,
+            'is_manager_view': True
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'html': render_to_string('evaluation/manager_evaluation_content.html', context_data, request=request)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def manager_approve_evaluation(request, evaluation_id):
+    try:
+        employee_eval = get_object_or_404(
+            EmployeeEvaluation,
+            id=evaluation_id,
+            status='manager_review'
+        )
+        
+        is_manager_approver = False
+        
+        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
+            supervisor = employee_eval.employee.employment_info.approver
+            if hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
+                is_manager_approver = True
+        
+        if not is_manager_approver:
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not authorized to approve this evaluation'
+            }, status=403)
+        
+        action = request.POST.get('action')
+        manager_comments = request.POST.get('manager_comments', '').strip()
+        
+        if action not in ['approve', 'disapprove']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid action specified'
+            }, status=400)
+        
+        # Validate comments for disapproval
+        if action == 'disapprove' and not manager_comments:
+            return JsonResponse({
+                'success': False,
+                'error': 'Comments are required when disapproving an evaluation'
+            }, status=400)
+        
+        # Update evaluation based on action
+        if action == 'approve':
+            employee_eval.status = 'approved'
+            employee_eval.manager_completed_at = timezone.now()
+            employee_eval.manager_comments = manager_comments
+            message = 'Evaluation approved successfully!'
+
+            Notification.objects.create(
+                title="Evaluation Approved",
+                sender=request.user,
+                recipient= employee_eval.employee,
+                message=f'{request.user.firstname} {request.user.lastname} has approved your performance evaluation',
+                module='evaluation',
+                notification_type='approved'
+            )
+
+        else:
+            employee_eval.status = 'supervisor_review'
+            employee_eval.manager = None
+            employee_eval.manager_completed_at = None
+            employee_eval.manager_comments = manager_comments
+            message = 'Evaluation disapproved and returned to supervisor for re-evaluation.'
+
+            Notification.objects.create(
+                title="Evaluation Disapproved",
+                sender=request.user,
+                recipient= employee_eval.supervisor,
+                message=f'{request.user.firstname} {request.user.lastname} has disapproved your evaluation for {employee_eval.employee.firstname} {employee_eval.employee.lastname}. Please review and re-evaluate.',
+                module='evaluation',
+                notification_type='disapproved'
+            )
+        
+        employee_eval.save()
+        
+        # Update evaluation instance status
+        if employee_eval.evaluation_instance:
+            if employee_eval.status == 'approved':
+                employee_eval.evaluation_instance.status = 'completed'
+            else:
+                employee_eval.evaluation_instance.status = 'in_progress'
+            employee_eval.evaluation_instance.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': message
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+def generate_period_tabs(evaluation):
+    
+    distinct_periods = EvaluationInstance.objects.filter(
+        evaluation=evaluation
+    ).values_list('period_start', 'period_end').distinct().order_by('period_start')
+    
+    tabs = []
+    
+    for period_start, period_end in distinct_periods:
+        period_start_date = period_start.date() if hasattr(period_start, 'date') else period_start
+        period_end_date = period_end.date() if hasattr(period_end, 'date') else period_end
+        
+        if evaluation.duration == 'daily':
+            label = period_start_date.strftime('%b %d, %Y')
+            value = period_start_date.strftime('%Y-%m-%d')
+        
+        elif evaluation.duration == 'monthly':
+            label = period_start_date.strftime('%B %Y')
+            value = period_start_date.strftime('%Y-%m')
+        
+        elif evaluation.duration == 'quarterly':
+            start_month_name = calendar.month_name[period_start_date.month][:3]
+            end_month_name = calendar.month_name[period_end_date.month][:3]
+            label = f'{start_month_name}-{end_month_name} {period_start_date.year}'
+            quarter = ((period_start_date.month - 1) // 3) + 1
+            value = f'{period_start_date.year}-Q{quarter}'
+        
+        elif evaluation.duration == 'yearly':
+            label = str(period_start_date.year)
+            value = str(period_start_date.year)
+        
+        tabs.append({
+            'label': label,
+            'value': value,
+            'period_start': period_start_date,
+            'period_end': period_end_date
+        })
+    
+    return tabs
+
+def parse_period_value(period_value, duration):
+    
+    if duration == 'daily':
+        date = datetime.strptime(period_value, '%Y-%m-%d').date()
+        return date, date
+    
+    elif duration == 'monthly':
+        year, month = map(int, period_value.split('-'))
+        start_date = datetime(year, month, 1).date()
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1).date() - timedelta(days=1)
+        else:
+            end_date = datetime(year, month + 1, 1).date() - timedelta(days=1)
+        return start_date, end_date
+    
+    elif duration == 'quarterly':
+        year, quarter = period_value.split('-Q')
+        year = int(year)
+        quarter = int(quarter)
+        
+        start_month = (quarter - 1) * 3 + 1
+        end_month = start_month + 2
+        
+        start_date = datetime(year, start_month, 1).date()
+        end_date = datetime(year, end_month, calendar.monthrange(year, end_month)[1]).date()
+        return start_date, end_date
+    
+    elif duration == 'yearly':
+        year = int(period_value)
+        start_date = datetime(year, 1, 1).date()
+        end_date = datetime(year, 12, 31).date()
+        return start_date, end_date
+    
+    return None, None
+
+@login_required
+def evaluation_details(request, evaluation_id):
+    evaluation = get_object_or_404(Evaluation, id=evaluation_id)
+    
+    period_tabs = generate_period_tabs(evaluation)
+    
+    selected_period = request.POST.get('period', request.GET.get('period', period_tabs[0]['value'] if period_tabs else ''))
+    
+    # Get all evaluation instances for this evaluation (for total assigned count)
+    all_evaluation_instances = EvaluationInstance.objects.filter(evaluation=evaluation).select_related(
+        'employee', 'employee__employment_info', 'employee__employment_info__department', 'employee__employment_info__position'
+    )
+    
+    # Initialize evaluation_instances with all instances
+    evaluation_instances = all_evaluation_instances
+    
+    # Filter instances by selected period if provided
+    if selected_period:
+        # Find the specific period from tabs instead of parsing
+        selected_tab = None
+        for tab in period_tabs:
+            if tab['value'] == selected_period:
+                selected_tab = tab
+                break
+        
+        if selected_tab:
+            # Use the exact period dates from the tab
+            evaluation_instances = evaluation_instances.filter(
+                period_start__date=selected_tab['period_start'],
+                period_end__date=selected_tab['period_end']
+            )
+        else:
+            # Fallback to all instances if no matching tab found
+            evaluation_instances = all_evaluation_instances
+    
+    # Total Assigned: Count of EvaluationInstance records for the selected period
+    total_participants = evaluation_instances.count()
+    
+    # Get current period statistics
+    current_completed_count = evaluation_instances.filter(status='completed').count()
+    current_in_progress_count = evaluation_instances.filter(status='in_progress').count()
+    current_pending_count = evaluation_instances.filter(status='pending').count()
+    
+    # Calculate percentage differences with previous period
+    participants_change = 0
+    submitted_change = 0
+    in_progress_change = 0
+    pending_change = 0
+    
+    if selected_period and period_tabs:
+        # Find current period index
+        current_period_index = None
+        for i, tab in enumerate(period_tabs):
+            if tab['value'] == selected_period:
+                current_period_index = i
+                break
+        
+        if current_period_index is not None and current_period_index > 0:
+            # Get previous period
+            prev_tab = period_tabs[current_period_index - 1]
+            
+            # Use exact period dates from the previous tab
+            prev_instances = all_evaluation_instances.filter(
+                period_start__date=prev_tab['period_start'],
+                period_end__date=prev_tab['period_end']
+            )
+            
+            # Calculate previous period counts
+            prev_total_count = prev_instances.count()
+            prev_completed_count = prev_instances.filter(status='completed').count()
+            prev_in_progress_count = prev_instances.filter(status='in_progress').count()
+            prev_pending_count = prev_instances.filter(status='pending').count()
+            
+            # Calculate percentage changes
+            if prev_total_count > 0:
+                participants_change = round(((total_participants - prev_total_count) / prev_total_count) * 100, 1)
+            if prev_completed_count > 0:
+                submitted_change = round(((current_completed_count - prev_completed_count) / prev_completed_count) * 100, 1)
+            if prev_in_progress_count > 0:
+                in_progress_change = round(((current_in_progress_count - prev_in_progress_count) / prev_in_progress_count) * 100, 1)
+            if prev_pending_count > 0:
+                pending_change = round(((current_pending_count - prev_pending_count) / prev_pending_count) * 100, 1)
+    
+    # For display purposes, use current period counts
+    submitted_count = current_completed_count
+    in_progress_count = current_in_progress_count
+    pending_count = current_pending_count
+    
+    # Calculate progress percentage for current period
+    if evaluation_instances.count() > 0:
+        completed_instances = evaluation_instances.filter(status__in=['in_progress', 'completed']).count()
+        progress_percentage = round((completed_instances / evaluation_instances.count()) * 100)
+    else:
+        progress_percentage = 0
+    
+    participants_data = []
+    for instance in evaluation_instances:
+        try:
+            emp_eval = EmployeeEvaluation.objects.get(
+                evaluation=evaluation,
+                employee=instance.employee
+            )
+            status_display = emp_eval.get_status_display()
+            is_submitted = emp_eval.self_completed_at is not None
+            submitted_at = emp_eval.self_completed_at
+            # Allow viewing if there's any self-assessment data (regardless of supervisor/manager completion)
+            evaluation_id_for_view = emp_eval.id if emp_eval.self_completed_at is not None else None
+        except EmployeeEvaluation.DoesNotExist:
+            status_display = instance.get_status_display()
+            is_submitted = instance.status in ['completed']
+            submitted_at = None
+            evaluation_id_for_view = None
+        
+        participants_data.append({
+            'idnumber': instance.employee.idnumber,
+            'name': instance.employee.full_name,
+            'username': instance.employee.username,
+            'department': instance.employee.employment_info.department.department_name if hasattr(instance.employee, 'employment_info') and instance.employee.employment_info and instance.employee.employment_info.department else 'N/A',
+            'position': instance.employee.employment_info.position.position if hasattr(instance.employee, 'employment_info') and instance.employee.employment_info and instance.employee.employment_info.position else 'N/A',
+            'status': status_display,
+            'is_submitted': is_submitted,
+            'submitted_at': submitted_at,
+            'evaluation_id': evaluation_id_for_view
+        })
+    
+    search = request.POST.get('search', request.GET.get('search', ''))
+    if search:
+        participants_data = [
+            p for p in participants_data 
+            if search.lower() in p['name'].lower() or 
+               search.lower() in p['idnumber'].lower() or
+               search.lower() in p['department'].lower() or
+               search.lower() in p['position'].lower()
+        ]
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'total_participants': total_participants,
+            'submitted_count': submitted_count,
+            'in_progress_count': in_progress_count,
+            'pending_count': pending_count,
+            'progress_percentage': progress_percentage,
+            'participants_change': participants_change,
+            'submitted_change': submitted_change,
+            'in_progress_change': in_progress_change,
+            'pending_change': pending_change,
+            'participants_data': participants_data,
+            'period_tabs': period_tabs,
+            'selected_period': selected_period,
+        })
+    
+    paginator = Paginator(participants_data, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'evaluation': evaluation,
+        'period_tabs': period_tabs,
+        'selected_period': selected_period,
+        'total_participants': total_participants,
+        'submitted_count': submitted_count,
+        'in_progress_count': in_progress_count,
+        'pending_count': pending_count,
+        'progress_percentage': progress_percentage,
+        'participants_change': participants_change,
+        'submitted_change': submitted_change,
+        'in_progress_change': in_progress_change,
+        'pending_change': pending_change,
+        'participants_data': page_obj,
+        'page_obj': page_obj,
+        'search': search,
+    }
+    
+    return render(request, 'evaluation/evaluation_details.html', context)
+
+@login_required
+def get_evaluation_assessment_details(request, evaluation_id):
+    """Get detailed assessment information for offcanvas display"""
+    try:
+        employee_evaluation = get_object_or_404(EmployeeEvaluation, id=evaluation_id)
+        
+        # Get task ratings with supervisor ratings
+        task_ratings = employee_evaluation.task_ratings.select_related('task').all()
+        
+        # Calculate averages
+        self_avg_rating = employee_evaluation.average_rating
+        supervisor_avg_rating = employee_evaluation.average_supervisor_rating
+        supervisor_criteria_avg = employee_evaluation.average_supervisor_criteria_rating
+        
+        # Prepare task ratings data
+        task_ratings_data = []
+        for rating in task_ratings:
+            task_ratings_data.append({
+                'task': rating.task.tasklist,
+                'self_rating': rating.rating,
+                'supervisor_rating': rating.supervisor_rating,
+                'comments': rating.comments or 'No comments'
+            })
+        
+        context = {
+            'employee_evaluation': employee_evaluation,
+            'task_ratings': task_ratings_data,
+            'self_avg_rating': round(self_avg_rating, 1) if self_avg_rating else 0,
+            'supervisor_avg_rating': round(supervisor_avg_rating, 1) if supervisor_avg_rating else None,
+            'supervisor_criteria_avg': round(supervisor_criteria_avg, 1) if supervisor_criteria_avg else None,
+        }
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            html = render_to_string('evaluation/evaluation_assessment_details.html', context, request=request)
+            return JsonResponse({
+                'success': True,
+                'html': html
+            })
+        else:
+            return render(request, 'evaluation/evaluation_assessment_details.html', context)
+            
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+        else:
+            messages.error(request, f'Error loading evaluation details: {str(e)}')
+            return redirect('admin_evaluation')

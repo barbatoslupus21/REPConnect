@@ -1,8 +1,43 @@
+// Helper function to close modal with animation
+function closeModalWithAnimation(modal) {
+    if (!modal) return;
+
+    // Add closing class to trigger animation
+    modal.classList.add('closing');
+
+    // Wait for animation to complete (200ms), then remove classes
+    setTimeout(() => {
+        modal.classList.remove('show', 'closing');
+    }, 200);
+}
+
+// Mobile navigation functions (Global scope)
+function showEvaluationContent() {
+    const dashboardContainer = document.querySelector('.dashboard-container');
+    if (dashboardContainer) {
+        dashboardContainer.classList.add('show-content');
+    }
+}
+
+function hideEvaluationContent() {
+    const dashboardContainer = document.querySelector('.dashboard-container');
+    if (dashboardContainer) {
+        dashboardContainer.classList.remove('show-content');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Evaluation User View Loaded');
     console.log('Statistics:', EVALUATION_STATS);
     
     window.expandedTraining = null; // Track currently expanded training item globally
+    
+    // Initialize training item states
+    const trainingItems = document.querySelectorAll('.training-item');
+    trainingItems.forEach(item => {
+        item.style.opacity = '1';
+        item.style.transform = 'translateY(0)';
+    });
     
     // Handle evaluation filter
     const statusFilter = document.getElementById('evaluationStatusFilter');
@@ -34,6 +69,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 handleSubmitEvaluation(form);
             }
         }
+        
+        if (e.target.classList.contains('evaluate-subordinate-btn')) {
+            const evaluationId = e.target.getAttribute('data-evaluation-id');
+            const buttonText = e.target.textContent.trim();
+            
+            // Check if this is a view-only request or an evaluation request
+            if (buttonText.includes('View Assessment')) {
+                handleViewSubordinateEvaluation(evaluationId, e.target);
+            } else if (buttonText.includes('Approve Evaluation')) {
+                // Manager approval workflow
+                handleManagerEvaluation(evaluationId, e.target);
+            } else {
+                // Supervisor evaluation workflow
+                handleEvaluateSubordinate(evaluationId, e.target);
+            }
+        }
+        
+        if (e.target.classList.contains('manager-review-btn')) {
+            const evaluationId = e.target.getAttribute('data-evaluation-id');
+            handleManagerApprovalModal(evaluationId);
+        }
+        
+        // Modal close functionality
+        if (e.target.classList.contains('modal-close') ||
+            e.target.getAttribute('data-action') === 'close-modal' ||
+            e.target.closest('.modal-close') ||
+            e.target.closest('[data-action="close-modal"]')) {
+            const modal = e.target.closest('.modal');
+            if (modal) {
+                closeModalWithAnimation(modal);
+            }
+        }
+        
+        // Close modal when clicking overlay
+        if (e.target.classList.contains('modal-overlay')) {
+            const modal = e.target.closest('.modal');
+            if (modal) {
+                closeModalWithAnimation(modal);
+            }
+        }
     });
     
     // Training card expand/collapse functionality
@@ -52,6 +127,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // Handle starting an evaluation
 function handleStartEvaluation(instanceId, btn) {
     console.log('handleStartEvaluation: starting for instanceId=', instanceId);
+    
+    // Check if user has an approver set
+    if (!USER_HAS_APPROVER) {
+        showErrorMessage('Please set first your approver in profile settings to start evaluation.');
+        return;
+    }
     
     // Show loading state
     const originalText = btn.innerHTML;
@@ -82,7 +163,18 @@ function handleStartEvaluation(instanceId, btn) {
         })
         .catch(error => {
             console.error('Error loading evaluation:', error);
-            showErrorMessage('Failed to load evaluation. Please try again.');
+            
+            // Try to parse error response as JSON for specific error messages
+            try {
+                const errorData = JSON.parse(error.message.split(' - ')[1] || '{}');
+                if (errorData.error) {
+                    showErrorMessage(errorData.error);
+                } else {
+                    showErrorMessage('Failed to load evaluation. Please try again.');
+                }
+            } catch (parseError) {
+                showErrorMessage('Failed to load evaluation. Please try again.');
+            }
         })
         .finally(() => {
             btn.disabled = false;
@@ -489,15 +581,21 @@ function filterEvaluations(status) {
 
         if (status === 'all' || itemStatus === status) {
             // Show item with animation
-            item.style.display = 'block';
-            // ensure starting state for animation
-            item.style.opacity = '0';
-            item.style.transform = 'translateY(10px)';
-            // Use requestAnimationFrame/setTimeout to allow layout to apply
-            setTimeout(() => {
+            if (item.style.display === 'none' || !item.style.display) {
+                item.style.display = 'block';
+                // Set initial hidden state for animation
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(10px)';
+                // Use setTimeout to ensure display:block is applied before animation
+                setTimeout(() => {
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, 10);
+            } else {
+                // Item is already visible, just ensure it's in the correct state
                 item.style.opacity = '1';
                 item.style.transform = 'translateY(0)';
-            }, 50);
+            }
         } else {
             // Hide item with animation - also collapse if expanded
             if (item.classList.contains('expanded')) {
@@ -511,7 +609,7 @@ function filterEvaluations(status) {
             // Hide after animation completes
             setTimeout(() => {
                 item.style.display = 'none';
-            }, 200);
+            }, 250);
         }
     });
 }
@@ -565,6 +663,490 @@ function addMobileBackButton(contentArea) {
             content.insertBefore(backButton, content.firstChild);
         }
     }
+}
+
+// Handle viewing subordinate evaluation (read-only)
+function handleViewSubordinateEvaluation(evaluationId, btn) {
+    console.log('Viewing subordinate evaluation:', evaluationId);
+    
+    // Show loading state
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    // Fetch the evaluation content for viewing
+    fetch(`/evaluation/supervisor/evaluation/${evaluationId}/view/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const contentArea = document.getElementById('approvalsContentArea');
+            if (contentArea) {
+                contentArea.innerHTML = data.html;
+                
+                // Add mobile back button for approvals content
+                addMobileBackButtonForApprovals(contentArea);
+                showContentArea();
+            }
+        } else {
+            throw new Error(data.error || 'Failed to load evaluation for viewing');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading evaluation for viewing:', error);
+        showErrorMessage('Failed to load evaluation. Please try again.');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+// Handle evaluating subordinate evaluation
+function handleEvaluateSubordinate(evaluationId, btn) {
+    console.log('Evaluating subordinate evaluation:', evaluationId);
+    
+    // Show loading state
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    // Fetch the evaluation content for review
+    fetch(`/evaluation/supervisor/evaluation/${evaluationId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const contentArea = document.getElementById('approvalsContentArea');
+            if (contentArea) {
+                contentArea.innerHTML = data.html;
+                
+                // Add mobile back button for approvals content
+                addMobileBackButtonForApprovals(contentArea);
+                showContentArea();
+                
+                // Initialize form submission handler
+                initializeSupervisorEvaluationForm();
+                // Initialize supervisor rating functionality
+                initializeSupervisorRatings();
+            }
+        } else {
+            throw new Error(data.error || 'Failed to load evaluation for review');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading evaluation for review:', error);
+        showErrorMessage('Failed to load evaluation. Please try again.');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+// Initialize supervisor evaluation form
+function initializeSupervisorEvaluationForm() {
+    const form = document.getElementById('supervisorEvaluationForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validate all supervisor ratings before submitting
+            if (!validateSupervisorRatings()) {
+                return; // Stop submission if validation fails
+            }
+            
+            const submitBtn = document.getElementById('submitSupervisorEvaluation');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            
+            const formData = new FormData(form);
+            const evaluationId = form.getAttribute('data-evaluation-id');
+            
+            // Collect supervisor task ratings
+            const supervisorRatingInputs = document.querySelectorAll('input[name^="supervisor_task_rating_"]');
+            supervisorRatingInputs.forEach(input => {
+                if (input.value) {
+                    formData.append(input.name, input.value);
+                }
+            });
+            
+            fetch(`/evaluation/supervisor/evaluation/${evaluationId}/submit/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessMessage('Evaluation assessment submitted successfully!');
+                    // Refresh the approvals list
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showErrorMessage(data.error || 'Failed to submit assessment');
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting assessment:', error);
+                showErrorMessage('Failed to submit assessment. Please try again.');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    }
+}
+
+// Validation function for supervisor ratings
+function validateSupervisorRatings() {
+    let hasErrors = false;
+    const missingRatings = [];
+    
+    // Clear previous error styles
+    document.querySelectorAll('.supervisor-rating-row').forEach(row => {
+        row.classList.remove('error');
+        row.style.border = '';
+        row.style.borderRadius = '';
+        row.style.backgroundColor = '';
+    });
+    
+    // Check task list supervisor ratings
+    const taskRatingRows = document.querySelectorAll('.subordinate-evaluation-summary .rating-row');
+    taskRatingRows.forEach(row => {
+        const supervisorRatingRow = row.querySelector('.supervisor-rating-row');
+        const hiddenInput = row.querySelector('input[name^="supervisor_task_rating_"]');
+        const taskName = row.querySelector('.rating-question')?.textContent?.trim();
+        
+        if (supervisorRatingRow && hiddenInput && taskName !== 'No tasks evaluated') {
+            const rating = hiddenInput.value;
+            if (!rating || rating === '') {
+                hasErrors = true;
+                supervisorRatingRow.classList.add('error');
+                missingRatings.push(`Task: ${taskName}`);
+            }
+        }
+    });
+    
+    // Check behavioral criteria ratings
+    const behavioralRatingRows = document.querySelectorAll('.behavioral-rating-row');
+    behavioralRatingRows.forEach(row => {
+        const supervisorRatingRow = row.querySelector('.supervisor-rating-row');
+        const hiddenInput = row.querySelector('input[type="hidden"]');
+        const criteriaName = row.querySelector('.behavioral-question')?.textContent?.trim();
+        
+        if (supervisorRatingRow && hiddenInput && criteriaName) {
+            const rating = hiddenInput.value;
+            if (!rating || rating === '') {
+                hasErrors = true;
+                supervisorRatingRow.classList.add('error');
+                missingRatings.push(`Behavioral Criteria: ${criteriaName}`);
+            }
+        }
+    });
+    
+    if (hasErrors) {
+        // Show error message
+        const errorMessage = `Please provide ratings for all required fields:<br>• ${missingRatings.join('<br>• ')}`;
+        showErrorMessage(errorMessage);
+        
+        // Scroll to first missing rating
+        const firstErrorElement = document.querySelector('.supervisor-rating-row.error');
+        if (firstErrorElement) {
+            firstErrorElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }
+        
+        return false;
+    }
+    
+    return true;
+}
+
+// Function to clear error styling when user selects a rating
+function clearRatingError(supervisorRatingRow) {
+    if (supervisorRatingRow && supervisorRatingRow.classList.contains('error')) {
+        supervisorRatingRow.classList.remove('error');
+        supervisorRatingRow.classList.add('cleared-error');
+        
+        // Remove cleared-error class after animation
+        setTimeout(() => {
+            supervisorRatingRow.classList.remove('cleared-error');
+        }, 300);
+    }
+}
+
+// Add mobile back button for approvals content
+function addMobileBackButtonForApprovals(contentArea) {
+    const backButton = document.createElement('button');
+    backButton.className = 'btn btn-outline mobile-back-btn';
+    backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Evaluations';
+    backButton.onclick = goBackToApprovals;
+    
+    const header = contentArea.querySelector('.assessment-header');
+    if (header) {
+        header.insertBefore(backButton, header.firstChild);
+    }
+}
+
+// Go back to approvals list
+function goBackToApprovals() {
+    const contentArea = document.getElementById('approvalsContentArea');
+    const listArea = document.getElementById('approvalsList');
+
+    // Restore welcome/dashboard HTML if we saved it on load
+    if (contentArea && window._approvalsWelcomeHTML) {
+        contentArea.innerHTML = window._approvalsWelcomeHTML;
+    }
+
+    // Ensure approvals list is visible
+    if (listArea) {
+        listArea.style.display = 'block';
+    }
+
+    // For mobile, show trainings/list column and hide content column
+    if (window.innerWidth <= 992) {
+        const trainingsColumn = document.querySelector('.trainings-column');
+        const contentColumn = document.querySelector('.content-column');
+        if (trainingsColumn) trainingsColumn.style.display = 'block';
+        if (contentColumn) contentColumn.style.display = 'none';
+    }
+}
+
+// Edit evaluation (switch from view to edit mode)
+function editEvaluation(evaluationId) {
+    // This will call the regular evaluate subordinate function to switch to edit mode
+    const btn = document.createElement('button');
+    handleEvaluateSubordinate(evaluationId, btn);
+}
+
+// Handle manager evaluation (load manager review content)
+function handleManagerEvaluation(evaluationId, btn) {
+    console.log('Loading manager evaluation:', evaluationId);
+    
+    // Show loading state
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    // Fetch the manager evaluation content
+    fetch(`/evaluation/manager/evaluation/${evaluationId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const contentArea = document.getElementById('approvalsContentArea');
+            if (contentArea) {
+                contentArea.innerHTML = data.html;
+                
+                // Add mobile back button for approvals content
+                addMobileBackButtonForApprovals(contentArea);
+                showContentArea();
+            }
+        } else {
+            throw new Error(data.error || 'Failed to load manager evaluation');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading manager evaluation:', error);
+        showErrorMessage('Failed to load evaluation. Please try again.');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+// Handle manager approval modal
+function handleManagerApprovalModal(evaluationId) {
+    const modal = document.getElementById('evaluationApprovalModal');
+    const approveBtn = document.getElementById('approveEvaluation');
+    const disapproveBtn = document.getElementById('disapproveEvaluation');
+    const commentsField = document.getElementById('managerComments');
+    const commentsError = document.getElementById('commentsError');
+    
+    if (!modal) {
+        console.error('Modal not found!');
+        return;
+    }
+    
+    // Store evaluation ID for later use
+    modal.setAttribute('data-evaluation-id', evaluationId);
+    
+    // Clear previous comments and errors
+    if (commentsField) commentsField.value = '';
+    if (commentsError) commentsError.style.display = 'none';
+    
+    // Show modal
+    modal.classList.add('show');
+    
+    // Handle approve button
+    if (approveBtn) {
+        approveBtn.onclick = function() {
+            handleManagerApprovalAction(evaluationId, 'approve');
+        };
+    }
+    
+    // Handle disapprove button
+    if (disapproveBtn) {
+        disapproveBtn.onclick = function() {
+            const comments = commentsField ? commentsField.value.trim() : '';
+            if (!comments) {
+                if (commentsError) commentsError.style.display = 'block';
+                if (commentsField) commentsField.focus();
+                return;
+            }
+            if (commentsError) commentsError.style.display = 'none';
+            handleManagerApprovalAction(evaluationId, 'disapprove');
+        };
+    }
+}
+
+// Handle manager approval action
+function handleManagerApprovalAction(evaluationId, action) {
+    const modal = document.getElementById('evaluationApprovalModal');
+    const commentsField = document.getElementById('managerComments');
+    const approveBtn = document.getElementById('approveEvaluation');
+    const disapproveBtn = document.getElementById('disapproveEvaluation');
+    
+    // Show loading state
+    const actionBtn = action === 'approve' ? approveBtn : disapproveBtn;
+    const originalText = actionBtn.innerHTML;
+    actionBtn.disabled = true;
+    actionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('manager_comments', commentsField.value.trim());
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch(`/evaluation/manager/evaluation/${evaluationId}/approve/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage(data.message);
+            closeModalWithAnimation(modal);
+            // Refresh the page after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showErrorMessage(data.error || 'Failed to process evaluation');
+        }
+    })
+    .catch(error => {
+        console.error('Error processing evaluation:', error);
+        showErrorMessage('Failed to process evaluation. Please try again.');
+    })
+    .finally(() => {
+        actionBtn.disabled = false;
+        actionBtn.innerHTML = originalText;
+    });
+}
+
+// Initialize supervisor rating functionality
+function initializeSupervisorRatings() {
+    // Handle supervisor rating star clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('rating-star') && e.target.closest('.supervisor-rating-row')) {
+            const star = e.target;
+            const value = parseInt(star.getAttribute('data-value'));
+            const question = star.getAttribute('data-question');
+            const starsRow = star.closest('.rating-stars-row');
+            const supervisorRatingRow = star.closest('.supervisor-rating-row');
+            const hiddenInput = document.querySelector(`input[name="${question}"]`);
+            
+            if (hiddenInput) {
+                // Update hidden input value
+                hiddenInput.value = value;
+                
+                // Update star display
+                const allStars = starsRow.querySelectorAll('.rating-star');
+                allStars.forEach((s, index) => {
+                    if (index < value) {
+                        s.classList.remove('empty');
+                        s.classList.add('filled');
+                    } else {
+                        s.classList.remove('filled');
+                        s.classList.add('empty');
+                    }
+                });
+                
+                // Clear error styling if present
+                clearRatingError(supervisorRatingRow);
+            }
+        }
+    });
+    
+    // Handle star hover effects for supervisor ratings
+    document.addEventListener('mouseover', function(e) {
+        if (e.target.classList.contains('rating-star') && e.target.closest('.supervisor-rating-row')) {
+            const star = e.target;
+            const value = parseInt(star.getAttribute('data-value'));
+            const starsRow = star.closest('.rating-stars-row');
+            const allStars = starsRow.querySelectorAll('.rating-star');
+            
+            allStars.forEach((s, index) => {
+                if (index < value) {
+                    s.classList.add('hover');
+                } else {
+                    s.classList.remove('hover');
+                }
+            });
+        }
+    });
+    
+    document.addEventListener('mouseout', function(e) {
+        if (e.target.classList.contains('rating-star') && e.target.closest('.supervisor-rating-row')) {
+            const starsRow = e.target.closest('.rating-stars-row');
+            const allStars = starsRow.querySelectorAll('.rating-star');
+            allStars.forEach(s => s.classList.remove('hover'));
+        }
+    });
 }
 
 function showSuccessMessage(message) {
@@ -852,3 +1434,95 @@ function switchTab(targetId) {
         targetTab.classList.add('active');
     }
 }
+
+// Save approvals welcome HTML for restoring later
+const approvalsWelcome = document.getElementById('approvalsContentArea');
+if (approvalsWelcome) {
+    window._approvalsWelcomeHTML = approvalsWelcome.innerHTML;
+}
+
+// Mobile navigation functions
+function addMobileBackButton(contentArea) {
+    // Check if we're on mobile/tablet
+    if (window.innerWidth <= 992) {
+        // Add mobile back button to content area
+        const backButton = document.createElement('button');
+        backButton.className = 'mobile-back-btn';
+        backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Evaluations';
+        backButton.onclick = hideEvaluationContent;
+        
+        // Insert at the beginning of content area
+        contentArea.insertBefore(backButton, contentArea.firstChild);
+    }
+}
+
+function addMobileBackButtonForApprovals(contentArea) {
+    // Check if we're on mobile/tablet
+    if (window.innerWidth <= 992) {
+        // Add mobile back button to approvals content area
+        const backButton = document.createElement('button');
+        backButton.className = 'mobile-back-btn';
+        backButton.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Approvals';
+        backButton.onclick = function() {
+            goBackToApprovals();
+            hideEvaluationContent();
+        };
+        
+        // Insert at the beginning of content area
+        contentArea.insertBefore(backButton, contentArea.firstChild);
+    }
+}
+
+function showContentArea() {
+    // Show content area on mobile/tablet
+    if (window.innerWidth <= 992) {
+        showEvaluationContent();
+    }
+}
+
+// Handle handleCloseEvaluation to go back to list on mobile
+function handleCloseEvaluation() {
+    const contentArea = document.getElementById('contentArea');
+    contentArea.innerHTML = `
+        <div class="welcome-state">
+            <div class="welcome-icon">
+                <i class="fa fa-line-chart"></i>
+            </div>
+            <h3>Welcome to Your Evaluation Dashboard</h3>
+            <p>Select a performance evaluation from the left panel to get started. Click "Start Evaluation" to begin completing your assigned performance evaluations.</p>
+            <div class="welcome-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalEvaluations">${EVALUATION_STATS.total}</div>
+                    <div class="stat-label">Total Evaluations</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="completedEvaluations">${EVALUATION_STATS.completed}</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="pendingEvaluations">${EVALUATION_STATS.pending}</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Hide content area on mobile/tablet (go back to list)
+    if (window.innerWidth <= 992) {
+        hideEvaluationContent();
+    }
+}
+
+// Window resize handler to manage mobile/desktop transitions
+window.addEventListener('resize', function() {
+    const dashboardContainer = document.querySelector('.dashboard-container');
+    if (window.innerWidth > 992) {
+        // Desktop mode - show both columns
+        if (dashboardContainer) {
+            dashboardContainer.classList.remove('show-content');
+        }
+        // Remove mobile back buttons
+        const mobileBackBtns = document.querySelectorAll('.mobile-back-btn');
+        mobileBackBtns.forEach(btn => btn.remove());
+    }
+});

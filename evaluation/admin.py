@@ -36,7 +36,7 @@ class TaskRatingInline(admin.TabularInline):
 @admin.register(EmployeeEvaluation)
 class EmployeeEvaluationAdmin(admin.ModelAdmin):
     list_display = [
-        'employee', 'evaluation', 'status', 'average_rating', 
+        'employee', 'evaluation', 'status', 'average_rating', 'supervisor_criteria_avg',
         'self_completed_at', 'supervisor_completed_at', 'manager_completed_at'
     ]
     list_filter = ['status', 'evaluation', 'created_at']
@@ -61,6 +61,16 @@ class EmployeeEvaluationAdmin(admin.ModelAdmin):
                 'training_required', 'supervisor_comments', 'employee_comments'
             )
         }),
+        ('Supervisor Criteria Assessment', {
+            'fields': (
+                ('cost_consciousness_rating', 'cost_consciousness_comments'),
+                ('dependability_rating', 'dependability_comments'),
+                ('communication_rating', 'communication_comments'),
+                ('work_ethics_rating', 'work_ethics_comments'),
+                ('attendance_rating', 'attendance_comments')
+            ),
+            'classes': ('collapse',)
+        }),
         ('Manager Approval', {
             'fields': ('manager_completed_at', 'manager_comments')
         }),
@@ -70,6 +80,11 @@ class EmployeeEvaluationAdmin(admin.ModelAdmin):
         avg = obj.average_rating
         return f"{avg:.1f}" if avg else "N/A"
     average_rating.short_description = "Avg Rating"
+    
+    def supervisor_criteria_avg(self, obj):
+        avg = obj.average_supervisor_criteria_rating
+        return f"{avg:.1f}" if avg else "N/A"
+    supervisor_criteria_avg.short_description = "Supervisor Criteria Avg"
 
 @admin.register(TaskRating)
 class TaskRatingAdmin(admin.ModelAdmin):

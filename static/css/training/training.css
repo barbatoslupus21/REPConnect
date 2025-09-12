@@ -880,6 +880,8 @@
     overflow: hidden;
     transition: all var(--transition-normal);
     cursor: pointer;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .training-item:last-child {
@@ -992,11 +994,7 @@
         flex-direction: column;
         height: auto;
     }
-    
-    .trainings-column {
-        width: 100%;
-        max-height: 50vh;
-    }
+
 }
 
 /* Training Evaluation Content Styles */
@@ -1083,7 +1081,7 @@
 @media (max-width: 992px) {
     .dashboard-container {
         flex-direction: row; /* Changed from column to support sliding */
-        height: calc(100vh - 280px); /* Maintain full height for sliding */
+        height: calc(100vh - 280px) !important; /* Maintain full height for sliding */
         position: relative;
         overflow: hidden;
     }
@@ -1093,8 +1091,8 @@
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        width: 100% !important;
+        height: 100% !important;
         transition: transform 0.3s ease-in-out;
         will-change: transform;
     }
@@ -1302,7 +1300,6 @@
 
 .assessment-header {
     padding: var(--space-lg);
-    border-radius: var(--border-radius);
     margin-bottom: var(--space-sm);
 }
 
@@ -1792,4 +1789,9 @@
 
 .evaluation-details .row:last-child {
     margin-bottom: 0;
+}
+
+.evaluation-meta {
+    display: flex;
+    gap: var(--space-sm);
 }

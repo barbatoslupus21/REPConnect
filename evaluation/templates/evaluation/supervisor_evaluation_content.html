@@ -1,0 +1,288 @@
+<div class="supervisor-assessment-container">
+    <!-- Mobile Back Button -->
+    <button class="mobile-back-btn" onclick="hideEvaluationContent()">
+        <i class="fas fa-arrow-left"></i> Back to Evaluations
+    </button>
+    
+    <div class="assessment-header">
+        <h3>Evaluation Assessment</h3>
+        <p class="assessment-subtitle">Review {{ employee_eval.employee.full_name }}'s performance evaluation</p>
+        <div class="evaluation-info">
+            <h4>{{ employee_eval.evaluation.title }}</h4>
+            <div class="evaluation-meta">
+                {% if employee_eval.evaluation_instance %}
+                    <span class="meta-item">
+                        <i class="fas fa-calendar"></i>
+                        Period: {{ employee_eval.evaluation_instance.period_start|date:"M j, Y" }} - {{ employee_eval.evaluation_instance.period_end|date:"M j, Y" }}
+                    </span>
+                {% endif %}
+                <span class="meta-item">
+                    <i class="fas fa-user"></i>
+                    {{ employee_eval.employee.full_name }}
+                </span>
+                <span class="meta-item">
+                    <i class="fas fa-clock"></i>
+                    Self Completed: {{ employee_eval.self_completed_at|date:"M j, Y" }}
+                </span>
+            </div>
+        </div>
+
+        {% if employee_eval.manager_comments %}
+            <div class="manager-disapproved-message">
+                <div class="disapproved-message-header">
+                    <i class="fa fa-exclamation-triangle"></i> 
+                    <p>Manager Comment:</p>
+                </div>
+                <p>Comments are required when disapproving an evaluation.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+
+    <div class="assessment-content">
+        <div class="subordinate-evaluation-summary">
+            <div class="rating-table">
+                <!-- Header Row -->
+                <div class="supervisor-rating-header-container">
+                    <div class="rating-question-header" style="padding: 0 !important;">Employee Tasklists</div>
+                    <div class="rating-scale-header">Employee Rating</div>
+                    <div class="supervisor-rating-header">
+                        <div class="supervisor-rating-header">Supervisor Rating</div>
+                        <div class="supervisor-rating-number">
+                            <div class="rating-number-header">1</div>
+                            <div class="rating-number-header">2</div>
+                            <div class="rating-number-header">3</div>
+                            <div class="rating-number-header">4</div>
+                            <div class="rating-number-header">5</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Rating Rows -->
+                {% for task_rating in task_ratings %}
+                <div class="rating-row">
+                    <div class="rating-question">{{ task_rating.task }}</div>
+
+                    <div class="rating-display">
+                        <div class="rating-stars-display">
+                            {% for i in "12345" %}
+                                <i class="fas fa-star {% if i|add:0 <= task_rating.rating %}filled{% else %}empty{% endif %}"></i>
+                            {% endfor %}
+                        </div>
+                        <span class="evaluation-rating-number">{{ task_rating.rating }}/5</span>
+                    </div>
+
+                    <div class="supervisor-rating-row">
+                        <div class="rating-stars-row" data-question-name="supervisor_task_rating_{{ task_rating.task_id }}">
+                            {% for value in "12345" %}
+                            <div class="rating-star-cell">
+                                <i class="fas fa-star rating-star {% if task_rating.supervisor_rating and value|add:0 <= task_rating.supervisor_rating %}filled{% else %}empty{% endif %}" 
+                                data-value="{{ value }}" data-question="supervisor_task_rating_{{ task_rating.task_id }}"></i>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" name="supervisor_task_rating_{{ task_rating.task_id }}" value="{{ task_rating.supervisor_rating|default:'' }}">
+                    </div>
+                </div>
+                {% empty %}
+                <div class="rating-row">
+                    <div class="rating-question">No tasks evaluated</div>
+                    <div class="rating-display">-</div>
+                    <div class="supervisor-rating-row">-</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="supervisor-assessment-form">
+            <form id="supervisorEvaluationForm" method="post" data-evaluation-id="{{ employee_eval.id }}">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <!-- Supervisor Criteria Assessment Section -->
+                    <div class="form-section">
+                        <h5>Behavioral Criteria Assessment</h5>
+                        <p class="evaluation-instruction">Rate the employee on each of the following criteria using a scale of 1-5 (1 = Poor, 5 = Excellent).</p>
+                        
+                        <div class="rating-table" style="margin-bottom: var(--space-lg);">
+                            <!-- Header Row -->
+                            <div class="behavioral-rating-header-container">
+                                <div class="rating-question-header" style="padding: 0 !important;">Behavioral Criteria</div>
+                                <div class="rating-scale-header">Comments</div>
+                                <div class="supervisor-rating-header">
+                                    <div class="supervisor-rating-header">Rating</div>
+                                    <div class="supervisor-rating-number">
+                                        <div class="rating-number-header">1</div>
+                                        <div class="rating-number-header">2</div>
+                                        <div class="rating-number-header">3</div>
+                                        <div class="rating-number-header">4</div>
+                                        <div class="rating-number-header">5</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cost Consciousness -->
+                            <div class="behavioral-rating-row">
+                                <div class="behavioral-criteria">
+                                    <div class="behavioral-question">Cost Consciousness</div>
+                                    <p class="behavioral-instruction">Does the employee use company resources wisely and complete work carefully to avoid errors?</p>
+                                </div>
+                                <div class="rating-display">
+                                    {{ form.cost_consciousness_comments }}
+                                </div>
+                                <div class="supervisor-rating-row">
+                                    <div class="rating-stars-row" data-question-name="cost_consciousness_rating">
+                                        {% for value in "12345" %}
+                                        <div class="rating-star-cell">
+                                            <i class="fas fa-star rating-star {% if form.cost_consciousness_rating.value and value|add:0 <= form.cost_consciousness_rating.value %}filled{% else %}empty{% endif %}" 
+                                            data-value="{{ value }}" data-question="cost_consciousness_rating"></i>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" name="cost_consciousness_rating" value="{{ form.cost_consciousness_rating.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Dependability -->
+                            <div class="behavioral-rating-row">
+                                <div class="behavioral-criteria">
+                                    <div class="behavioral-question">Dependability</div>
+                                    <p class="behavioral-instruction">Does the employee take responsibility and accept work assignments willingly?</p>
+                                </div>
+                                <div class="rating-display">
+                                    {{ form.dependability_comments }}
+                                </div>
+                                <div class="supervisor-rating-row">
+                                    <div class="rating-stars-row" data-question-name="dependability_rating">
+                                        {% for value in "12345" %}
+                                        <div class="rating-star-cell">
+                                            <i class="fas fa-star rating-star {% if form.dependability_rating.value and value|add:0 <= form.dependability_rating.value %}filled{% else %}empty{% endif %}" 
+                                            data-value="{{ value }}" data-question="dependability_rating"></i>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" name="dependability_rating" value="{{ form.dependability_rating.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Communication -->
+                            <div class="behavioral-rating-row">
+                                <div class="behavioral-criteria">
+                                    <div class="behavioral-question">Communication</div>
+                                    <p class="behavioral-instruction">Does the employee listen to others and give helpful feedback to peers, subordinates, and superiors?</p>
+                                </div>
+                                <div class="rating-display">
+                                    {{ form.communication_comments }}
+                                </div>
+                                <div class="supervisor-rating-row">
+                                    <div class="rating-stars-row" data-question-name="communication_rating">
+                                        {% for value in "12345" %}
+                                        <div class="rating-star-cell">
+                                            <i class="fas fa-star rating-star {% if form.communication_rating.value and value|add:0 <= form.communication_rating.value %}filled{% else %}empty{% endif %}" 
+                                            data-value="{{ value }}" data-question="communication_rating"></i>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" name="communication_rating" value="{{ form.communication_rating.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Work Ethics -->
+                            <div class="behavioral-rating-row">
+                                <div class="behavioral-criteria">
+                                    <div class="behavioral-question">Work Ethics</div>
+                                    <p class="behavioral-instruction">Does the employee show respect toward co-workers and avoid actions that may cause conflicts of interest?</p>
+                                </div>
+                                <div class="rating-display">
+                                    {{ form.work_ethics_comments }}
+                                </div>
+                                <div class="supervisor-rating-row">
+                                    <div class="rating-stars-row" data-question-name="work_ethics_rating">
+                                        {% for value in "12345" %}
+                                        <div class="rating-star-cell">
+                                            <i class="fas fa-star rating-star {% if form.work_ethics_rating.value and value|add:0 <= form.work_ethics_rating.value %}filled{% else %}empty{% endif %}" 
+                                            data-value="{{ value }}" data-question="work_ethics_rating"></i>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" name="work_ethics_rating" value="{{ form.work_ethics_rating.value|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Attendance -->
+                            <div class="behavioral-rating-row">
+                                <div class="behavioral-criteria">
+                                    <div class="behavioral-question">Attendance</div>
+                                    <p class="behavioral-instruction">Does the employee come to work regularly and on time, considering start-up, break times, and end of shift?</p>
+                                </div>
+                                <div class="rating-display">
+                                    {{ form.attendance_comments }}
+                                </div>
+                                <div class="supervisor-rating-row">
+                                    <div class="rating-stars-row" data-question-name="attendance_rating">
+                                        {% for value in "12345" %}
+                                        <div class="rating-star-cell">
+                                            <i class="fas fa-star rating-star {% if form.attendance_rating.value and value|add:0 <= form.attendance_rating.value %}filled{% else %}empty{% endif %}" 
+                                            data-value="{{ value }}" data-question="attendance_rating"></i>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" name="attendance_rating" value="{{ form.attendance_rating.value|default:'' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h5>Performance Assessment</h5>
+                        <p class="evaluation-instruction">Provide detailed feedback on the employee's strengths, areas for improvement, and any training requirements.</p>
+                        <div class="form-group">
+                            <label for="{{ form.strengths.id_for_label }}">Strengths:</label>
+                            {{ form.strengths }}
+                        </div>
+                        <div class="form-group">
+                            <label for="{{ form.weaknesses.id_for_label }}">Areas for Improvement:</label>
+                            {{ form.weaknesses }}
+                        </div>
+                        <div class="form-group">
+                            <label for="{{ form.training_required.id_for_label }}">Training Required:</label>
+                            {{ form.training_required }}
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h5>Comments</h5>
+                        <p class="evaluation-instruction">Review and provide additional comments for both employee and supervisor perspectives.</p>
+                        <div class="form-group">
+                            <label for="{{ form.supervisor_comments.id_for_label }}">{% if is_supervisor_review %}Supervisor{% else %}Manager{% endif %} Comments:</label>
+                            {{ form.supervisor_comments }}
+                        </div>
+                        <div class="form-group">
+                            <label for="{{ form.employee_comments.id_for_label }}">Employee Comments:</label>
+                            {{ form.employee_comments }}
+                        </div>
+                    </div>
+                </div>
+
+                {% if not is_read_only %}
+                    <div class="evaluation-form-actions">
+                        <button type="button" class="btn btn-outline" onclick="goBackToApprovals()">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Evaluations
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="submitSupervisorEvaluation">
+                            <i class="fas fa-save"></i>
+                            {% if is_manager_review %}Approve Evaluation{% else %}Submit Assessment{% endif %}
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="evaluation-form-actions">
+                        <button type="button" class="btn btn-outline" onclick="goBackToApprovals()">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Evaluations
+                        </button>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>

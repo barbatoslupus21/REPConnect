@@ -160,7 +160,14 @@ class TaskRatingForm(forms.ModelForm):
 class SupervisorEvaluationForm(forms.ModelForm):
     class Meta:
         model = EmployeeEvaluation
-        fields = ['strengths', 'weaknesses', 'training_required', 'supervisor_comments', 'employee_comments']
+        fields = [
+            'strengths', 'weaknesses', 'training_required', 'supervisor_comments', 'employee_comments',
+            'cost_consciousness_rating', 'cost_consciousness_comments',
+            'dependability_rating', 'dependability_comments',
+            'communication_rating', 'communication_comments',
+            'work_ethics_rating', 'work_ethics_comments',
+            'attendance_rating', 'attendance_comments'
+        ]
         widgets = {
             'strengths': forms.Textarea(attrs={
                 'class': 'form-input',
@@ -188,6 +195,52 @@ class SupervisorEvaluationForm(forms.ModelForm):
                 'class': 'form-input',
                 'rows': 4,
                 'placeholder': 'Employee feedback or comments (optional)'
+            }),
+            # Supervisor Criteria Rating Fields
+            'cost_consciousness_rating': forms.Select(attrs={
+                'class': 'form-input rating-select',
+                'required': True
+            }),
+            'cost_consciousness_comments': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Comments on cost consciousness...'
+            }),
+            'dependability_rating': forms.Select(attrs={
+                'class': 'form-input rating-select',
+                'required': True
+            }),
+            'dependability_comments': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Comments on dependability...'
+            }),
+            'communication_rating': forms.Select(attrs={
+                'class': 'form-input rating-select',
+                'required': True
+            }),
+            'communication_comments': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Comments on communication...'
+            }),
+            'work_ethics_rating': forms.Select(attrs={
+                'class': 'form-input rating-select',
+                'required': True
+            }),
+            'work_ethics_comments': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Comments on work ethics...'
+            }),
+            'attendance_rating': forms.Select(attrs={
+                'class': 'form-input rating-select',
+                'required': True
+            }),
+            'attendance_comments': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Comments on attendance...'
             })
         }
 
@@ -195,6 +248,21 @@ class SupervisorEvaluationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['strengths'].required = True
         self.fields['weaknesses'].required = True
+        
+        # Make supervisor criteria ratings required
+        self.fields['cost_consciousness_rating'].required = True
+        self.fields['dependability_rating'].required = True
+        self.fields['communication_rating'].required = True
+        self.fields['work_ethics_rating'].required = True
+        self.fields['attendance_rating'].required = True
+        
+        # Set choices for rating fields
+        RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
+        self.fields['cost_consciousness_rating'].choices = [('', 'Select Rating')] + RATING_CHOICES
+        self.fields['dependability_rating'].choices = [('', 'Select Rating')] + RATING_CHOICES
+        self.fields['communication_rating'].choices = [('', 'Select Rating')] + RATING_CHOICES
+        self.fields['work_ethics_rating'].choices = [('', 'Select Rating')] + RATING_CHOICES
+        self.fields['attendance_rating'].choices = [('', 'Select Rating')] + RATING_CHOICES
 
 class ManagerApprovalForm(forms.ModelForm):
     APPROVAL_CHOICES = [

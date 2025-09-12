@@ -603,6 +603,19 @@ document.addEventListener('DOMContentLoaded', function() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
+    // View evaluation details: navigate to evaluation details page
+    (function() {
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.view-evaluation-btn');
+            if (!btn) return;
+            const evalId = btn.dataset.evaluationId;
+            if (!evalId) return;
+
+            // Navigate to evaluation details page
+            window.location.href = `/evaluation/${evalId}/details/`;
+        });
+    })();
+
     // Edit evaluation: open modal, fetch data, submit updates via AJAX
     (function() {
         // Delegate click to edit buttons

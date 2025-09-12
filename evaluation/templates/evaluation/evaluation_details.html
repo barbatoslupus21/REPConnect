@@ -1,0 +1,285 @@
+{% extends "main.html" %}
+{% load static %}
+{% csrf_token %}
+
+{% block title %}REPConnect - Performance Evaluation{% endblock title %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/survey/survey.css' %}">
+    <link rel="stylesheet" href="{% static 'css/training/training.css' %}">
+    <link rel="stylesheet" href="{% static 'css/evaluation/evaluation.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-content">
+        <div class="page-header">
+            <div class="page-header-content">
+                <h2 class="page-title">{{ evaluation.title }}</h2>
+                <p class="page-subtitle">{{ evaluation.description|default:"Performance evaluation details and participant tracking" }}</p>
+                <div class="training-meta">
+                    <div class="training-meta-grid">
+                        <div class="meta-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>{{ evaluation.duration|title }} Evaluation</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-clock"></i>
+                            <span>Created: {{ evaluation.created_at|date:"F d, Y" }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-users"></i>
+                            <span>{{ total_participants }} Participants</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-percentage"></i>
+                            <span>{{ progress_percentage }}% Complete</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-actions">
+                <a href="{% url 'admin_evaluation' %}" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Evaluations
+                </a>
+
+                <a href="{% url 'admin_evaluation' %}" class="btn btn-primary">
+                    <i class="fa fa-download"></i>
+                    Export Evaluation
+                </a>
+            </div>
+        </div>
+
+        <div class="tabs-horizontal">
+            <div class="tab-list">
+                {% for tab in period_tabs %}
+                    <button class="tab {% if tab.value == selected_period %}active{% elif forloop.first and not selected_period %}active{% endif %}" 
+                            data-target="period-{{ tab.value }}" 
+                            data-period="{{ tab.value }}">
+                        {{ tab.label }}
+                    </button>
+                {% empty %}
+                    <button class="tab active" data-target="all-participants">All Participants</button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div id="evaluation-content" class="tab-panel active">
+            <!-- Statistics Cards -->
+            <div class="dashboard-stats" style="margin-top: var(--space-md);">
+                <div class="modern-stats-grid">
+                    <div class="modern-stat-card">
+                        <div class="modern-stat-icon blue">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="modern-stat-label">Assigned</div>
+                        <div class="modern-stat-value">{{ total_participants }}</div>
+                        <div class="modern-stat-change {% if participants_change >= 0 %}positive{% else %}negative{% endif %}">
+                            <span class="modern-stat-change-icon">
+                                <i class="fas {% if participants_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                            </span>
+                                {{ participants_change|floatformat:1 }}%
+                            <span class="modern-stat-change-text">vs prev. period</span>
+                        </div>
+                    </div>
+                    <div class="modern-stat-card">
+                        <div class="modern-stat-icon green">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="modern-stat-label">Completed</div>
+                        <div class="modern-stat-value">{{ submitted_count }}</div>
+                        <div class="modern-stat-change {% if submitted_change >= 0 %}positive{% else %}negative{% endif %}">
+                            <span class="modern-stat-change-icon">
+                                <i class="fas {% if submitted_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                            </span>
+                                {{ submitted_change|floatformat:1 }}%
+                            <span class="modern-stat-change-text">vs prev. period</span>
+                        </div>
+                    </div>
+                    <div class="modern-stat-card">
+                        <div class="modern-stat-icon orange">
+                            <i class="fas fa-route"></i>
+                        </div>
+                        <div class="modern-stat-label">In Progress</div>
+                        <div class="modern-stat-value">{{ in_progress_count }}</div>
+                        <div class="modern-stat-change {% if in_progress_change >= 0 %}positive{% else %}negative{% endif %}">
+                            <span class="modern-stat-change-icon">
+                                <i class="fas {% if in_progress_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                            </span>
+                                {{ in_progress_change|floatformat:1 }}%
+                            <span class="modern-stat-change-text">vs prev. period</span>
+                        </div>
+                    </div>
+                    <div class="modern-stat-card">
+                        <div class="modern-stat-icon red">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="modern-stat-label">Pending</div>
+                        <div class="modern-stat-value">{{ pending_count }}</div>
+                        <div class="modern-stat-change {% if pending_change >= 0 %}positive{% else %}negative{% endif %}">
+                            <span class="modern-stat-change-icon">
+                                <i class="fas {% if pending_change >= 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
+                            </span>
+                                {{ pending_change|floatformat:1 }}%
+                            <span class="modern-stat-change-text">vs prev. period</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Participants Table -->
+            <div class="table-actions table-actions-bar">
+                <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
+                    <div class="search-box">
+                        <input type="text" class="search-input" id="trainingSearchInput" placeholder="Search participants..." name="search" value="{{ search }}" />
+                        <span class="search-icon"><i class="fas fa-search"></i></span>
+                        <span class="search-clear" style="display: {% if search %}block{% else %}none{% endif %};">
+                            <i class="fas fa-times"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="table-actions-right" style="position:relative;">
+                    <button class="btn btn-action" onclick="exportTrainingReport()">
+                        <i class="fas fa-download"></i>
+                        Export Report
+                    </button>
+                </div>                                
+            </div>
+
+            <div class="common-table-container">
+                    <table class="data-table" id="participantsTable">
+                        <thead>
+                            <tr>
+                                <th>Id Number</th>
+                                <th>Employee Name</th>
+                                <th class="hide-column">Department</th>
+                                <th class="hide-column">Position</th>
+                                <th class="hide-column">Submitted Date</th>
+                                <th style="text-align:center;">Status</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for participant in participants_data %}
+                            <tr class="participant-row" data-status="{% if participant.is_submitted %}submitted{% else %}pending{% endif %}"
+                                data-name="{{ participant.name|lower }}"
+                                data-username="{{ participant.username|lower }}"
+                                data-department="{{ participant.department|lower }}"
+                                data-position="{{ participant.position|lower }}">
+                                <td>{{ participant.idnumber }}</td>
+                                <td>{{ participant.name }}</td>
+                                <td class="hide-column">{{ participant.department }}</td>
+                                <td class="hide-column">{{ participant.position }}</td>
+                                <td class="hide-column">
+                                    {% if participant.submitted_at %}
+                                        {{ participant.submitted_at|date:"F j, Y" }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align:center;">
+                                    <span class="status-pill 
+                                        {% if participant.status == 'Submitted' %}status-yellow
+                                        {% elif participant.status == 'Supervisor Reviewed' %}status-blue
+                                        {% elif participant.status == 'Manager Reviewed' %}status-purple
+                                        {% elif participant.status == 'Approved' %}status-green
+                                        {% elif participant.status == 'Disapproved' %}status-red
+                                        {% elif participant.status == 'Not Started' %}status-gray
+                                        {% elif participant.status == 'In Progress' %}status-blue
+                                        {% else %}status-orange{% endif %}">
+                                        {{ participant.status }}
+                                    </span>
+                                </td>
+                                <td style="text-align:center;">
+                                    {% if participant.is_submitted %}
+                                        <button class="btn btn-sm btn-primary view-evaluation-btn" data-evaluation-id="{{ participant.evaluation_id }}">
+                                            <i class="fas fa-eye"></i>
+                                            View
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    {% if search %}
+                                        <div class="empty-state">
+                                            <i class="fa fa-search"></i>
+                                            <h5>No Results Found</h5>
+                                            <p>No participants found matching "{{ search }}". Try adjusting your search terms.</p>
+                                        </div>
+                                    {% else %}
+                                        <div class="empty-state">
+                                            <i class="fa fa-users"></i>
+                                            <h5>No Participants</h5>
+                                            <p>No participants assigned to this training</p>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="paginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="startRecord">{{ page_obj.start_index }}</span> to <span id="endRecord">{{ page_obj.end_index }}</span> of <span id="totalRecords">{{ page_obj.paginator.count }}</span> entries
+                </div>
+                <div class="pagination-controls" id="paginationControls">
+                    {% if page_obj.has_previous %}
+                        <a class="pagination-btn ajax-page-btn" data-page="{{ page_obj.previous_page_number }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    <div id="pageNumbers">
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <span class="pagination-btn active">{{ num }}</span>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <a class="pagination-btn ajax-page-btn" data-page="{{ num }}">{{ num }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if page_obj.has_next %}
+                        <a class="pagination-btn ajax-page-btn" data-page="{{ page_obj.next_page_number }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="pagination-btn" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Off-canvas for Evaluation Details -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="evaluationDetailsOffcanvas" aria-labelledby="evaluationDetailsOffcanvasLabel">
+    <div class="offcanvas-header">
+        <h4 class="offcanvas-title" id="evaluationDetailsOffcanvasLabel">Evaluation Assessment Details</h4>
+        <button type="button" class="btn-close offcanvas-close" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="offcanvas-body" id="evaluationDetailsContent">
+        <!-- Content will be loaded here via AJAX -->
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+    <script src="{% static 'js/evaluation/evaluation_details.js' %}"></script>
+{% endblock extra_js %}

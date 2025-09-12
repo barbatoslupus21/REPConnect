@@ -9,12 +9,12 @@
             <div class="employee-info-grid">
                 <div>
                     <div class="info-label">ID Number:</div>
-                    <div class="info-value">{{ evaluation.participant.firstname }} {{ evaluation.participant.lastname }}</div>
+                    <div class="info-value">{{ evaluation.participant.idnumber|default:"N/A" }}</div>
                 </div>
 
                 <div>
                     <div class="info-label">Name:</div>
-                    <div class="info-value">{{ evaluation.participant.idnumber|default:"N/A" }}</div>
+                    <div class="info-value">{{ evaluation.participant.firstname }} {{ evaluation.participant.lastname }}</div>
                 </div>
 
                 <div>

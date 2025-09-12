@@ -146,6 +146,20 @@ class Evaluation(models.Model):
         ]
         return getattr(employee, 'active', True) and not any(excluded_roles)
 
+    @property
+    def completion_percentage(self):
+        """Calculate completion percentage based on EvaluationInstance status"""
+        total_instances = self.instances.count()
+        if total_instances == 0:
+            return 0
+        
+        # Count instances that are in_progress or completed
+        completed_instances = self.instances.filter(
+            status__in=['in_progress', 'completed']
+        ).count()
+        
+        return round((completed_instances / total_instances) * 100)
+
 
 class EvaluationInstance(models.Model):
     STATUS_CHOICES = [
@@ -190,7 +204,6 @@ class EvaluationInstance(models.Model):
         )
         return employee_eval
 
-
 class EmployeeEvaluation(models.Model):
     evaluation = models.ForeignKey(Evaluation, on_delete=models.CASCADE)
     evaluation_instance = models.OneToOneField(EvaluationInstance, on_delete=models.CASCADE, null=True, blank=True, related_name='employee_evaluation')
@@ -202,6 +215,24 @@ class EmployeeEvaluation(models.Model):
     self_completed_at = models.DateTimeField(null=True, blank=True)
 
     supervisor_completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Supervisor evaluation criteria
+    cost_consciousness_rating = models.IntegerField(null=True, blank=True, help_text="Rating 1-5 for Cost Consciousness")
+    cost_consciousness_comments = models.TextField(blank=True, help_text="Comments for Cost Consciousness")
+    
+    dependability_rating = models.IntegerField(null=True, blank=True, help_text="Rating 1-5 for Dependability")
+    dependability_comments = models.TextField(blank=True, help_text="Comments for Dependability")
+    
+    communication_rating = models.IntegerField(null=True, blank=True, help_text="Rating 1-5 for Communication")
+    communication_comments = models.TextField(blank=True, help_text="Comments for Communication")
+    
+    work_ethics_rating = models.IntegerField(null=True, blank=True, help_text="Rating 1-5 for Work Ethics")
+    work_ethics_comments = models.TextField(blank=True, help_text="Comments for Work Ethics")
+    
+    attendance_rating = models.IntegerField(null=True, blank=True, help_text="Rating 1-5 for Attendance")
+    attendance_comments = models.TextField(blank=True, help_text="Comments for Attendance")
+    
+    # Existing supervisor fields
     strengths = models.TextField(blank=True)
     weaknesses = models.TextField(blank=True)
     training_required = models.TextField(blank=True)
@@ -221,7 +252,15 @@ class EmployeeEvaluation(models.Model):
         return f"{self.employee.username} - {self.evaluation.title} ({self.get_status_display()})"
 
     def save(self, *args, **kwargs):
+        # Update status based on completion stages
+        if self.self_completed_at and self.status == 'pending':
+            self.status = 'supervisor_review'
+        elif self.supervisor_completed_at and self.status == 'supervisor_review':
+            self.status = 'manager_review'
+        
         super().save(*args, **kwargs)
+        
+        # Update related evaluation instance status
         if self.evaluation_instance:
             if self.status in ['approved', 'disapproved']:
                 self.evaluation_instance.status = 'completed'
@@ -236,6 +275,30 @@ class EmployeeEvaluation(models.Model):
         if ratings.exists():
             return sum(r.rating for r in ratings) / ratings.count()
         return 0
+
+    @property
+    def average_supervisor_rating(self):
+        """Calculate average supervisor rating from task ratings"""
+        ratings = self.task_ratings.filter(supervisor_rating__isnull=False)
+        if ratings.exists():
+            return sum(r.supervisor_rating for r in ratings) / ratings.count()
+        return None
+
+    @property
+    def average_supervisor_criteria_rating(self):
+        """Calculate average rating from the 5 supervisor evaluation criteria"""
+        criteria_ratings = [
+            self.cost_consciousness_rating,
+            self.dependability_rating,
+            self.communication_rating,
+            self.work_ethics_rating,
+            self.attendance_rating
+        ]
+        # Filter out None values
+        valid_ratings = [r for r in criteria_ratings if r is not None]
+        if valid_ratings:
+            return sum(valid_ratings) / len(valid_ratings)
+        return None
 
     @property
     def completion_percentage(self):
@@ -261,13 +324,15 @@ class TaskRating(models.Model):
     employee_evaluation = models.ForeignKey(EmployeeEvaluation, on_delete=models.CASCADE, related_name='task_ratings')
     task = models.ForeignKey(TaskList, on_delete=models.CASCADE)
     rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    supervisor_rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)], null=True, blank=True)
     comments = models.TextField(blank=True)
 
     class Meta:
         unique_together = ('employee_evaluation', 'task')
 
     def __str__(self):
-        return f"{self.task.tasklist} - {self.rating}/5"
+        supervisor_part = f" (Supervisor: {self.supervisor_rating}/5)" if self.supervisor_rating else ""
+        return f"{self.task.tasklist} - {self.rating}/5{supervisor_part}"
 
 
 class TrainingRequest(models.Model):
