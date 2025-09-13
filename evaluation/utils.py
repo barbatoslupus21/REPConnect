@@ -6,9 +6,20 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def calculate_evaluation_due_date(evaluation):
+    """Calculate due date for evaluation instances - set to May of the next fiscal year"""
+    # Due date is May 1st of the fiscal year end year
+    due_date = timezone.make_aware(datetime(evaluation.end_year, 5, 1))
+    return due_date
+
 def create_evaluation_instances(evaluation):
     """Create evaluation instances for all eligible employees based on evaluation duration"""
-    eligible_employees = EmployeeLogin.objects.filter(active=True)
+    # Filter employees by active status and employment type (Regular or Probationary only)
+    eligible_employees = EmployeeLogin.objects.filter(
+        active=True,
+        employment_info__employment_type__in=['Regular', 'Probationary']
+    ).select_related('employment_info')
+    
     eligible_employees = [emp for emp in eligible_employees if evaluation.is_employee_eligible(emp)]
     
     now = timezone.now()
@@ -82,8 +93,8 @@ def create_instances_for_employee(evaluation, employee, current_time=None):
                     if period_end > current_time:
                         period_end = current_time
                 
-                # Calculate due date (end of period + grace period)
-                due_date = period_end + timedelta(days=7)
+                # Calculate due date (May of the next fiscal year)
+                due_date = calculate_evaluation_due_date(evaluation)
                 
                 instance = EvaluationInstance.objects.create(
                     evaluation=evaluation,
@@ -119,7 +130,8 @@ def create_instances_for_employee(evaluation, employee, current_time=None):
                 if period_end > current_time:
                     period_end = current_time
                 
-                due_date = period_end + timedelta(days=7)
+                # Calculate due date (May of the next fiscal year)
+                due_date = calculate_evaluation_due_date(evaluation)
                 
                 instance = EvaluationInstance.objects.create(
                     evaluation=evaluation,
@@ -155,7 +167,7 @@ def create_instances_for_employee(evaluation, employee, current_time=None):
                 if period_end > current_time:
                     period_end = current_time
                 
-                due_date = period_end + timedelta(days=7)
+                due_date = calculate_evaluation_due_date(evaluation)
                 
                 instance = EvaluationInstance.objects.create(
                     evaluation=evaluation,
@@ -185,8 +197,8 @@ def create_instances_for_employee(evaluation, employee, current_time=None):
             
             # Check if this instance already exists (compare by date only)
             if period_start.date() not in existing_periods:
-                # Calculate due date (end of period + grace period)
-                due_date = period_end + timedelta(days=7)  # 7 days grace period
+                # Calculate due date (May of next fiscal year)
+                due_date = calculate_evaluation_due_date(evaluation)
                 
                 instance = EvaluationInstance.objects.create(
                     evaluation=evaluation,

@@ -225,9 +225,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 </td>
                 <td style="text-align:center;">
                     ${participant.is_submitted && participant.evaluation_id ? 
-                        `<button class="btn btn-sm btn-primary view-evaluation-btn" data-evaluation-id="${participant.evaluation_id}">
+                        `<button class="btn btn-icon view-evaluation-btn" data-evaluation-id="${participant.evaluation_id}">
                             <i class="fas fa-eye"></i>
-                            View
                         </button>` : ''}
                 </td>
             `;

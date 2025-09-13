@@ -1012,7 +1012,7 @@
     background: var(--surface-secondary);
     border-radius: var(--radius-md);
     padding: var(--space-md);
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--space-sm);
     border: 1px solid var(--border-color);
 }
 
@@ -1020,7 +1020,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-sm);
 }
 
 .criteria-label {

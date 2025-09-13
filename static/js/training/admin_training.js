@@ -382,9 +382,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-primary view-response-details-btn" data-evaluation-id="${response.id}">
+                                                    <button class="btn btn-icon view-response-details-btn" data-evaluation-id="${response.id}">
                                                         <i class="fas fa-eye"></i>
-                                                        View
                                                     </button>
                                                 </td>
                                             </tr>

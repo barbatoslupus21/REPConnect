@@ -1471,11 +1471,11 @@
 .response-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: var(--space-lg);
+    gap: var(--space-sm);
 }
 
 .response-section{
-    padding: var(--space-lg);
+    padding: var(--space-sm);
 }
 
 .response-section h5 {

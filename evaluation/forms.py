@@ -314,7 +314,10 @@ class TrainingRequestForm(forms.ModelForm):
 
 class EmployeeFilterForm(forms.Form):
     employee = forms.ModelChoiceField(
-        queryset=EmployeeLogin.objects.filter(active=True),
+        queryset=EmployeeLogin.objects.filter(
+            active=True,
+            employment_info__employment_type__in=['Regular', 'Probationary']
+        ).select_related('employment_info'),
         required=False,
         empty_label="All Employees",
         widget=forms.Select(attrs={'class': 'form-input'})

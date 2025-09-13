@@ -44,7 +44,7 @@
                     Back to Evaluations
                 </a>
 
-                <a href="{% url 'admin_evaluation' %}" class="btn btn-primary">
+                <a href="{% url 'export_evaluation_excel' evaluation.id %}" class="btn btn-primary">
                     <i class="fa fa-download"></i>
                     Export Evaluation
                 </a>
@@ -73,7 +73,7 @@
                         <div class="modern-stat-icon blue">
                             <i class="fas fa-users"></i>
                         </div>
-                        <div class="modern-stat-label">Assigned</div>
+                        <div class="modern-stat-label">Assigned Employee</div>
                         <div class="modern-stat-value">{{ total_participants }}</div>
                         <div class="modern-stat-change {% if participants_change >= 0 %}positive{% else %}negative{% endif %}">
                             <span class="modern-stat-change-icon">
@@ -87,7 +87,7 @@
                         <div class="modern-stat-icon green">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <div class="modern-stat-label">Completed</div>
+                        <div class="modern-stat-label">Completed Evaluations</div>
                         <div class="modern-stat-value">{{ submitted_count }}</div>
                         <div class="modern-stat-change {% if submitted_change >= 0 %}positive{% else %}negative{% endif %}">
                             <span class="modern-stat-change-icon">
@@ -101,7 +101,7 @@
                         <div class="modern-stat-icon orange">
                             <i class="fas fa-route"></i>
                         </div>
-                        <div class="modern-stat-label">In Progress</div>
+                        <div class="modern-stat-label">Routing Evaluations</div>
                         <div class="modern-stat-value">{{ in_progress_count }}</div>
                         <div class="modern-stat-change {% if in_progress_change >= 0 %}positive{% else %}negative{% endif %}">
                             <span class="modern-stat-change-icon">
@@ -115,7 +115,7 @@
                         <div class="modern-stat-icon red">
                             <i class="fas fa-clock"></i>
                         </div>
-                        <div class="modern-stat-label">Pending</div>
+                        <div class="modern-stat-label">Pending Evaluations</div>
                         <div class="modern-stat-value">{{ pending_count }}</div>
                         <div class="modern-stat-change {% if pending_change >= 0 %}positive{% else %}negative{% endif %}">
                             <span class="modern-stat-change-icon">
@@ -138,13 +138,7 @@
                             <i class="fas fa-times"></i>
                         </span>
                     </div>
-                </div>
-                <div class="table-actions-right" style="position:relative;">
-                    <button class="btn btn-action" onclick="exportTrainingReport()">
-                        <i class="fas fa-download"></i>
-                        Export Report
-                    </button>
-                </div>                                
+                </div>                              
             </div>
 
             <div class="common-table-container">
@@ -193,9 +187,8 @@
                                 </td>
                                 <td style="text-align:center;">
                                     {% if participant.is_submitted %}
-                                        <button class="btn btn-sm btn-primary view-evaluation-btn" data-evaluation-id="{{ participant.evaluation_id }}">
+                                        <button class="btn btn-icon view-evaluation-btn" data-evaluation-id="{{ participant.evaluation_id }}">
                                             <i class="fas fa-eye"></i>
-                                            View
                                         </button>
                                     {% endif %}
                                 </td>

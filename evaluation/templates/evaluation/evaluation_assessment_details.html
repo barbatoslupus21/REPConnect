@@ -147,123 +147,145 @@
 
     <!-- Supervisor Assessment -->
     {% if employee_evaluation.supervisor_completed_at %}
+
     <div class="evaluation-assessment-headert">
-        <h4 class="section-title">Supervisor Assessment</h4>
+        <h4 class="section-title">Supervisor Behavioral Assessment</h4>
         
-        <!-- Supervisor Criteria Ratings -->
-        <div class="supervisor-criteria-section">
-            <h5 class="subsection-title">Evaluation Criteria</h5>
-            
-            <!-- Cost Consciousness -->
-            <div class="criteria-item">
-                <div class="criteria-header">
-                    <span class="criteria-label">Cost Consciousness</span>
-                    {% if employee_evaluation.cost_consciousness_rating %}
-                        <div class="criteria-rating">
-                            <span class="rating-value">{{ employee_evaluation.cost_consciousness_rating }}/5</span>
-                            <div class="rating-stars">
-                                {% for i in "12345" %}
-                                    <i class="fas fa-star {% if i|add:0 <= employee_evaluation.cost_consciousness_rating %}filled{% else %}empty{% endif %}"></i>
-                                {% endfor %}
+        <!-- Cost Consciousness -->
+            {% if employee_evaluation.cost_consciousness_rating %}
+                <div class="criteria-item">
+                    <div class="criteria-header">
+                        <span class="criteria-label">Cost Consciousness</span>
+                        {% if employee_evaluation.cost_consciousness_rating %}
+                            <div class="criteria-rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display">
+                                        {% for i in "12345" %}
+                                            <i class="fas fa-star {% if i|add:0 <= employee_evaluation.cost_consciousness_rating %}filled{% else %}empty{% endif %}"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <span class="evaluation-rating-number">{{ employee_evaluation.cost_consciousness_rating }}/5</span>
+                                </div>
                             </div>
+                        {% else %}
+                            <span class="rating-pending">Not rated</span>
+                        {% endif %}
+                    </div>
+                    {% if employee_evaluation.cost_consciousness_comments %}
+                        <div class="evaluation-assessment-content">
+                            {{ employee_evaluation.cost_consciousness_comments }}
                         </div>
-                    {% else %}
-                        <span class="rating-pending">Not rated</span>
                     {% endif %}
                 </div>
-                {% if employee_evaluation.cost_consciousness_comments %}
-                    <div class="criteria-comments">{{ employee_evaluation.cost_consciousness_comments }}</div>
-                {% endif %}
-            </div>
+            {% endif %}
             
             <!-- Dependability -->
-            <div class="criteria-item">
-                <div class="criteria-header">
-                    <span class="criteria-label">Dependability</span>
-                    {% if employee_evaluation.dependability_rating %}
-                        <div class="criteria-rating">
-                            <span class="rating-value">{{ employee_evaluation.dependability_rating }}/5</span>
-                            <div class="rating-stars">
-                                {% for i in "12345" %}
-                                    <i class="fas fa-star {% if i|add:0 <= employee_evaluation.dependability_rating %}filled{% else %}empty{% endif %}"></i>
-                                {% endfor %}
+             {% if employee_evaluation.dependability_rating %}
+                <div class="criteria-item">
+                    <div class="criteria-header">
+                        <span class="criteria-label">Dependability</span>
+                        {% if employee_evaluation.dependability_rating %}
+                            <div class="criteria-rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display">
+                                        {% for i in "12345" %}
+                                            <i class="fas fa-star {% if i|add:0 <= employee_evaluation.dependability_rating %}filled{% else %}empty{% endif %}"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <span class="evaluation-rating-number">{{ employee_evaluation.dependability_rating }}/5</span>
+                                </div>
                             </div>
-                        </div>
-                    {% else %}
-                        <span class="rating-pending">Not rated</span>
+                        {% else %}
+                            <span class="rating-pending">Not rated</span>
+                        {% endif %}
+                    </div>
+                    {% if employee_evaluation.dependability_comments %}
+                        <div class="evaluation-assessment-content">{{ employee_evaluation.dependability_comments }}</div>
                     {% endif %}
                 </div>
-                {% if employee_evaluation.dependability_comments %}
-                    <div class="criteria-comments">{{ employee_evaluation.dependability_comments }}</div>
-                {% endif %}
-            </div>
+            {% endif %}
             
             <!-- Communication -->
-            <div class="criteria-item">
-                <div class="criteria-header">
-                    <span class="criteria-label">Communication</span>
-                    {% if employee_evaluation.communication_rating %}
-                        <div class="criteria-rating">
-                            <span class="rating-value">{{ employee_evaluation.communication_rating }}/5</span>
-                            <div class="rating-stars">
-                                {% for i in "12345" %}
-                                    <i class="fas fa-star {% if i|add:0 <= employee_evaluation.communication_rating %}filled{% else %}empty{% endif %}"></i>
-                                {% endfor %}
+            {% if employee_evaluation.communication_rating %}
+                <div class="criteria-item">
+                    <div class="criteria-header">
+                        <span class="criteria-label">Communication</span>
+                        {% if employee_evaluation.communication_rating %}
+                            <div class="criteria-rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display">
+                                        {% for i in "12345" %}
+                                            <i class="fas fa-star {% if i|add:0 <= employee_evaluation.communication_rating %}filled{% else %}empty{% endif %}"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <span class="evaluation-rating-number">{{ employee_evaluation.communication_rating }}/5</span>
+                                </div>
                             </div>
-                        </div>
-                    {% else %}
-                        <span class="rating-pending">Not rated</span>
+                        {% else %}
+                            <span class="rating-pending">Not rated</span>
+                        {% endif %}
+                    </div>
+                    {% if employee_evaluation.communication_comments %}
+                        <div class="evaluation-assessment-content">{{ employee_evaluation.communication_comments }}</div>
                     {% endif %}
                 </div>
-                {% if employee_evaluation.communication_comments %}
-                    <div class="criteria-comments">{{ employee_evaluation.communication_comments }}</div>
-                {% endif %}
-            </div>
+            {% endif %}
             
             <!-- Work Ethics -->
-            <div class="criteria-item">
-                <div class="criteria-header">
-                    <span class="criteria-label">Work Ethics</span>
-                    {% if employee_evaluation.work_ethics_rating %}
-                        <div class="criteria-rating">
-                            <span class="rating-value">{{ employee_evaluation.work_ethics_rating }}/5</span>
-                            <div class="rating-stars">
-                                {% for i in "12345" %}
-                                    <i class="fas fa-star {% if i|add:0 <= employee_evaluation.work_ethics_rating %}filled{% else %}empty{% endif %}"></i>
-                                {% endfor %}
+            {% if employee_evaluation.work_ethics_rating %}
+                <div class="criteria-item">
+                    <div class="criteria-header">
+                        <span class="criteria-label">Work Ethics</span>
+                        {% if employee_evaluation.work_ethics_rating %}
+                            <div class="criteria-rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display">
+                                        {% for i in "12345" %}
+                                            <i class="fas fa-star {% if i|add:0 <= employee_evaluation.work_ethics_rating %}filled{% else %}empty{% endif %}"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <span class="evaluation-rating-number">{{ employee_evaluation.work_ethics_rating }}/5</span>
+                                </div>
                             </div>
-                        </div>
-                    {% else %}
-                        <span class="rating-pending">Not rated</span>
+                        {% else %}
+                            <span class="rating-pending">Not rated</span>
+                        {% endif %}
+                    </div>
+                    {% if employee_evaluation.work_ethics_comments %}
+                        <div class="evaluation-assessment-content">{{ employee_evaluation.work_ethics_comments }}</div>
                     {% endif %}
                 </div>
-                {% if employee_evaluation.work_ethics_comments %}
-                    <div class="criteria-comments">{{ employee_evaluation.work_ethics_comments }}</div>
-                {% endif %}
-            </div>
-            
+            {% endif %}
+
             <!-- Attendance -->
-            <div class="criteria-item">
-                <div class="criteria-header">
-                    <span class="criteria-label">Attendance</span>
-                    {% if employee_evaluation.attendance_rating %}
-                        <div class="criteria-rating">
-                            <span class="rating-value">{{ employee_evaluation.attendance_rating }}/5</span>
-                            <div class="rating-stars">
-                                {% for i in "12345" %}
-                                    <i class="fas fa-star {% if i|add:0 <= employee_evaluation.attendance_rating %}filled{% else %}empty{% endif %}"></i>
-                                {% endfor %}
+            {% if employee_evaluation.attendance_rating %}
+                <div class="criteria-item">
+                    <div class="criteria-header">
+                        <span class="criteria-label">Attendance</span>
+                        {% if employee_evaluation.attendance_rating %}
+                            <div class="criteria-rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display">
+                                        {% for i in "12345" %}
+                                            <i class="fas fa-star {% if i|add:0 <= employee_evaluation.attendance_rating %}filled{% else %}empty{% endif %}"></i>
+                                        {% endfor %}
+                                    </div>
+                                    <span class="evaluation-rating-number">{{ employee_evaluation.attendance_rating }}/5</span>
+                                </div>
                             </div>
-                        </div>
-                    {% else %}
-                        <span class="rating-pending">Not rated</span>
+                        {% else %}s
+                            <span class="rating-pending">Not rated</span>
+                        {% endif %}
+                    </div>
+                    {% if employee_evaluation.attendance_comments %}
+                        <div class="evaluation-assessment-content">{{ employee_evaluation.attendance_comments }}</div>
                     {% endif %}
                 </div>
-                {% if employee_evaluation.attendance_comments %}
-                    <div class="criteria-comments">{{ employee_evaluation.attendance_comments }}</div>
-                {% endif %}
-            </div>
-        </div>
+            {% endif %}
+    </div>
+    
+    <div class="evaluation-assessment-headert">
+        <h4 class="section-title">Supervisor Assessment</h4>
         
         {% if employee_evaluation.strengths %}
         <div class="assessment-section">

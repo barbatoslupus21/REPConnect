@@ -19,6 +19,7 @@ urlpatterns = [
     path('<int:evaluation_id>/update/', views.update_evaluation, name='update_evaluation'),
     path('<int:evaluation_id>/delete/', views.delete_evaluation, name='delete_evaluation'),
     path('<int:evaluation_id>/details/', views.evaluation_details, name='evaluation_details'),
+    path('<int:evaluation_id>/export/', views.export_evaluation_excel, name='export_evaluation_excel'),
     path('assessment/<int:evaluation_id>/details/', views.get_evaluation_assessment_details, name='get_evaluation_assessment_details'),
     
     # Employee Self-Evaluations
