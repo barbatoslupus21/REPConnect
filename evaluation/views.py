@@ -66,6 +66,20 @@ def evaluation_user_view(request):
             'is_completed': instance.status == 'completed',
         }
         evaluations_data.append(evaluation_data)
+
+    # Sort the training list by desired status order for the UI:
+    # pending -> in_progress -> completed -> overdue
+    status_order = {
+        'pending': 0,
+        'in_progress': 1,
+        'completed': 2,
+        'overdue': 3,
+    }
+
+    def _eval_status_key(item):
+        return status_order.get(item.get('status'), 99)
+
+    evaluations_data.sort(key=_eval_status_key)
     
     is_approver = False
     pending_approver_assessments = []
@@ -108,7 +122,25 @@ def evaluation_user_view(request):
             else:
                 pending_qs = evals_for_manager
 
-            pending_approver_assessments = pending_qs
+            # Ensure the pending assessments are ordered by our desired status priority
+            # Priority: supervisor_review, manager_review, approved, disapproved
+            status_priority = {
+                'supervisor_review': 0,
+                'manager_review': 1,
+                'approved': 2,
+                'disapproved': 3,
+            }
+
+            # Convert to list (if it's a queryset) so we can apply a stable sort with our mapping
+            pending_list = list(pending_qs)
+
+            # Default unseen statuses get a large index so they appear at the end
+            def _status_key(obj):
+                return status_priority.get(obj.status, 99)
+
+            pending_list.sort(key=_status_key)
+
+            pending_approver_assessments = pending_list
 
     assessment_data = []
     for assessment in pending_approver_assessments:
@@ -1469,12 +1501,16 @@ def manager_approve_evaluation(request, evaluation_id):
             )
 
         else:
-            employee_eval.status = 'supervisor_review'
             employee_eval.manager = None
             employee_eval.manager_completed_at = None
             employee_eval.manager_comments = manager_comments
+            # Clear supervisor_completed_at so the model's save() logic does not
+            # re-promote the status to manager_review. We want it to remain
+            # supervisor_review so the supervisor can re-evaluate.
+            employee_eval.supervisor_completed_at = None
+            employee_eval.status = "supervisor_review"
             message = 'Evaluation disapproved and returned to supervisor for re-evaluation.'
-
+            
             Notification.objects.create(
                 title="Evaluation Disapproved",
                 sender=request.user,
@@ -1483,10 +1519,9 @@ def manager_approve_evaluation(request, evaluation_id):
                 module='evaluation',
                 notification_type='disapproved'
             )
-        
+
         employee_eval.save()
         
-        # Update evaluation instance status
         if employee_eval.evaluation_instance:
             if employee_eval.status == 'approved':
                 employee_eval.evaluation_instance.status = 'completed'
@@ -1679,8 +1714,7 @@ def evaluation_details(request, evaluation_id):
     for instance in evaluation_instances:
         try:
             emp_eval = EmployeeEvaluation.objects.get(
-                evaluation=evaluation,
-                employee=instance.employee
+                evaluation_instance=instance
             )
             status_display = emp_eval.get_status_display()
             is_submitted = emp_eval.self_completed_at is not None
@@ -1761,19 +1795,15 @@ def export_evaluation_excel(request, evaluation_id):
     try:
         evaluation = get_object_or_404(Evaluation, id=evaluation_id)
         
-        # Create workbook and sheets
         wb = openpyxl.Workbook()
-        wb.remove(wb.active)  # Remove default sheet
+        wb.remove(wb.active)
         
-        # Create Summary sheet
         summary_sheet = wb.create_sheet("Summary")
         create_summary_sheet(summary_sheet, evaluation)
         
-        # Create Supervisor Assessment sheet
         assessment_sheet = wb.create_sheet("Supervisor Assessment")
         create_supervisor_assessment_sheet(assessment_sheet, evaluation)
         
-        # Clean filename - remove invalid characters
         import re
         clean_title = re.sub(r'[^\w\s-]', '', evaluation.title).strip()
         clean_title = re.sub(r'[-\s]+', '_', clean_title)
@@ -1799,8 +1829,6 @@ def export_evaluation_excel(request, evaluation_id):
 
 def create_summary_sheet(sheet, evaluation):
     
-    
-    # Set up styles
     header_font = Font(bold=True, size=12)
     sub_header_font = Font(italic=True, size=11)
     yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
@@ -1812,17 +1840,13 @@ def create_summary_sheet(sheet, evaluation):
     )
     center_alignment = Alignment(horizontal='center', vertical='center')
     
-    # Company header
     sheet['A1'] = "RYONAN ELECTRIC PHILIPPINES CORPORATION"
     sheet['A1'].font = header_font
     sheet['A1'].alignment = Alignment(horizontal='left', vertical='center')
-    
-    # Sub-header
     sheet['A2'] = f"Evaluation overall summary for {evaluation.title}"
     sheet['A2'].font = sub_header_font
     sheet['A2'].alignment = Alignment(horizontal='left', vertical='center')
     
-    # Get evaluation instances and data
     evaluation_instances = EvaluationInstance.objects.filter(
         evaluation=evaluation
     ).select_related(
@@ -1830,21 +1854,27 @@ def create_summary_sheet(sheet, evaluation):
         'employee__employment_info__department'
     ).prefetch_related('employee_evaluation__task_ratings')
     
-    # Determine header structure based on evaluation duration
+    employees_data = {}
+    for instance in evaluation_instances:
+        employee_id = instance.employee.id
+        if employee_id not in employees_data:
+            employees_data[employee_id] = {
+                'employee': instance.employee,
+                'instances': []
+            }
+        employees_data[employee_id]['instances'].append(instance)
+    
     if evaluation.duration == 'yearly':
-        # Yearly evaluation - single Total column
         headers_row1 = ['ID Number', 'Name', 'Department', 'Line', 'Approver', 'Evaluation', 'Behavioral']
         headers_row2 = ['', '', '', '', '', 'Total Rating', 'Total Rating']
         start_row = 5
     else:
-        # Monthly, Quarterly, Daily - quarterly breakdown
         headers_row1 = ['ID Number', 'Name', 'Department', 'Line', 'Approver', 'Evaluation', '', '', '', '', 'Behavioral', '', '', '', '']
         headers_row2 = ['', '', '', '', '', 'Q1', 'Q2', 'Q3', 'Q4', 'Total', 'Q1', 'Q2', 'Q3', 'Q4', 'Total']
         start_row = 5
     
-    # Set headers first (before merging)
     for col, header in enumerate(headers_row1, 1):
-        if header:  # Only set non-empty headers
+        if header:
             cell = sheet.cell(row=4, column=col, value=header)
             cell.font = header_font
             cell.fill = yellow_fill
@@ -1852,32 +1882,30 @@ def create_summary_sheet(sheet, evaluation):
             cell.border = border
     
     for col, header in enumerate(headers_row2, 1):
-        if header:  # Only set non-empty headers
+        if header:
             cell = sheet.cell(row=start_row, column=col, value=header)
             cell.font = header_font
             cell.fill = yellow_fill
             cell.alignment = center_alignment
             cell.border = border
         
-    # Merge cells for basic info headers (vertically across 2 rows)
     sheet.merge_cells('A4:A5')  # ID Number
     sheet.merge_cells('B4:B5')  # Name
     sheet.merge_cells('C4:C5')  # Department
     sheet.merge_cells('D4:D5')  # Line
     sheet.merge_cells('E4:E5')  # Approver
     
-    # Merge cells for main categories after setting headers
+
     if evaluation.duration == 'yearly':
-        # For yearly, no sub-columns needed
         pass
     else:
-        sheet.merge_cells('F4:J4')  # Evaluation
-        sheet.merge_cells('K4:O4')  # Behavioral
+        sheet.merge_cells('F4:J4')
+        sheet.merge_cells('K4:O4')
     
-    # Populate data
     row = start_row + 1
-    for instance in evaluation_instances:
-        employee = instance.employee
+    for employee_id, employee_data in employees_data.items():
+        employee = employee_data['employee']
+        instances = employee_data['instances']
         emp_info = getattr(employee, 'employment_info', None)
         
         # Basic employee info
@@ -1885,18 +1913,12 @@ def create_summary_sheet(sheet, evaluation):
         sheet.cell(row=row, column=2, value=employee.full_name).border = border
         sheet.cell(row=row, column=3, value=emp_info.department.department_name if emp_info and emp_info.department else 'N/A').border = border
         sheet.cell(row=row, column=4, value=emp_info.line.line_name if emp_info and emp_info.line else 'N/A').border = border
-        
-        # Approver (supervisor)
-        employee_eval = getattr(instance, 'employee_evaluation', None)
-        supervisor_name = employee_eval.supervisor.full_name if employee_eval and employee_eval.supervisor else 'N/A'
-        sheet.cell(row=row, column=5, value=supervisor_name).border = border
+        sheet.cell(row=row, column=5, value=emp_info.approver.full_name if emp_info and emp_info.approver else 'N/A').border = border
         
         if evaluation.duration == 'yearly':
-            # Yearly evaluation - calculate total ratings
-            eval_total = calculate_yearly_evaluation_rating(instance)
-            behavioral_total = calculate_yearly_behavioral_rating(instance)
+            eval_total = calculate_yearly_evaluation_rating_for_employee(instances)
+            behavioral_total = calculate_yearly_behavioral_rating_for_employee(instances)
             
-            # Replace 'N/A' with '0' and center-align
             eval_value = 0 if eval_total == 'N/A' else eval_total
             behavioral_value = 0 if behavioral_total == 'N/A' else behavioral_total
             
@@ -1908,11 +1930,9 @@ def create_summary_sheet(sheet, evaluation):
             behavioral_cell.border = border
             behavioral_cell.alignment = center_alignment
         else:
-            # Quarterly breakdown
-            eval_q1, eval_q2, eval_q3, eval_q4, eval_total = calculate_quarterly_evaluation_ratings(instance, evaluation.duration)
-            behav_q1, behav_q2, behav_q3, behav_q4, behav_total = calculate_quarterly_behavioral_ratings(instance, evaluation.duration)
+            eval_q1, eval_q2, eval_q3, eval_q4, eval_total = calculate_quarterly_evaluation_ratings_for_employee(instances, evaluation.duration)
+            behav_q1, behav_q2, behav_q3, behav_q4, behav_total = calculate_quarterly_behavioral_ratings_for_employee(instances, evaluation.duration)
             
-            # Replace 'N/A' with '0' for evaluation columns
             eval_values = [
                 0 if eval_q1 == 'N/A' else eval_q1,
                 0 if eval_q2 == 'N/A' else eval_q2,
@@ -1921,7 +1941,6 @@ def create_summary_sheet(sheet, evaluation):
                 0 if eval_total == 'N/A' else eval_total
             ]
             
-            # Replace 'N/A' with '0' for behavioral columns
             behav_values = [
                 0 if behav_q1 == 'N/A' else behav_q1,
                 0 if behav_q2 == 'N/A' else behav_q2,
@@ -1930,13 +1949,11 @@ def create_summary_sheet(sheet, evaluation):
                 0 if behav_total == 'N/A' else behav_total
             ]
             
-            # Evaluation columns (F-J) with center alignment
             for i, value in enumerate(eval_values):
                 cell = sheet.cell(row=row, column=6+i, value=value)
                 cell.border = border
                 cell.alignment = center_alignment
             
-            # Behavioral columns (K-O) with center alignment
             for i, value in enumerate(behav_values):
                 cell = sheet.cell(row=row, column=11+i, value=value)
                 cell.border = border
@@ -1944,7 +1961,6 @@ def create_summary_sheet(sheet, evaluation):
         
         row += 1
     
-    # Auto-adjust column widths
     for column in sheet.columns:
         max_length = 0
         column_letter = column[0].column_letter
@@ -1958,7 +1974,6 @@ def create_summary_sheet(sheet, evaluation):
         sheet.column_dimensions[column_letter].width = adjusted_width
 
 def create_supervisor_assessment_sheet(sheet, evaluation):
-    """Create the Supervisor Assessment sheet with detailed assessment data"""
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     
     # Set up styles
@@ -1972,6 +1987,8 @@ def create_supervisor_assessment_sheet(sheet, evaluation):
         bottom=Side(style='thin')
     )
     center_alignment = Alignment(horizontal='center', vertical='center')
+    wrap_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+    data_alignment = Alignment(horizontal='left', vertical='center')
     
     # Company header
     sheet['A1'] = "RYONAN ELECTRIC PHILIPPINES CORPORATION"
@@ -2015,84 +2032,157 @@ def create_supervisor_assessment_sheet(sheet, evaluation):
     sheet.merge_cells('F4:K4')  # Assessment
     sheet.merge_cells('L4:P4')  # Behavioral
     
-    # Get evaluation instances
+    # Get evaluation instances and group by employee to avoid duplicates
     evaluation_instances = EvaluationInstance.objects.filter(
         evaluation=evaluation
     ).select_related(
         'employee', 'employee__employment_info', 
-        'employee__employment_info__department'
+        'employee__employment_info__department', 'employee__employment_info__line'
     ).prefetch_related('employee_evaluation')
     
-    # Populate data
-    row = 6
+    # Group instances by employee to ensure one row per employee
+    employees_data = {}
     for instance in evaluation_instances:
-        employee = instance.employee
+        employee_id = instance.employee.id
+        if employee_id not in employees_data:
+            employees_data[employee_id] = {
+                'employee': instance.employee,
+                'instances': []
+            }
+        employees_data[employee_id]['instances'].append(instance)
+    
+    # Populate data - one row per employee
+    row = 6
+    for employee_id, employee_data in employees_data.items():
+        employee = employee_data['employee']
+        instances = employee_data['instances']
         emp_info = getattr(employee, 'employment_info', None)
-        employee_eval = getattr(instance, 'employee_evaluation', None)
+        
+        # Get the most recent employee evaluation for this employee
+        employee_eval = None
+        supervisor_name = 'N/A'
+        for instance in instances:
+            eval_obj = getattr(instance, 'employee_evaluation', None)
+            if eval_obj:
+                employee_eval = eval_obj
+                if eval_obj.supervisor:
+                    supervisor_name = eval_obj.supervisor.full_name
+                break
         
         # Basic employee info
-        sheet.cell(row=row, column=1, value=employee.idnumber).border = border
-        sheet.cell(row=row, column=2, value=employee.full_name).border = border
-        sheet.cell(row=row, column=3, value=emp_info.department.department_name if emp_info and emp_info.department else 'N/A').border = border
-        sheet.cell(row=row, column=4, value=emp_info.line.line_name if emp_info and emp_info.line else 'N/A').border = border
+        id_cell = sheet.cell(row=row, column=1, value=employee.idnumber)
+        id_cell.border = border
+        id_cell.alignment = data_alignment
+        
+        name_cell = sheet.cell(row=row, column=2, value=employee.full_name)
+        name_cell.border = border
+        name_cell.alignment = data_alignment
+        
+        dept_cell = sheet.cell(row=row, column=3, value=emp_info.department.department_name if emp_info and emp_info.department else 'N/A')
+        dept_cell.border = border
+        dept_cell.alignment = data_alignment
+        
+        line_cell = sheet.cell(row=row, column=4, value=emp_info.line.line_name if emp_info and emp_info.line else 'N/A')
+        line_cell.border = border
+        line_cell.alignment = data_alignment
         
         # Approver
-        supervisor_name = employee_eval.supervisor.full_name if employee_eval and employee_eval.supervisor else 'N/A'
-        sheet.cell(row=row, column=5, value=supervisor_name).border = border
+        approver_cell = sheet.cell(row=row, column=5, value=emp_info.approver.full_name if emp_info and emp_info.approver else 'N/A')
+        approver_cell.border = border
+        approver_cell.alignment = data_alignment
         
         if employee_eval:
-            # Assessment data
-            sheet.cell(row=row, column=6, value=employee_eval.strengths or 'N/A').border = border
-            sheet.cell(row=row, column=7, value=employee_eval.weaknesses or 'N/A').border = border
-            sheet.cell(row=row, column=8, value=employee_eval.training_required or 'N/A').border = border
-            sheet.cell(row=row, column=9, value=employee_eval.supervisor_comments or 'N/A').border = border
-            sheet.cell(row=row, column=10, value=employee_eval.employee_comments or 'N/A').border = border
-            sheet.cell(row=row, column=11, value=employee_eval.manager_comments or 'N/A').border = border
+            # Assessment data with text wrapping
+            strengths_cell = sheet.cell(row=row, column=6, value=employee_eval.strengths or 'N/A')
+            strengths_cell.border = border
+            strengths_cell.alignment = wrap_alignment
             
-            # Behavioral data - collect all instances for this employee
-            all_employee_evals = EmployeeEvaluation.objects.filter(
-                employee=employee,
-                evaluation=evaluation
-            )
+            weaknesses_cell = sheet.cell(row=row, column=7, value=employee_eval.weaknesses or 'N/A')
+            weaknesses_cell.border = border
+            weaknesses_cell.alignment = wrap_alignment
+            
+            training_cell = sheet.cell(row=row, column=8, value=employee_eval.training_required or 'N/A')
+            training_cell.border = border
+            training_cell.alignment = wrap_alignment
+            
+            supervisor_comments_cell = sheet.cell(row=row, column=9, value=employee_eval.supervisor_comments or 'N/A')
+            supervisor_comments_cell.border = border
+            supervisor_comments_cell.alignment = wrap_alignment
+            
+            employee_comments_cell = sheet.cell(row=row, column=10, value=employee_eval.employee_comments or 'N/A')
+            employee_comments_cell.border = border
+            employee_comments_cell.alignment = wrap_alignment
+            
+            manager_comments_cell = sheet.cell(row=row, column=11, value=employee_eval.manager_comments or 'N/A')
+            manager_comments_cell.border = border
+            manager_comments_cell.alignment = wrap_alignment
+            
+            # Behavioral data - collect all instances for this employee with text wrapping
+            all_employee_evals = [getattr(inst, 'employee_evaluation', None) for inst in instances if getattr(inst, 'employee_evaluation', None)]
             
             # Cost Consciousness
             cost_comments = format_multiple_comments([ev.cost_consciousness_comments for ev in all_employee_evals if ev.cost_consciousness_comments])
-            sheet.cell(row=row, column=12, value=cost_comments or 'N/A').border = border
+            cost_cell = sheet.cell(row=row, column=12, value=cost_comments or 'N/A')
+            cost_cell.border = border
+            cost_cell.alignment = wrap_alignment
             
             # Dependability
             depend_comments = format_multiple_comments([ev.dependability_comments for ev in all_employee_evals if ev.dependability_comments])
-            sheet.cell(row=row, column=13, value=depend_comments or 'N/A').border = border
+            depend_cell = sheet.cell(row=row, column=13, value=depend_comments or 'N/A')
+            depend_cell.border = border
+            depend_cell.alignment = wrap_alignment
             
             # Communication
             comm_comments = format_multiple_comments([ev.communication_comments for ev in all_employee_evals if ev.communication_comments])
-            sheet.cell(row=row, column=14, value=comm_comments or 'N/A').border = border
+            comm_cell = sheet.cell(row=row, column=14, value=comm_comments or 'N/A')
+            comm_cell.border = border
+            comm_cell.alignment = wrap_alignment
             
             # Work Ethics
             ethics_comments = format_multiple_comments([ev.work_ethics_comments for ev in all_employee_evals if ev.work_ethics_comments])
-            sheet.cell(row=row, column=15, value=ethics_comments or 'N/A').border = border
+            ethics_cell = sheet.cell(row=row, column=15, value=ethics_comments or 'N/A')
+            ethics_cell.border = border
+            ethics_cell.alignment = wrap_alignment
             
             # Attendance
             attend_comments = format_multiple_comments([ev.attendance_comments for ev in all_employee_evals if ev.attendance_comments])
-            sheet.cell(row=row, column=16, value=attend_comments or 'N/A').border = border
+            attend_cell = sheet.cell(row=row, column=16, value=attend_comments or 'N/A')
+            attend_cell.border = border
+            attend_cell.alignment = wrap_alignment
         else:
-            # No evaluation data
+            # No evaluation data - add with proper alignment for consistency
             for col in range(6, 17):
-                sheet.cell(row=row, column=col, value='N/A').border = border
+                cell = sheet.cell(row=row, column=col, value='N/A')
+                cell.border = border
+                if col >= 6:  # Text columns should have wrap alignment
+                    cell.alignment = wrap_alignment
         
+        # Set row height to accommodate wrapped text
+        sheet.row_dimensions[row].height = 60
         row += 1
     
-    # Auto-adjust column widths
-    for column in sheet.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = min(max_length + 2, 50)
-        sheet.column_dimensions[column_letter].width = adjusted_width
+    # Set specific column widths for better text wrapping
+    # Basic info columns
+    sheet.column_dimensions['A'].width = 12  # ID Number
+    sheet.column_dimensions['B'].width = 20  # Name
+    sheet.column_dimensions['C'].width = 15  # Department
+    sheet.column_dimensions['D'].width = 12  # Line
+    sheet.column_dimensions['E'].width = 18  # Approver
+    
+    # Assessment columns with wider widths for text wrapping
+    sheet.column_dimensions['F'].width = 25  # Strengths
+    sheet.column_dimensions['G'].width = 25  # Weaknesses
+    sheet.column_dimensions['H'].width = 25  # Training Required
+    sheet.column_dimensions['I'].width = 25  # Supervisor Comments
+    sheet.column_dimensions['J'].width = 25  # Employee Comment
+    sheet.column_dimensions['K'].width = 25  # Manager Comment
+    
+    # Behavioral columns with wider widths for text wrapping
+    sheet.column_dimensions['L'].width = 25  # Cost Consciousness
+    sheet.column_dimensions['M'].width = 25  # Dependability
+    sheet.column_dimensions['N'].width = 25  # Communication
+    sheet.column_dimensions['O'].width = 25  # Work Ethics
+    sheet.column_dimensions['P'].width = 25  # Attendance
 
 def format_multiple_comments(comments_list):
     """Format multiple comments as bulleted list"""
@@ -2328,3 +2418,140 @@ def get_evaluation_assessment_details(request, evaluation_id):
         else:
             messages.error(request, f'Error loading evaluation details: {str(e)}')
             return redirect('admin_evaluation')
+
+def calculate_yearly_evaluation_rating_for_employee(instances):
+    """Calculate yearly evaluation rating for all instances of an employee"""
+    total_rating = 0
+    count = 0
+    
+    for instance in instances:
+        employee_eval = getattr(instance, 'employee_evaluation', None)
+        if not employee_eval:
+            continue
+            
+        task_ratings = employee_eval.task_ratings.filter(supervisor_rating__isnull=False)
+        if task_ratings.exists():
+            total_rating += sum(tr.supervisor_rating for tr in task_ratings) / task_ratings.count()
+            count += 1
+    
+    return round(total_rating / count, 1) if count > 0 else 'N/A'
+
+def calculate_yearly_behavioral_rating_for_employee(instances):
+    """Calculate yearly behavioral rating for all instances of an employee"""
+    total_rating = 0
+    count = 0
+    
+    for instance in instances:
+        employee_eval = getattr(instance, 'employee_evaluation', None)
+        if not employee_eval:
+            continue
+            
+        avg_rating = employee_eval.average_supervisor_criteria_rating
+        if avg_rating and avg_rating > 0:
+            total_rating += avg_rating
+            count += 1
+    
+    return round(total_rating / count, 1) if count > 0 else 'N/A'
+
+def calculate_quarterly_evaluation_ratings_for_employee(instances, duration):
+    """Calculate quarterly evaluation ratings for all instances of an employee"""
+    # Initialize quarterly data
+    q1_data = []
+    q2_data = []
+    q3_data = []
+    q4_data = []
+    
+    # Group instances by fiscal quarter based on their period dates
+    for instance in instances:
+        employee_eval = getattr(instance, 'employee_evaluation', None)
+        if not employee_eval:
+            continue
+            
+        task_ratings = employee_eval.task_ratings.filter(supervisor_rating__isnull=False)
+        if not task_ratings.exists():
+            continue
+            
+        # Determine quarter based on period_start date
+        quarter = get_fiscal_quarter_from_date(instance.period_start)
+        
+        # Calculate average rating for this instance
+        total_supervisor_ratings = sum(tr.supervisor_rating for tr in task_ratings)
+        total_tasks = task_ratings.count()
+        avg_rating = total_supervisor_ratings / total_tasks
+        
+        # Add to appropriate quarter
+        if quarter == 1:
+            q1_data.append(avg_rating)
+        elif quarter == 2:
+            q2_data.append(avg_rating)
+        elif quarter == 3:
+            q3_data.append(avg_rating)
+        elif quarter == 4:
+            q4_data.append(avg_rating)
+    
+    # Calculate quarterly averages
+    q1_avg = round(sum(q1_data) / len(q1_data), 1) if q1_data else 'N/A'
+    q2_avg = round(sum(q2_data) / len(q2_data), 1) if q2_data else 'N/A'
+    q3_avg = round(sum(q3_data) / len(q3_data), 1) if q3_data else 'N/A'
+    q4_avg = round(sum(q4_data) / len(q4_data), 1) if q4_data else 'N/A'
+    
+    # Calculate total average - sum of all 4 quarters divided by 4
+    # Replace 'N/A' with 0 for calculation, then divide by 4
+    quarter_values = [
+        q1_avg if q1_avg != 'N/A' else 0,
+        q2_avg if q2_avg != 'N/A' else 0,
+        q3_avg if q3_avg != 'N/A' else 0,
+        q4_avg if q4_avg != 'N/A' else 0
+    ]
+    total_avg = round(sum(quarter_values) / 4, 1)
+    
+    return q1_avg, q2_avg, q3_avg, q4_avg, total_avg
+
+def calculate_quarterly_behavioral_ratings_for_employee(instances, duration):
+    """Calculate quarterly behavioral ratings for all instances of an employee"""
+    # Initialize quarterly data
+    q1_data = []
+    q2_data = []
+    q3_data = []
+    q4_data = []
+    
+    # Group instances by fiscal quarter based on their period dates
+    for instance in instances:
+        employee_eval = getattr(instance, 'employee_evaluation', None)
+        if not employee_eval:
+            continue
+            
+        avg_rating = employee_eval.average_supervisor_criteria_rating
+        if not avg_rating or avg_rating <= 0:
+            continue
+            
+        # Determine quarter based on period_start date
+        quarter = get_fiscal_quarter_from_date(instance.period_start)
+        
+        # Add to appropriate quarter
+        if quarter == 1:
+            q1_data.append(avg_rating)
+        elif quarter == 2:
+            q2_data.append(avg_rating)
+        elif quarter == 3:
+            q3_data.append(avg_rating)
+        elif quarter == 4:
+            q4_data.append(avg_rating)
+    
+    # Calculate quarterly averages
+    q1_avg = round(sum(q1_data) / len(q1_data), 1) if q1_data else 'N/A'
+    q2_avg = round(sum(q2_data) / len(q2_data), 1) if q2_data else 'N/A'
+    q3_avg = round(sum(q3_data) / len(q3_data), 1) if q3_data else 'N/A'
+    q4_avg = round(sum(q4_data) / len(q4_data), 1) if q4_data else 'N/A'
+    
+    # Calculate total average - sum of all 4 quarters divided by 4
+    # Replace 'N/A' with 0 for calculation, then divide by 4
+    quarter_values = [
+        q1_avg if q1_avg != 'N/A' else 0,
+        q2_avg if q2_avg != 'N/A' else 0,
+        q3_avg if q3_avg != 'N/A' else 0,
+        q4_avg if q4_avg != 'N/A' else 0
+    ]
+    total_avg = round(sum(quarter_values) / 4, 1)
+    
+    return q1_avg, q2_avg, q3_avg, q4_avg, total_avg

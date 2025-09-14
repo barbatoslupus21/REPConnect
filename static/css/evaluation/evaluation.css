@@ -449,35 +449,6 @@
     border-top: 1px solid #e5e7eb;
 }
 
-.btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: 6px;
-    font-weight: 500;
-    text-decoration: none;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: none;
-    font-size: 0.9rem;
-}
-
-.btn-primary {
-    background-color: #3b82f6;
-    color: white;
-}
-
-.btn-primary:hover {
-    background-color: #2563eb;
-}
-
-.btn-secondary {
-    background-color: #6b7280;
-    color: white;
-}
-
-.btn-secondary:hover {
-    background-color: #4b5563;
-}
-
 /* Rating Legend */
 .rating-legend {
     display: flex;
@@ -669,23 +640,6 @@
         padding-top: 0;
         padding-bottom: 0;
     }
-}
-
-/* Training Item Expansion Styles */
-.training-item {
-    margin-bottom: var(--space-sm);
-    border: 0.5px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    overflow: hidden;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    cursor: pointer;
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.training-item:last-child {
-    margin-bottom: 0;
 }
 
 .training-details {

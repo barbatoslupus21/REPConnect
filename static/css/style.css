@@ -1425,7 +1425,7 @@ small {
     outline: none;
     height: 44px;
     padding: 0 24px;
-    font-size: 16px;
+    font-size: 0.9rem;
 }
 
 .btn-sm {

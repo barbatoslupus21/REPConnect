@@ -1,39 +1,49 @@
-{% if trainings_with_progress %}
-    {% for item in trainings_with_progress %}
-    <tr>
-        <td>
-            <div class="training-title">{{ item.training.title }}</div>
-        </td>
-        <td class="hide-column">{{ item.training.speaker }}</td>
-        <td>{{ item.training.training_date|date:"M d, Y" }}</td>
-        <td class="hide-column">{{ item.training.participants.count }}</td>
-        <td style="text-align:center;">
-            <div class="progress-container">
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: {{ item.progress_percentage }}%"></div>
-                </div>
-                <span class="progress-text">{{ item.progress_percentage }}%</span>
-            </div>
-        </td>
-        <td style="text-align:center;">
-            <div style="display:flex; justify-content:center;">
-                <a href="{% url 'training_details_page' item.training.id %}" class="btn btn-icon">
-                    <i class="fas fa-chart-bar"></i>
-                </a>
+{% if trainings_with_progress %} {% for item in trainings_with_progress %}
+<tr>
+  <td>
+    <div class="training-title">{{ item.training.title }}</div>
+  </td>
+  <td class="hide-column">{{ item.training.speaker }}</td>
+  <td>{{ item.training.training_date|date:"M d, Y" }}</td>
+  <td class="hide-column">{{ item.training.participants.count }}</td>
+  <td style="text-align: center">
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div
+          class="progress-fill"
+          style="width: {{ item.progress_percentage }}%"
+        ></div>
+      </div>
+      <span class="progress-text">{{ item.progress_percentage }}%</span>
+    </div>
+  </td>
+  <td style="text-align: center">
+    <div style="display: flex; justify-content: center">
+      <a
+        href="{% url 'training_details_page' item.training.id %}"
+        class="btn btn-icon"
+      >
+        <i class="fas fa-chart-bar"></i>
+      </a>
 
-                <button class="btn btn-icon btn-error text-danger delete-training-btn" data-training-id="{{ item.training.id }}" data-training-title="{{ item.training.title }}">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        </td>
-    </tr>
-    {% endfor %}
-{% else %}
-    <tr>
-        <td colspan="6" class="table-no-data">
-            <div class="empty-icon"><i class="fas fa-search"></i></div>
-            <div class="table-no-data-title">No trainings found</div>
-            <div class="table-no-data-desc">{% if search %}Try adjusting your search criteria.{% else %}Create your first training to get started.{% endif %}</div>
-        </td>
-    </tr>
+      <button
+        class="btn btn-icon btn-error text-danger delete-training-btn"
+        data-training-id="{{ item.training.id }}"
+        data-training-title="{{ item.training.title }}"
+      >
+        <i class="fas fa-trash"></i>
+      </button>
+    </div>
+  </td>
+</tr>
+{% endfor %} {% else %}
+<tr>
+  <td colspan="6" class="text-center">
+    <div class="empty-state">
+      <i class="fas fa-search"></i>
+      <h5>No trainings found</h5>
+      <p>No trainings found in the database.</p>
+    </div>
+  </td>
+</tr>
 {% endif %}

@@ -480,6 +480,164 @@ class CalendarManager {
                     <div class="event-type">${this.getTypeLabel(event.type)}</div>
                 </div>
             `;
+
+            // If current user is HR admin, add an ellipsis actions button and popover
+            try {
+                const isHR = window.hr_admin === true || window.hr_admin === 'true' || window.hr_admin === 1;
+                if (isHR) {
+                    // ensure the card can be a positioning context
+                    eventCard.style.position = 'relative';
+
+                    // ellipsis button (hidden by default, shown on hover or focus)
+                    const actionsWrap = document.createElement('div');
+                    actionsWrap.className = 'event-actions-wrap';
+                    actionsWrap.style.position = 'absolute';
+                    actionsWrap.style.top = '8px';
+                    actionsWrap.style.right = '8px';
+                    actionsWrap.style.zIndex = '30';
+
+                    const ellipsisBtn = document.createElement('button');
+                    ellipsisBtn.className = 'btn btn-icon btn-sm event-ellipsis-btn';
+                    ellipsisBtn.setAttribute('aria-label', 'More actions');
+                    ellipsisBtn.style.display = 'none';
+                    ellipsisBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
+
+                    // popover containing edit/delete
+                    const popover = document.createElement('div');
+                    popover.className = 'event-popover';
+                    popover.style.position = 'absolute';
+                    popover.style.top = '32px';
+                    popover.style.right = '0px';
+                    popover.style.minWidth = '140px';
+                    popover.style.background = '#fff';
+                    popover.style.border = '1px solid rgba(0,0,0,0.08)';
+                    popover.style.boxShadow = '0 6px 18px rgba(0,0,0,0.08)';
+                    popover.style.borderRadius = '6px';
+                    popover.style.padding = '6px';
+                    popover.style.display = 'none';
+                    popover.style.flexDirection = 'column';
+                    popover.style.gap = '6px';
+                    popover.style.zIndex = '40';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn btn-outline btn-sm event-edit-btn';
+                    editBtn.textContent = 'Edit';
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn btn-error btn-sm event-delete-btn';
+                    deleteBtn.textContent = 'Delete';
+
+                    popover.appendChild(editBtn);
+                    popover.appendChild(deleteBtn);
+
+                    actionsWrap.appendChild(ellipsisBtn);
+                    actionsWrap.appendChild(popover);
+                    eventCard.appendChild(actionsWrap);
+
+                    // show ellipsis on hover/focus (desktop) and always show on focus for accessibility
+                    eventCard.addEventListener('mouseenter', () => {
+                        ellipsisBtn.style.display = 'block';
+                    });
+                    eventCard.addEventListener('mouseleave', () => {
+                        // only hide if popover not open
+                        if (!popover.classList.contains('open')) ellipsisBtn.style.display = 'none';
+                    });
+
+                    ellipsisBtn.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        // toggle popover
+                        const isOpen = popover.classList.toggle('open');
+                        popover.style.display = isOpen ? 'flex' : 'none';
+                        // keep ellipsis visible while open
+                        if (isOpen) ellipsisBtn.style.display = 'block';
+                    });
+
+                    // Edit action: open edit modal and try to prefill fields
+                    editBtn.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        
+                        // Debug: log the event object to see what data is available
+                        console.log('Event object for editing:', event);
+                        console.log('Selected date:', window.calendarManager ? window.calendarManager.selectedDate : 'No calendar manager');
+                        
+                        // Prefill fields if present
+                        const nameEl = document.getElementById('edit-event-name');
+                        if (nameEl) nameEl.value = event.name || '';
+                        const typeEl = document.getElementById('edit-event-type');
+                        if (typeEl) typeEl.value = event.type || '';
+                        const repEl = document.getElementById('edit-event-repetition');
+                        if (repEl) repEl.value = event.repetition || 'none';
+                        
+                        // Set the date - use event date or fall back to selected date
+                        const dateEl = document.getElementById('edit-event-date');
+                        if (dateEl) {
+                            let eventDate = event.date || event.event_date || '';
+                            // If no event date, use the currently selected calendar date
+                            if (!eventDate && window.calendarManager && window.calendarManager.selectedDate) {
+                                eventDate = window.calendarManager.selectedDate;
+                            }
+                            console.log('Setting date field to:', eventDate);
+                            dateEl.value = eventDate;
+                        }
+                        
+                        const descEl = document.getElementById('edit-event-description');
+                        if (descEl) descEl.value = event.description || '';
+
+                        // Set form action and event ID
+                        const editForm = document.getElementById('edit-event-form');
+                        if (editForm && event.id) {
+                            editForm.action = `/calendar/edit-holiday/${event.id}/`;
+                            editForm.dataset.eventId = event.id;
+                        }
+
+                        // Show modal using proper modal helper
+                        if (window.openModal) {
+                            window.openModal('editEventModal');
+                        } else {
+                            const editModal = document.getElementById('editEventModal');
+                            if (editModal) {
+                                editModal.style.display = 'block';
+                                editModal.classList.add('open');
+                            }
+                        }
+                        // close popover
+                        popover.classList.remove('open');
+                        popover.style.display = 'none';
+                    });
+
+                    // Delete action: open delete modal and set hidden id
+                    deleteBtn.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        const deleteForm = document.getElementById('delete-event-form');
+                        if (deleteForm) {
+                            let hidden = deleteForm.querySelector('input[name="event_id"]');
+                            if (!hidden) {
+                                hidden = document.createElement('input');
+                                hidden.type = 'hidden';
+                                hidden.name = 'event_id';
+                                deleteForm.appendChild(hidden);
+                            }
+                            hidden.value = event.id || '';
+                        }
+                        
+                        // Show modal using proper modal helper
+                        if (window.openModal) {
+                            window.openModal('deleteEventModal');
+                        } else {
+                            const deleteModal = document.getElementById('deleteEventModal');
+                            if (deleteModal) {
+                                deleteModal.style.display = 'block';
+                                deleteModal.classList.add('open');
+                            }
+                        }
+                        
+                        popover.classList.remove('open');
+                        popover.style.display = 'none';
+                    });
+                }
+            } catch (e) {
+                // If any error with admin controls, don't block rendering
+                console.warn('Failed to add HR actions to event card', e);
+            }
             contentDiv.appendChild(eventCard);
         });
     }
@@ -911,6 +1069,224 @@ class CalendarManager {
             }
         }
     }
+}
+
+// Global click listener to close event popovers when clicking outside
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('.event-popover.open').forEach(pop => {
+        if (!pop.contains(e.target) && !pop.previousElementSibling?.contains(e.target)) {
+            pop.classList.remove('open');
+            pop.style.display = 'none';
+            // hide ellipsis if not hovered
+            const wrap = pop.parentElement;
+            if (wrap) {
+                const ell = wrap.querySelector('.event-ellipsis-btn');
+                if (ell && !wrap.parentElement.matches(':hover')) {
+                    ell.style.display = 'none';
+                }
+            }
+        }
+    });
+});
+
+// AJAX form submission for edit event form
+document.addEventListener('DOMContentLoaded', function() {
+    const editForm = document.getElementById('edit-event-form');
+    if (editForm) {
+        editForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = editForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn ? submitBtn.innerHTML : '';
+            
+            // Show loading state
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            }
+            
+            try {
+                const formData = new FormData(editForm);
+                console.log('Submitting to:', editForm.action);
+                console.log('Form data:', Object.fromEntries(formData));
+                
+                const response = await fetch(editForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                // Backend redirects on success, so any 200-level response means success
+                if (response.ok) {
+                    // Show success message using global toast system
+                    if (window.portalUI && window.portalUI.showNotification) {
+                        window.portalUI.showNotification('Event updated successfully!', 'success');
+                    } else if (window.showToast) {
+                        window.showToast('success', 'Event updated successfully!');
+                    } else {
+                        // Create a simple toast
+                        showCalendarToast('Event updated successfully!', 'success');
+                    }
+                    
+                    // Close the modal
+                    if (window.closeModal) {
+                        window.closeModal('editEventModal');
+                    } else {
+                        const modal = document.getElementById('editEventModal');
+                        if (modal) {
+                            modal.style.display = 'none';
+                            modal.classList.remove('open');
+                        }
+                    }
+                    
+                    // Refresh the events panel to show updated event
+                    if (window.calendarManager) {
+                        await window.calendarManager.selectDate(window.calendarManager.selectedDate);
+                    }
+                } else {
+                    throw new Error('Server returned an error');
+                }
+            } catch (error) {
+                console.error('Error updating event:', error);
+                if (window.portalUI && window.portalUI.showNotification) {
+                    window.portalUI.showNotification('Failed to update event. Please try again.', 'error');
+                } else if (window.showToast) {
+                    window.showToast('error', 'Failed to update event. Please try again.');
+                } else {
+                    showCalendarToast('Failed to update event. Please try again.', 'error');
+                }
+            } finally {
+                // Reset button state
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+    
+    // Delete event form submission with confirmation
+    const deleteForm = document.getElementById('delete-event-form');
+    if (deleteForm) {
+        deleteForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = deleteForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn ? submitBtn.innerHTML : '';
+            
+            // Show loading state
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+            }
+            
+            try {
+                // Get event ID from hidden input
+                const eventIdInput = deleteForm.querySelector('input[name="event_id"]');
+                const eventId = eventIdInput ? eventIdInput.value : '';
+                
+                if (!eventId) {
+                    throw new Error('Event ID not found');
+                }
+                
+                const response = await fetch(`/calendar/delete-holiday/${eventId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': deleteForm.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    }
+                });
+                
+                // Backend redirects on success, so any 200-level response means success
+                if (response.ok) {
+                    // Show success message using global toast system
+                    if (window.portalUI && window.portalUI.showNotification) {
+                        window.portalUI.showNotification('Event deleted successfully!', 'success');
+                    } else if (window.showToast) {
+                        window.showToast('success', 'Event deleted successfully!');
+                    } else {
+                        showCalendarToast('Event deleted successfully!', 'success');
+                    }
+                    
+                    // Close the modal
+                    if (window.closeModal) {
+                        window.closeModal('deleteEventModal');
+                    } else {
+                        const modal = document.getElementById('deleteEventModal');
+                        if (modal) {
+                            modal.style.display = 'none';
+                            modal.classList.remove('open');
+                        }
+                    }
+                    
+                    // Refresh the events panel to show updated event list
+                    if (window.calendarManager) {
+                        await window.calendarManager.selectDate(window.calendarManager.selectedDate);
+                    }
+                } else {
+                    throw new Error('Server returned an error');
+                }
+            } catch (error) {
+                console.error('Error deleting event:', error);
+                if (window.portalUI && window.portalUI.showNotification) {
+                    window.portalUI.showNotification('Failed to delete event. Please try again.', 'error');
+                } else if (window.showToast) {
+                    window.showToast('error', 'Failed to delete event. Please try again.');
+                } else {
+                    showCalendarToast('Failed to delete event. Please try again.', 'error');
+                }
+            } finally {
+                // Reset button state
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+});
+
+// Simple toast function for calendar
+function showCalendarToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `calendar-toast toast-${type}`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#10b981' : '#ef4444'};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 10000;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    `;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
 }
 
 async function initializeCalendar(year, month, holidays, today) {

@@ -88,7 +88,7 @@ class EmployeeEvaluationAdmin(admin.ModelAdmin):
 
 @admin.register(TaskRating)
 class TaskRatingAdmin(admin.ModelAdmin):
-    list_display = ['employee_evaluation', 'task', 'rating', 'get_employee']
+    list_display = ['employee_evaluation', 'task', 'rating', 'get_employee', 'get_evaluation_period']
     list_filter = ['rating', 'employee_evaluation__evaluation']
     search_fields = [
         'employee_evaluation__employee__username',
@@ -100,6 +100,45 @@ class TaskRatingAdmin(admin.ModelAdmin):
     def get_employee(self, obj):
         return obj.employee_evaluation.employee.username
     get_employee.short_description = "Employee"
+    
+    def get_evaluation_period(self, obj):
+        """Display the evaluation period based on evaluation duration"""
+        try:
+            evaluation_instance = obj.employee_evaluation.evaluation_instance
+            if not evaluation_instance:
+                return "N/A"
+            
+            evaluation = evaluation_instance.evaluation
+            period_start = evaluation_instance.period_start
+            
+            if evaluation.duration == 'monthly':
+                return period_start.strftime('%B %Y')
+            elif evaluation.duration == 'quarterly':
+                # Determine quarter based on fiscal year (May-April)
+                month = period_start.month
+                year = period_start.year
+                
+                if 5 <= month <= 7:  # Q1: May-July
+                    return f"May - July {year}"
+                elif 8 <= month <= 10:  # Q2: Aug-Oct
+                    return f"Aug - Oct {year}"
+                elif 11 <= month <= 12:  # Q3: Nov-Jan (Nov-Dec of current year)
+                    return f"Nov {year} - Jan {year + 1}"
+                elif 1 <= month <= 4:  # Q3/Q4: Jan-Apr (continuation of previous year)
+                    if month <= 1:  # Jan
+                        return f"Nov {year - 1} - Jan {year}"
+                    else:  # Feb-Apr
+                        return f"Feb - Apr {year}"
+            elif evaluation.duration == 'yearly':
+                return str(evaluation.start_year)
+            else:  # daily or other
+                return f"{period_start.strftime('%Y-%m-%d')} to {evaluation_instance.period_end.strftime('%Y-%m-%d')}"
+                
+        except AttributeError:
+            return "N/A"
+    
+    get_evaluation_period.short_description = "Period"
+    get_evaluation_period.admin_order_field = 'employee_evaluation__evaluation_instance__period_start'
 
 @admin.register(TrainingRequest)
 class TrainingRequestAdmin(admin.ModelAdmin):

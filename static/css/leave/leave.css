@@ -4569,7 +4569,7 @@
 }
 
 .chart-card-header {
-    margin-bottom: var(--space-lg);
+    margin-bottom: var(--space-sm);
 }
 
 .chart-card-header h4 {
@@ -4595,7 +4595,7 @@
 
 .chart-container canvas {
     width: 100% !important;
-    height: 300px !important;
+    height: 270px !important;
 }
 
 /* Donut Chart Styling */
@@ -4603,13 +4603,13 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: var(--space-lg);
-    min-height: 300px;
-    width: 70%;
+    justify-content: space-between;
+    min-height: 250px;
+    width: 90%;
 }
 
 .chart-legend {
-    flex: 1;
+    flex: 0.8;
     min-width: 0;
     order: 1; /* Legend comes first (left side) */
 }
@@ -4617,7 +4617,7 @@
 .donut-chart-container {
     position: relative;
     width: 300px;
-    height: 300px;
+    height: 270px;
     flex-shrink: 0;
     order: 2; /* Chart comes second (right side) */
 }

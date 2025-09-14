@@ -271,7 +271,6 @@
     {% endif %}
 </div>
 
-
 <!-- Confirm Evaluation Modal -->
 <div id="confirmEvaluationModal" class="modal modal-md">
     <div class="modal-overlay"></div>
@@ -354,12 +353,10 @@
     </div>
 </div>
 
-
 {% endblock content %}
 
 {% block extra_js %}
 <script>
-    // Training statistics for JavaScript
     console.log('Debug - Template variables:', {
         total: {{ total_trainings|default:0 }},
         completed: {{ completed_trainings|default:0 }},
@@ -371,6 +368,8 @@
         completed: {{ completed_trainings|default:0 }},
         pending: {{ pending_trainings|default:0 }}
     };
+
+    const USER_HAS_APPROVER = {{ user_has_approver|default:False|lower }};
 </script>
 <script src="{% static 'js/training/user_training.js' %}"></script>
 {% endblock extra_js %}

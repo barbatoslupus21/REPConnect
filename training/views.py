@@ -132,6 +132,7 @@ def training_user_view(request):
         'pending_trainings': pending_trainings,
         'user_trainings': user_trainings,
         'is_approver': is_approver,
+        'user_has_approver': hasattr(request.user, 'employment_info') and request.user.employment_info and request.user.employment_info.approver is not None,
         'user_position_level': user_position_level,
         'approval_tab_label': approval_tab_label,
         'pending_supervisor_assessments': pending_supervisor_assessments,
@@ -202,7 +203,7 @@ def submit_training_evaluation(request, evaluation_id):
                         notification_type='approval',
                         sender=request.user,
                         recipient=approver,
-                        module='training_dashboard'
+                        module='training'
                     )
                     
                     # Create routing sequence for approval workflow
@@ -357,7 +358,7 @@ def submit_supervisor_assessment(request, assessment_id):
                 notification_type='info',
                 sender=request.user,
                 recipient=evaluation.participant,
-                module='training_dashboard'
+                module='training'
             )
             
             supervisor_manager = None
@@ -528,7 +529,7 @@ def submit_manager_review(request, routing_id):
                     title="Training Evaluation Approved",
                     message=f"Your training evaluation for {evaluation.training.title} has been approved by {request.user}.",
                     notification_type="approved",
-                    module="training_dashboard"
+                    module="training"
                 )
                 
             else:
@@ -556,7 +557,7 @@ def submit_manager_review(request, routing_id):
                         title="Training Evaluation Disapproved",
                         message=f"Training evaluation for {evaluation.participant.firstname} {evaluation.participant.lastname} - {evaluation.training.title} has been disapproved and requires re-evaluation.",
                         notification_type="disapproved",
-                        module="training_dashboard"
+                        module="training"
                     )
         
         return JsonResponse({
@@ -1362,7 +1363,7 @@ def confirm_evaluation(request, training_id):
                             title="Training Evaluation for Manager Review",
                             message=f"Training evaluation for {evaluation.participant.firstname} {evaluation.participant.lastname} - {evaluation.training.title} is ready for your review.",
                             notification_type="approval",
-                            module="training_dashboard"
+                            module="training"
                         )
                     else:
                         # routing already exists; no further action needed

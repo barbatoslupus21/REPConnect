@@ -873,8 +873,9 @@
 }
 
 .training-item {
-    margin-bottom: var(--space-sm);
+    margin-bottom: var(--space-xs);
     border: 0.5px solid var(--border-color);
+    padding: var(--space-xs) !important;
     border-radius: var(--radius-lg);
     background: var(--surface);
     overflow: hidden;
@@ -890,6 +891,7 @@
 
 .training-card {
     padding: var(--space-sm) var(--space-md);
+    padding-bottom: var(--space-xs) !important;
 }
 
 .training-header {
@@ -915,7 +917,7 @@
 }
 
 .training-brief {
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--space-sm);
     cursor: pointer;
     transition: all var(--transition-fast);
     padding: var(--space-xs);

@@ -186,6 +186,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (e.target.classList.contains('evaluate-subordinate-btn')) {
+            // Guard: ensure current user has an approver assigned before proceeding
+            try {
+                if (typeof USER_HAS_APPROVER !== 'undefined' && !USER_HAS_APPROVER) {
+                    if (typeof showErrorMessage === 'function') {
+                        showErrorMessage('Please set your approver in your profile settings before proceeding.');
+                    } else {
+                        alert('Please set your approver in your profile settings before proceeding.');
+                    }
+                    return;
+                }
+            } catch (err) {
+                console.warn('USER_HAS_APPROVER check failed:', err);
+            }
+
             const evaluationId = e.target.getAttribute('data-evaluation-id');
             const routingId = e.target.getAttribute('data-routing-id');
             if (routingId) {
@@ -394,6 +408,21 @@ function updateStats() {
 // Handle starting a training evaluation
 function handleStartEvaluation(trainingId, btn) {
     console.log('handleStartEvaluation: starting for trainingId=', trainingId);
+    // If user has no approver assigned, show an error and do not proceed
+    try {
+        if (typeof USER_HAS_APPROVER !== 'undefined' && !USER_HAS_APPROVER) {
+            // Prefer existing toast function if available
+            if (typeof showErrorMessage === 'function') {
+                showErrorMessage('Please set your approver in your profile settings before starting evaluations.');
+            } else {
+                alert('Please set your approver in your profile settings before starting evaluations.');
+            }
+            return;
+        }
+    } catch (e) {
+        // If USER_HAS_APPROVER not defined for some reason, continue as before
+        console.warn('USER_HAS_APPROVER check failed:', e);
+    }
     
     // Show loading state
     const originalText = btn.innerHTML;
