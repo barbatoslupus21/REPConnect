@@ -78,7 +78,7 @@
         </div>
     </div>
 
-    <div class="component-card">
+    <div class="overlay-two-column">
         <div class="table-actions table-actions-bar" data-intro="Use these tools to search, filter, and manage certificates" data-step="7">
             <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
                 <form class="search-box">
@@ -103,8 +103,8 @@
             </div>
         </div>
         
-        {% if employees_with_certificates %}
-            <table class="data-table employee-table" data-intro="View all employees with certificates. Click on any row to expand and see their certificates" data-step="11">
+        <div class="common-table-container" id="tableContainer">
+            <table class="data-table" data-intro="View all employees with certificates. Click on any row to expand and see their certificates" data-step="11">
                 <thead>
                     <tr>
                         <th class="col-avatar"></th>
@@ -162,14 +162,41 @@
                                     </div>
                                     {% empty %}
                                     <div class="certificate-list-empty">No certificates found for this employee.</div>
+                                    
                                     {% endfor %}
                                 </div>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            <div class="empty-state">
+                                {% if search %}
+                                    <i class="fas fa-search"></i>
+                                {% else %}
+                                    <i class="fas fa-users"></i>
+                                {% endif %}
+                                <h5>{% if search %}
+                                        No Results Found
+                                    {% else %}
+                                        No Certificates Found
+                                    {% endif %}
+                                </h5>
+                                <p>
+                                    {% if search %}
+                                        No employees found matching "{{ search }}". Try adjusting your search terms.
+                                    {% else %}
+                                        No employees have certificates yet. Upload some certificates to get started!
+                                    {% endif %}
+                                </p>
                             </div>
                         </td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
+        </div>
 
             <div class="pagination" id="paginationContainer" data-intro="Navigate through pages of results" data-step="12">
                 <div class="pagination-info">
@@ -205,31 +232,6 @@
                     {% endif %}
                 </div>
             </div>
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon">
-                    {% if search %}
-                        <i class="fas fa-search"></i>
-                    {% else %}
-                    <i class="fas fa-users"></i>
-                    {% endif %}
-                </div>
-                <h3>
-                    {% if search %}
-                        No Results Found
-                    {% else %}
-                        No Certificates Found
-                    {% endif %}
-                </h3>
-                <p>
-                    {% if search %}
-                        No employees found matching "{{ search }}". Try adjusting your search terms.
-                    {% else %}
-                        No employees have certificates yet. Upload some certificates to get started!
-                    {% endif %}
-                </p>
-            </div>
-        {% endif %}
     </div>
 </div>
 

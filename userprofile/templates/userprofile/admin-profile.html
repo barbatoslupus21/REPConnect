@@ -5,42 +5,6 @@
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'css/profile/profile.css' %}">
-    <style>
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-            justify-content: center;
-        }
-        .action-buttons .btn-icon {
-            padding: 8px;
-            min-width: 36px;
-        }
-        .modal .warning-icon, .modal .info-note {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 15px 0;
-        }
-        .modal .warning-icon {
-            font-size: 48px;
-            color: #f59e0b;
-        }
-        .modal .info-note {
-            background: #f3f4f6;
-            padding: 12px;
-            border-radius: 8px;
-            border-left: 4px solid #3b82f6;
-        }
-        .modal .confirmation-content {
-            text-align: center;
-        }
-        .modal .confirmation-content p {
-            margin: 10px 0;
-        }
-        .toast {
-            font-family: inherit;
-        }
-    </style>
 {% endblock %}
 
 {% block content %}
@@ -57,7 +21,7 @@
             <div class="table-actions table-actions-bar">
                 <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
                     <form class="search-box">
-                        <input type="text" class="search-input" id="searchInput" placeholder="Search employees..." name="search" value="{{ search_query }}" />
+                        <input type="text" class="search-input" id="userSearchInput" placeholder="Search employees..." name="search" value="{{ search_query }}" />
                         <span class="search-icon"><i class="fas fa-search"></i></span>
                         {% if search %}
                         <span class="search-clear" onclick="clearSearch()">

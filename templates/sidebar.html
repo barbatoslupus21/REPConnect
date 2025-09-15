@@ -2,7 +2,7 @@
 <aside class="sidebar minimized" id="sidebar">
     <div class="sidebar-header">
         <div class="logo-container" id="logo-container">
-            <img src="{% static "images/icon/gitlab.svg" %}" alt="REPConnect Logo" class="logo" />
+            <img src="{% static "images/icon/repconnect_logo.png" %}" alt="REPConnect Logo" class="logo" />
             <div class="logo-info">
                 <span class="logo-text">REPConnect</span>
                 <span class="version-text">v1.1.0</span>
@@ -186,73 +186,73 @@
 
     <div class="sidebar-footer">
         <div class="user-profile" id="user-profile">
-        <div class="user-info">
-            <img src="{{request.user.avatar.url}}" alt="User Avatar" class="avatar" />
-            <div class="user-details">
-            <span class="user-name">{{request.user.username}}</span>
-            <span class="user-department">{{request.user.email}}</span>
-            </div>
-        </div>
-
-        <div class="dropdown-menu" id="dropdown-menu">
-            <div class="dropdown-header">
+            <div class="user-info">
                 <img src="{{request.user.avatar.url}}" alt="User Avatar" class="avatar" />
-                <div class="dropdown-user-details">
-                    <span class="user-name">{{request.user.username}}</span>
-                    <span class="user-email">{{request.user.email}}</span>
+                <div class="user-details">
+                <span class="user-name">{{request.user.username}}</span>
+                <span class="user-department">{{request.user.email}}</span>
                 </div>
             </div>
-            <ul>
-            {% if not request.user.wire_admin and not request.user.accounting_admin and not request.user.hr_admin and not request.user.hr_manager and not request.user.mis_admin %}
+
+            <div class="dropdown-menu" id="dropdown-menu">
+                <div class="dropdown-header">
+                    <img src="{{request.user.avatar.url}}" alt="User Avatar" class="avatar" />
+                    <div class="dropdown-user-details">
+                        <span class="user-name">{{request.user.username}}</span>
+                        <span class="user-email">{{request.user.email}}</span>
+                    </div>
+                </div>
+                <ul>
+                {% if not request.user.wire_admin and not request.user.accounting_admin and not request.user.hr_admin and not request.user.hr_manager and not request.user.mis_admin %}
+                    <li>
+                        <a href="{% url "user_profile" %}">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px">
+                                <path d="M0 0h24v24H0V0z" fill="none" />
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 
+                                3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 
+                                3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 
+                                4-3.08 6-3.08 1.99 0 5.97 1.09 
+                                6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+                            </svg>
+                            <span>Profile Settings</span>
+                        </a>
+                    </li>
+                {% endif %}
+                
                 <li>
-                    <a href="{% url "user_profile" %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px">
-                            <path d="M0 0h24v24H0V0z" fill="none" />
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 
-                            3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 
-                            3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 
-                            4-3.08 6-3.08 1.99 0 5.97 1.09 
-                            6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
-                        </svg>
-                        <span>Profile Settings</span>
+                    <a href="{% url "change_password" %}">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        height="24px"
+                        viewBox="0 0 24 24"
+                        width="24px"
+                    >
+                        <path d="M0 0h24v24H0V0z" fill="none" />
+                        <path
+                        d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM9 8V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9z"
+                        />
+                    </svg>
+                    <span>Password Settings</span>
                     </a>
                 </li>
-            {% endif %}
-            
-            <li>
-                <a href="{% url "change_password" %}">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    height="24px"
-                    viewBox="0 0 24 24"
-                    width="24px"
-                >
-                    <path d="M0 0h24v24H0V0z" fill="none" />
-                    <path
-                    d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM9 8V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9z"
-                    />
-                </svg>
-                <span>Password Settings</span>
-                </a>
-            </li>
-            <li>
-                <a href="{% url "user-logout" %}">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor">
-                        <path d="M479.94-65.41q-86.05 0-161.68-32.58-75.63-32.57-131.66-88.61-56.04-56.03-88.61-131.72Q65.41-394 65.41-480.06q0-86.05 32.58-161.68 32.57-75.63 88.61-131.66 56.03-56.04 131.72-88.61 75.68-32.58 161.74-32.58 86.05 0 161.68 32.58 75.63 32.57 131.66 88.61 56.04 56.03 88.61 131.72 32.58 75.68 32.58 161.74 0 86.05-32.58 161.68-32.57 75.63-88.61 131.66-56.03 56.04-131.72 88.61Q566-65.41 479.94-65.41Zm.03-163.35q104.57 0 177.8-73.21Q731-375.18 731-479.76q0-35.72-9.12-68.21-9.13-32.49-26.36-61.38-12.95-21.91-31.01-24.77-18.05-2.86-33.26 5.81-15.2 8.66-21.17 24.91-5.97 16.25 5.75 32.92 14 19.24 20.88 42.4 6.88 23.15 6.88 48.32 0 67.48-48.05 115.53-48.04 48.06-115.51 48.06-67.46 0-115.54-48.06-48.08-48.05-48.08-115.53 0-25.27 7-48.01t20-41.95q10.72-16.43 5-32.13-5.71-15.69-19.91-24.41t-32.13-6.24q-17.94 2.48-31.89 23.15-18.25 27.85-26.86 60.86-8.62 33.01-8.62 68.73 0 104.58 73.2 177.79t177.77 73.21ZM480-731q-19.15 0-32.33 13.17-13.17 13.18-13.17 32.33v160q0 19.15 13.17 32.33Q460.85-480 480-480t32.33-13.17q13.17-13.18 13.17-32.33v-160q0-19.15-13.17-32.33Q499.15-731 480-731Z"/>
-                    </svg>
-                    <span>Log Out</span>
-                </a>
-            </li>
-            </ul>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-theme-toggle">
-            <span>Dark Theme</span>
-            <label class="toggle-switch">
-                <input type="checkbox" id="theme-toggle-checkbox" />
-                <span class="slider"></span>
-            </label>
+                <li>
+                    <a href="{% url "user-logout" %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor">
+                            <path d="M479.94-65.41q-86.05 0-161.68-32.58-75.63-32.57-131.66-88.61-56.04-56.03-88.61-131.72Q65.41-394 65.41-480.06q0-86.05 32.58-161.68 32.57-75.63 88.61-131.66 56.03-56.04 131.72-88.61 75.68-32.58 161.74-32.58 86.05 0 161.68 32.58 75.63 32.57 131.66 88.61 56.04 56.03 88.61 131.72 32.58 75.68 32.58 161.74 0 86.05-32.58 161.68-32.57 75.63-88.61 131.66-56.03 56.04-131.72 88.61Q566-65.41 479.94-65.41Zm.03-163.35q104.57 0 177.8-73.21Q731-375.18 731-479.76q0-35.72-9.12-68.21-9.13-32.49-26.36-61.38-12.95-21.91-31.01-24.77-18.05-2.86-33.26 5.81-15.2 8.66-21.17 24.91-5.97 16.25 5.75 32.92 14 19.24 20.88 42.4 6.88 23.15 6.88 48.32 0 67.48-48.05 115.53-48.04 48.06-115.51 48.06-67.46 0-115.54-48.06-48.08-48.05-48.08-115.53 0-25.27 7-48.01t20-41.95q10.72-16.43 5-32.13-5.71-15.69-19.91-24.41t-32.13-6.24q-17.94 2.48-31.89 23.15-18.25 27.85-26.86 60.86-8.62 33.01-8.62 68.73 0 104.58 73.2 177.79t177.77 73.21ZM480-731q-19.15 0-32.33 13.17-13.17 13.18-13.17 32.33v160q0 19.15 13.17 32.33Q460.85-480 480-480t32.33-13.17q13.17-13.18 13.17-32.33v-160q0-19.15-13.17-32.33Q499.15-731 480-731Z"/>
+                        </svg>
+                        <span>Log Out</span>
+                    </a>
+                </li>
+                </ul>
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-theme-toggle">
+                <span>Dark Theme</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="theme-toggle-checkbox" />
+                    <span class="slider"></span>
+                </label>
+                </div>
             </div>
-        </div>
         </div>
     </div>
 </aside>

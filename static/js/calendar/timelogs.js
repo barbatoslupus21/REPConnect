@@ -299,7 +299,7 @@ class TimeLogsManager {
                     <div class="employee-info">
                         <img src="${employee.avatar || '/static/images/default-avatar.png'}" alt="${employee.name}" class="employee-avatar">
                         <div class="employee-details">
-                            <h4>${employee.name}</h4>
+                            <h5>${employee.name}</h5>
                             <p>ID: ${employee.idnumber} • ${employee.email}</p>
                         </div>
                     </div>
@@ -665,7 +665,7 @@ class TimeLogsManager {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
-            month: 'short',
+            month: '2-digit',
             day: '2-digit'
         });
     }
@@ -673,10 +673,10 @@ class TimeLogsManager {
     formatTime(dateString) {
         const date = new Date(dateString);
         return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
+            hour: 'numeric',
             minute: '2-digit',
             hour12: true
-        });
+        }).toLowerCase();
     }
 
     getCSRFToken() {

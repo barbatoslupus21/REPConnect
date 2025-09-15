@@ -449,12 +449,12 @@ def get_next_approver(leave_request, current_approver):
         
         # Rule 4: If requestor's level ≠ 2 or 3, and current approver level = 2 → HR Admin
         if (requestor_level and requestor_level not in [2, 3] and 
-            current_approver_level == 2):
+            current_approver_level == 3):
             hr_admin = EmployeeLogin.objects.filter(hr_admin=True, active=True).first()
             return hr_admin
         
         # Rule 5: If requestor's level = 2, and current approver level = 3 → HR Admin  
-        if (requestor_level == 2 and current_approver_level == 3):
+        if (requestor_level in [2, 3] and current_approver_level == 3):
             hr_admin = EmployeeLogin.objects.filter(hr_admin=True, active=True).first()
             return hr_admin
         

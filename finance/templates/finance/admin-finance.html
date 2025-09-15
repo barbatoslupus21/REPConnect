@@ -143,6 +143,7 @@
         </div>
     </div>
 
+    <div class="overlay-two-column">
         <div class="table-actions table-actions-bar">
             <div class="table-actions-left" data-intro="Search for employees by name, ID number, or email" data-step="8">
                 <form class="search-box" method="get" action="">
@@ -260,10 +261,12 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="7" class="table-no-data">
-                            <div class="empty-icon"><i class="fas fa-search"></i></div>
-                            <div class="table-no-data-title">No employees found</div>
-                            <div class="table-no-data-desc">Try adjusting your search or filters.</div>
+                        <td colspan="7" class="text-center">
+                            <div class="empty-state">
+                                <i class="fas fa-search"></i>
+                                <h5>No Employees Found</h5>
+                                <p>Try adjusting your search or filters.</p>
+                            </div>
                         </td>
                     </tr>
                 {% endfor %}
@@ -306,6 +309,7 @@
                     {% endif %}
                 </div>
         </div> 
+    </div>
 </div>
 
 <!-- Regular/Probationary Import Modal -->

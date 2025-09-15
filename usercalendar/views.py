@@ -18,6 +18,13 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from userlogin.models import EmployeeLogin
 from .forms import TimelogForm, TimelogImportForm
+
+# Helper function to format datetime in MM/DD/YYYY h:mmam/pm format
+def format_timelog_datetime(dt):
+    """Format datetime for timelog export in MM/DD/YYYY h:mmam/pm format"""
+    if not dt:
+        return ''
+    return dt.strftime('%m/%d/%Y %I:%M%p').lower()
 import pytz
 
 @login_required
@@ -342,7 +349,6 @@ def timelogs_page(request):
 @require_http_methods(["GET"])
 def get_employees_with_timelogs(request):
     try:
-        # Get filter parameters
         search = request.GET.get('search', '').strip()
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
@@ -494,11 +500,28 @@ def import_timelogs(request):
                     # Handle different datetime formats
                     if isinstance(row['Date and Time'], pd.Timestamp):
                         log_datetime = row['Date and Time'].to_pydatetime()
+                        # Make timezone aware if not already
+                        if log_datetime.tzinfo is None:
+                            log_datetime = timezone.make_aware(log_datetime, timezone.get_current_timezone())
                     else:
-                        # Try different datetime formats
-                        for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%m/%d/%Y %H:%M:%S', '%m/%d/%Y %H:%M']:
+                        # Try different datetime formats including 12-hour format with am/pm
+                        datetime_formats = [
+                            '%m/%d/%Y %I:%M%p',        # 08/15/2025 9:00am
+                            '%m/%d/%Y %I:%M %p',       # 08/15/2025 9:00 am
+                            '%Y-%m-%d %H:%M:%S',       # 2024-01-15 09:00:00 (legacy)
+                            '%Y-%m-%d %H:%M',          # 2024-01-15 09:00 (legacy)
+                            '%m/%d/%Y %H:%M:%S',       # 08/15/2025 09:00:00
+                            '%m/%d/%Y %H:%M',          # 08/15/2025 09:00
+                        ]
+                        
+                        # Clean up the datetime string
+                        datetime_str_clean = datetime_str.replace(' ', ' ').strip()
+                        
+                        for fmt in datetime_formats:
                             try:
-                                log_datetime = datetime.strptime(datetime_str, fmt)
+                                log_datetime = datetime.strptime(datetime_str_clean, fmt)
+                                # Make timezone aware
+                                log_datetime = timezone.make_aware(log_datetime, timezone.get_current_timezone())
                                 break
                             except ValueError:
                                 continue
@@ -594,20 +617,16 @@ def export_template(request):
         
         # Add sample data
         sample_data = [
-            ['001', 'John Doe', '2024-01-15 09:00:00', 'timein'],
-            ['001', 'John Doe', '2024-01-15 17:00:00', 'timeout'],
-            ['002', 'Jane Smith', '2024-01-15 08:30:00', 'timein'],
-            ['002', 'Jane Smith', '2024-01-15 17:30:00', 'timeout'],
+            ['001', 'John Doe', '08/15/2025 9:00am', 'timein'],
+            ['001', 'John Doe', '08/15/2025 5:00pm', 'timeout'],
+            ['002', 'Jane Smith', '08/15/2025 8:30am', 'timein'],
+            ['002', 'Jane Smith', '08/15/2025 5:30pm', 'timeout'],
         ]
-        
+
         for row, data in enumerate(sample_data, 2):
             for col, value in enumerate(data, 1):
                 cell = ws.cell(row=row, column=col, value=value)
-                cell.border = border
-                if col == 3:  # Date and Time column
-                    cell.number_format = 'YYYY-MM-DD HH:MM:SS'
-        
-        # Adjust column widths
+                cell.border = border        # Adjust column widths
         column_widths = [12, 25, 20, 15]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
@@ -618,7 +637,7 @@ def export_template(request):
             "Instructions:",
             "1. ID Number: Employee ID number (must match existing employee)",
             "2. Name: Employee full name (for reference only)",
-            "3. Date and Time: Format YYYY-MM-DD HH:MM:SS (e.g., 2024-01-15 09:00:00)",
+            "3. Date and Time: Format MM/DD/YYYY h:mmam/pm (e.g., 08/15/2025 9:00am or 08/15/2025 5:30pm)",
             "4. Entry: 'timein' or 'timeout' (case insensitive)",
             "",
             "Note: Remove sample data before importing your actual data."

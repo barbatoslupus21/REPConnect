@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
+    const searchInput = document.getElementById('userSearchInput');
     const statusFilter = document.getElementById('status-filter');
     const departmentFilter = document.getElementById('department-filter');
     const createEmployeeBtn = document.getElementById('create-employee-btn');
@@ -986,7 +986,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Global function for clearing search
     window.clearSearch = function() {
-        const searchInput = document.getElementById('searchInput');
+        const searchInput = document.getElementById('userSearchInput');
         if (searchInput) {
             searchInput.value = '';
             filterEmployees();

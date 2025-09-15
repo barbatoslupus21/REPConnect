@@ -173,7 +173,7 @@
 
 .employee-info {
     display: flex;
-    align-items: center;
+    align-items: center !important;
     gap: var(--space-md);
     flex: 1;
 }
@@ -189,7 +189,7 @@
 .employee-details h4 {
     margin: 0;
     color: var(--text-primary);
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .employee-details p {
@@ -376,28 +376,6 @@
     opacity: 0.3;
 }
 
-.pagination-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: var(--space-xl);
-    padding-top: var(--space-lg);
-    border-top: 1px solid var(--border-color);
-    flex-wrap: wrap;
-    gap: var(--space-md);
-}
-
-.pagination-info {
-    color: var(--text-muted);
-    font-size: var(--font-size-sm);
-}
-
-.pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-}
-
 .page-numbers {
     display: flex;
     gap: var(--space-xs);
@@ -405,26 +383,20 @@
 
 .page-number {
     padding: var(--space-xs) var(--space-sm);
-    border: 1px solid var(--border-color);
-    background: var(--surface);
+    border: none;
+    background: transparent;
     color: var(--text-primary);
     cursor: pointer;
-    border-radius: var(--radius-sm);
     transition: all var(--transition-normal);
     min-width: 32px;
     text-align: center;
     font-size: var(--font-size-sm);
 }
 
-.page-number:hover {
-    background: var(--surface-hover);
-    border-color: var(--primary-color);
-}
-
 .page-number.active {
-    background: var(--primary-color);
-    color: var(--text-inverse);
-    border-color: var(--primary-color);
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: var(--font-size-md);
 }
 
 .delete-confirmation {
@@ -549,24 +521,6 @@
 }
 
 /* Import Modal Styles */
-.import-actions-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--space-lg);
-    margin-bottom: var(--space-xl);
-    padding: var(--space-lg);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
-}
-
-.import-description {
-    flex: 1;
-    margin: 0;
-    color: var(--text-muted);
-    line-height: 1.5;
-}
 
 .selected-files {
     margin: var(--space-lg) 0;

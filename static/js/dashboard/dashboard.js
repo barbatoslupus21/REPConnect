@@ -5,6 +5,11 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeGreetingIconTransition();
 });
 
+// Guard to ensure reactions are initialized only once
+if (typeof window.__reactionsInitialized === 'undefined') {
+    window.__reactionsInitialized = false;
+}
+
 function initializeGreetingIconTransition() {
     const wavingIcon = document.getElementById('wavingIcon');
     const timeIcon = document.getElementById('timeIcon');
@@ -225,6 +230,10 @@ function submitPost() {
 
 // Reaction Functionality
 function initializeReactions() {
+    // Prevent double-binding of event listeners
+    if (window.__reactionsInitialized) return;
+    window.__reactionsInitialized = true;
+
     let currentPopover = null;
     
     // Initialize reactors display for all announcements on page load
@@ -276,27 +285,38 @@ function initializeReactions() {
             const btn = e.target.closest('.popover-reaction-btn');
             const emoji = btn.dataset.emoji;
             const announcementId = btn.dataset.announcement;
+            console.log('Popover reaction button clicked:', { emoji, announcementId, btn });
             handleReaction(emoji, announcementId);
         }
     });
 }
 
 async function handleReaction(emoji, announcementId) {
+    console.log('handleReaction called with:', { emoji, announcementId });
     try {
         const csrfToken = getCookie('csrftoken');
+        console.log('CSRF Token found:', csrfToken ? 'Yes' : 'No');
         
         if (!csrfToken) {
             throw new Error('CSRF token not found');
         }
+
+        const url = `/announcement/react/${announcementId}/`;
+        const body = `emoji=${encodeURIComponent(emoji)}`;
+        console.log('Making request to:', url);
+        console.log('Request body:', body);
         
-        const response = await fetch(`/announcement/react/${announcementId}/`, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrfToken,
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: `emoji=${encodeURIComponent(emoji)}`
+            body: body
         });
+        
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -305,20 +325,18 @@ async function handleReaction(emoji, announcementId) {
         }
         
         const data = await response.json();
+        console.log('Response data:', data);
         
         if (data.success) {
+            console.log('Reaction successful, updating UI...');
             updateReactionUI(announcementId, data);
             // Hide popover after selection
             const popover = document.getElementById(`popover-${announcementId}`);
             if (popover) {
                 popover.classList.remove('show');
+                currentPopover = null;
             }
-            showToast('Reaction updated successfully!', 'success');
-            
-            // Refresh the reactors display to show updated data
-            setTimeout(() => {
-                loadReactors(announcementId);
-            }, 100);
+            console.log('UI updated successfully');
         } else {
             throw new Error(data.error || 'Unknown error occurred');
         }
@@ -329,6 +347,7 @@ async function handleReaction(emoji, announcementId) {
 }
 
 function updateReactionUI(announcementId, data) {
+    console.log('updateReactionUI called with:', { announcementId, data });
     const card = document.querySelector(`.post-card[data-id="${announcementId}"]`);
     if (!card) {
         console.error('Post card not found for announcement:', announcementId);
@@ -338,10 +357,13 @@ function updateReactionUI(announcementId, data) {
     const mainBtn = card.querySelector('.main-reaction-btn');
     const reactorDisplay = card.querySelector(`#reactors-${announcementId}`);
     
+    console.log('Found elements:', { mainBtn: !!mainBtn, reactorDisplay: !!reactorDisplay });
+    
     // Update main reaction button icon
     const reactionIcon = mainBtn.querySelector('.reaction-icon');
+    console.log('Current reaction icon:', reactionIcon);
     if (data.user_reaction) {
-        // Find emoji for user's reaction
+        // Find emoji for user's reaction - must match AnnouncementReaction.EMOJI_CHOICES
         const emojiMap = {
             'like': '👍',
             'love': '❤️', 
@@ -350,12 +372,16 @@ function updateReactionUI(announcementId, data) {
             'sad': '😢',
             'angry': '😠'
         };
-        reactionIcon.outerHTML = `<span class="reaction-icon active" data-emoji="${data.user_reaction}">${emojiMap[data.user_reaction] || '👍'}</span>`;
+        const newIcon = `<span class="reaction-icon active">${emojiMap[data.user_reaction] || '👍'}</span>`;
+        console.log('Setting reaction icon to:', newIcon);
+        reactionIcon.outerHTML = newIcon;
     } else {
+        console.log('Removing reaction icon');
         reactionIcon.outerHTML = `<i class="fas fa-thumbs-up reaction-icon"></i>`;
     }
     
     // Update reactors display
+    console.log('Updating reactors display with:', { total_reactions: data.total_reactions, reactors_count: data.reactors?.length });
     if (data.total_reactions > 0 && data.reactors && data.reactors.length > 0) {
         // Ensure the reactors display container exists
         if (!reactorDisplay.querySelector('.reactor-avatars')) {
@@ -486,7 +512,7 @@ function updateReactorsTooltip(announcementId, reactors) {
                 'wow': '😮',
                 'sad': '😢',
                 'angry': '😠'
-                };
+            };
             
             reactorDiv.innerHTML = `
                 <span class="emoji">${emojiMap[reactor.reaction] || '👍'}</span>
@@ -500,30 +526,9 @@ function updateReactorsTooltip(announcementId, reactors) {
     }
 }
 
-// Tooltip event handlers
-document.addEventListener('mouseenter', function(e) {
-    if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
-        const tooltipId = e.target.dataset.tooltipId;
-        const tooltip = document.getElementById(tooltipId);
-        if (tooltip) {
-            setTimeout(() => {
-                tooltip.classList.add('show');
-            }, 100);
-        }
-    }
-}, true);
+// Tooltip behavior: only show when hovering reactor-text, hide otherwise
+let tooltipHoverTimeout = null;
 
-document.addEventListener('mouseleave', function(e) {
-    if (e.target && e.target.classList && e.target.classList.contains('remaining-count')) {
-        const tooltipId = e.target.dataset.tooltipId;
-        const tooltip = document.getElementById(tooltipId);
-        if (tooltip) {
-            tooltip.classList.remove('show');
-        }
-    }
-}, true);
-
-// Also handle hover on the entire reactor text area
 document.addEventListener('mouseenter', function(e) {
     if (e.target && e.target.classList && e.target.classList.contains('reactor-text')) {
         const remainingCount = e.target.querySelector('.remaining-count');
@@ -531,7 +536,8 @@ document.addEventListener('mouseenter', function(e) {
             const tooltipId = remainingCount.dataset.tooltipId;
             const tooltip = document.getElementById(tooltipId);
             if (tooltip) {
-                setTimeout(() => {
+                if (tooltipHoverTimeout) clearTimeout(tooltipHoverTimeout);
+                tooltipHoverTimeout = setTimeout(() => {
                     tooltip.classList.add('show');
                 }, 100);
             }
@@ -546,6 +552,10 @@ document.addEventListener('mouseleave', function(e) {
             const tooltipId = remainingCount.dataset.tooltipId;
             const tooltip = document.getElementById(tooltipId);
             if (tooltip) {
+                if (tooltipHoverTimeout) {
+                    clearTimeout(tooltipHoverTimeout);
+                    tooltipHoverTimeout = null;
+                }
                 tooltip.classList.remove('show');
             }
         }
@@ -697,14 +707,8 @@ function initializeProfileCompletion() {
     }
 }
 
-// Initialize everything when DOM is loaded
+// Initialize ancillary UI on DOM ready (without re-initializing reactions twice)
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize reactions
-    initializeReactions();
-    
-    // Initialize profile completion
-    initializeProfileCompletion();
-    
     // Load reactors for existing announcements
     document.querySelectorAll('.post-card').forEach(card => {
         const announcementId = card.dataset.id;
@@ -712,7 +716,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadReactors(announcementId);
         }
     });
-    
+
     // Update relative times
     function updateRelativeTimes() {
         document.querySelectorAll('[data-time]').forEach(element => {
@@ -720,7 +724,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const postTime = new Date(timeStr);
             const now = new Date();
             const diffInSeconds = Math.floor((now - postTime) / 1000);
-            
+
             let relativeTime;
             if (diffInSeconds < 60) {
                 relativeTime = 'Just now';
@@ -734,11 +738,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const days = Math.floor(diffInSeconds / 86400);
                 relativeTime = `${days} day${days > 1 ? 's' : ''} ago`;
             }
-            
+
             element.textContent = relativeTime;
         });
     }
-    
+
     updateRelativeTimes();
     setInterval(updateRelativeTimes, 60000);
 });

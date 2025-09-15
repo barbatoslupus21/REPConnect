@@ -384,15 +384,23 @@ class EmployeePortalUI {
         if (userProfile && dropdownMenu) {
             userProfile.addEventListener('click', (e) => {
                 e.stopPropagation();
-                dropdownMenu.classList.toggle('active');
-                
-                this.positionDropdown();
-                
-                if (dropdownMenu.classList.contains('active')) {
-                    dropdownMenu.style.animation = 'none';
-                    setTimeout(() => {
-                        dropdownMenu.style.animation = 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
-                    }, 10);
+                const isOpening = !dropdownMenu.classList.contains('active');
+
+                if (isOpening) {
+                    // Open: activate first so layout has real size, then position next frame
+                    dropdownMenu.classList.add('active');
+                    // Avoid transform conflicts on first paint
+                    dropdownMenu.style.animation = '';
+                    dropdownMenu.style.transform = 'none';
+                    // Position after activation to ensure correct measurements
+                    requestAnimationFrame(() => {
+                        this.positionDropdown();
+                    });
+                } else {
+                    // Close and reset any inline overrides
+                    dropdownMenu.classList.remove('active');
+                    dropdownMenu.style.transform = '';
+                    dropdownMenu.style.animation = '';
                 }
             });
 

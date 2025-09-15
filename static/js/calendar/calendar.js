@@ -1,7 +1,11 @@
 class CalendarManager {
     constructor(year, month, holidays, today) {
-        this.currentYear = parseInt(year) || new Date().getFullYear();
-        this.currentMonth = parseInt(month) || (new Date().getMonth() + 1);
+        // Check for stored calendar state first
+        const storedMonth = localStorage.getItem('calendar_last_viewed_month');
+        const storedYear = localStorage.getItem('calendar_last_viewed_year');
+        
+        this.currentYear = parseInt(storedYear) || parseInt(year) || new Date().getFullYear();
+        this.currentMonth = parseInt(storedMonth) || parseInt(month) || (new Date().getMonth() + 1);
         this.holidays = holidays || {};
         this.today = today || this.getTodayString();
         this.selectedDate = this.today;
@@ -14,6 +18,19 @@ class CalendarManager {
         this.validateCurrentDate();
         this.tooltip = document.getElementById('holidayTooltip');
         this.setupEventListeners();
+        
+        // If we have a stored month/year different from URL, navigate to it
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlYear = parseInt(urlParams.get('year'));
+        const urlMonth = parseInt(urlParams.get('month'));
+        
+        if ((this.currentYear !== urlYear || this.currentMonth !== urlMonth) && 
+            (this.currentYear !== new Date().getFullYear() || this.currentMonth !== (new Date().getMonth() + 1))) {
+            // Navigate to the stored month/year to update the calendar view
+            this.navigateToMonth(this.currentYear, this.currentMonth);
+            return; // navigateToMonth will reload the page with correct parameters
+        }
+        
         this.renderHolidays();
         this.markToday();
         this.restoreTimelogStatus();
@@ -22,8 +39,16 @@ class CalendarManager {
             await this.refreshTimelogIndicators();
         }, 100);
         await this.selectDate(this.getInitialSelectedDate(), true);
-        this.setupTabs();
+        
+        // Setup tabs with a small delay to ensure DOM is ready
+        setTimeout(() => {
+            this.setupTabs();
+        }, 100);
+        
         this.updateCalendarHeader();
+        
+        // Show success message if there's one stored from a refresh
+        this.showStoredSuccessMessage();
     }
 
     validateCurrentDate() {
@@ -48,9 +73,12 @@ class CalendarManager {
             const dateObj = new Date(storedDate);
             const dateYear = dateObj.getFullYear();
             const dateMonth = dateObj.getMonth() + 1;
+            // If the stored date matches the current calendar view (month/year), use it
             if (dateYear === this.currentYear && dateMonth === this.currentMonth) {
                 return storedDate;
             }
+            // If not in current view, still use it but calendar will show the right month/year
+            return storedDate;
         }
         return this.today;
     }
@@ -68,6 +96,25 @@ class CalendarManager {
         const headerElement = document.querySelector('.calendar-header h2, .month-year-display');
         if (headerElement) {
             headerElement.textContent = `${monthNames[this.currentMonth - 1]} ${this.currentYear}`;
+        }
+    }
+
+    showStoredSuccessMessage() {
+        const successMessage = localStorage.getItem('calendar_success_message');
+        if (successMessage) {
+            // Remove the stored message
+            localStorage.removeItem('calendar_success_message');
+            
+            // Show the success message using available toast system
+            setTimeout(() => {
+                if (window.portalUI && window.portalUI.showNotification) {
+                    window.portalUI.showNotification(successMessage, 'success');
+                } else if (window.showToast) {
+                    window.showToast('success', successMessage);
+                } else {
+                    showCalendarToast(successMessage, 'success');
+                }
+            }, 500); // Small delay to ensure UI is ready
         }
     }
 
@@ -138,14 +185,30 @@ class CalendarManager {
     }
 
     setupTabs() {
+        // Add debugging
+        console.log('Setting up tabs...');
+        
         const tabs = document.querySelectorAll('.tab');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
+        console.log('Found tabs:', tabs.length);
+        
+        tabs.forEach((tab, index) => {
+            console.log(`Tab ${index}:`, tab.dataset.target);
+            
+            // Remove any existing listeners to prevent duplicates
+            tab.removeEventListener('click', tab._tabClickHandler);
+            
+            // Create and store the click handler
+            tab._tabClickHandler = () => {
+                console.log('Tab clicked:', tab.dataset.target);
                 this.switchTab(tab.dataset.target, tab);
                 this.renderSidebarActions(tab.dataset.target);
-            });
+            };
+            
+            tab.addEventListener('click', tab._tabClickHandler);
         });
+        
         const activeTab = document.querySelector('.tab.active');
+        console.log('Active tab:', activeTab ? activeTab.dataset.target : 'none');
         this.renderSidebarActions(activeTab ? activeTab.dataset.target : 'events-panel');
     }
 
@@ -194,16 +257,23 @@ class CalendarManager {
     }
 
     switchTab(targetPanel, activeTab) {
+        console.log('Switching to tab:', targetPanel);
+        
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         activeTab.classList.add('active');
+        
         document.querySelectorAll('.tab-panel').forEach(panel => {
             panel.classList.remove('active');
         });
+        
         const targetPanelEl = document.getElementById(targetPanel);
         if (targetPanelEl) {
             targetPanelEl.classList.add('active');
-            // No need to load panel content here, it's loaded on date selection
+            console.log('Panel switched to:', targetPanel);
+        } else {
+            console.error('Target panel not found:', targetPanel);
         }
+        
         this.renderSidebarActions(targetPanel);
     }
 
@@ -1123,31 +1193,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Backend redirects on success, so any 200-level response means success
                 if (response.ok) {
-                    // Show success message using global toast system
-                    if (window.portalUI && window.portalUI.showNotification) {
-                        window.portalUI.showNotification('Event updated successfully!', 'success');
-                    } else if (window.showToast) {
-                        window.showToast('success', 'Event updated successfully!');
-                    } else {
-                        // Create a simple toast
-                        showCalendarToast('Event updated successfully!', 'success');
-                    }
-                    
-                    // Close the modal
-                    if (window.closeModal) {
-                        window.closeModal('editEventModal');
-                    } else {
-                        const modal = document.getElementById('editEventModal');
-                        if (modal) {
-                            modal.style.display = 'none';
-                            modal.classList.remove('open');
-                        }
-                    }
-                    
-                    // Refresh the events panel to show updated event
+                    // Save current calendar state before refresh
                     if (window.calendarManager) {
-                        await window.calendarManager.selectDate(window.calendarManager.selectedDate);
+                        localStorage.setItem('calendar_last_viewed_date', window.calendarManager.selectedDate);
+                        localStorage.setItem('calendar_last_viewed_month', window.calendarManager.currentMonth);
+                        localStorage.setItem('calendar_last_viewed_year', window.calendarManager.currentYear);
                     }
+                    
+                    // Set success message in localStorage to show after refresh
+                    localStorage.setItem('calendar_success_message', 'Event updated successfully!');
+                    
+                    // Refresh the page to ensure all data is up-to-date
+                    window.location.reload();
                 } else {
                     throw new Error('Server returned an error');
                 }
@@ -1204,30 +1261,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Backend redirects on success, so any 200-level response means success
                 if (response.ok) {
-                    // Show success message using global toast system
-                    if (window.portalUI && window.portalUI.showNotification) {
-                        window.portalUI.showNotification('Event deleted successfully!', 'success');
-                    } else if (window.showToast) {
-                        window.showToast('success', 'Event deleted successfully!');
-                    } else {
-                        showCalendarToast('Event deleted successfully!', 'success');
-                    }
-                    
-                    // Close the modal
-                    if (window.closeModal) {
-                        window.closeModal('deleteEventModal');
-                    } else {
-                        const modal = document.getElementById('deleteEventModal');
-                        if (modal) {
-                            modal.style.display = 'none';
-                            modal.classList.remove('open');
-                        }
-                    }
-                    
-                    // Refresh the events panel to show updated event list
+                    // Save current calendar state before refresh
                     if (window.calendarManager) {
-                        await window.calendarManager.selectDate(window.calendarManager.selectedDate);
+                        localStorage.setItem('calendar_last_viewed_date', window.calendarManager.selectedDate);
+                        localStorage.setItem('calendar_last_viewed_month', window.calendarManager.currentMonth);
+                        localStorage.setItem('calendar_last_viewed_year', window.calendarManager.currentYear);
                     }
+                    
+                    // Set success message in localStorage to show after refresh
+                    localStorage.setItem('calendar_success_message', 'Event deleted successfully!');
+                    
+                    // Refresh the page to ensure all data is up-to-date
+                    window.location.reload();
                 } else {
                     throw new Error('Server returned an error');
                 }
@@ -1296,14 +1341,17 @@ async function initializeCalendar(year, month, holidays, today) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    (async () => {
+    // Wait a bit more to ensure all DOM elements are ready
+    setTimeout(async () => {
+        console.log('Initializing calendar...');
         await initializeCalendar(
             window.CALENDAR_DEFAULT_YEAR,
             window.CALENDAR_DEFAULT_MONTH,
             window.CALENDAR_HOLIDAYS,
             window.CALENDAR_DEFAULT_TODAY
         );
-    })();
+        console.log('Calendar initialized successfully');
+    }, 50);
 });
 
 function openModal(modalId) {

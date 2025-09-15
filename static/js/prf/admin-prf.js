@@ -16,7 +16,6 @@ class AdminPRFDashboard {
     init() {
         this.initChart();
         this.setupEventListeners();
-        this.setupSearch();
         this.setupAnimations();
         this.initFilterSlider();
         this.initializeCurrentState();
@@ -125,15 +124,36 @@ class AdminPRFDashboard {
             // Update table body
             tableBody.innerHTML = data.table_data.map(prf => this.createTableRow(prf)).join('');
         } else {
-            // Show no data message
-            const searchText = data.search ? `No results found for "${data.search}". Try adjusting your search terms.` : 'No PRF requests match your current filters.';
+            // Show contextual no data message
+            let emptyStateIcon = 'fas fa-search';
+            let emptyStateTitle = 'No PRF Requests Found';
+            let emptyStateMessage = '';
+            
+            if (data.search && data.search.trim() !== '') {
+                emptyStateIcon = 'fas fa-search';
+                emptyStateTitle = 'No Search Results';
+                emptyStateMessage = `No PRF requests found matching "<strong>${data.search}</strong>". Try adjusting your search terms or check spelling.`;
+            } else if (Object.keys(this.currentFilters).length > 0) {
+                emptyStateIcon = 'fas fa-filter';
+                emptyStateTitle = 'No Filtered Results';
+                emptyStateMessage = 'No PRF requests match your current filters. Try adjusting or clearing the filters.';
+            } else {
+                emptyStateIcon = 'fas fa-calendar-alt';
+                emptyStateTitle = 'No PRF Requests';
+                emptyStateMessage = 'There are no PRF requests in the system yet. Requests will appear here once submitted by employees.';
+            }
+            
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center">
+                    <td colspan="8" class="text-center">
                         <div class="empty-state">
-                            <i class="fas fa-calendar-alt"></i>
-                            <h5>No PRF Requests Found</h5>
-                            <p>${searchText}</p>
+                            <i class="${emptyStateIcon}"></i>
+                            <h5>${emptyStateTitle}</h5>
+                            <p>${emptyStateMessage}</p>
+                            ${data.search || Object.keys(this.currentFilters).length > 0 ? 
+                                '<button class="btn btn-outline btn-sm" onclick="window.adminDashboard.clearFilters()">Clear All Filters</button>' : 
+                                ''
+                            }
                         </div>
                     </td>
                 </tr>
@@ -545,13 +565,73 @@ class AdminPRFDashboard {
         });
 
         const searchInput = document.getElementById('searchInput');
+        const searchForm = document.querySelector('.search-box');
+        
+        // Prevent form submission
+        if (searchForm) {
+            searchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (searchInput) {
+                    this.performSearch(searchInput.value);
+                }
+            });
+        }
+        
         if (searchInput) {
             let searchTimeout;
+            
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
+                
+                // Add visual feedback during search
+                const searchIcon = document.querySelector('.search-icon');
+                if (searchIcon) {
+                    searchIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                }
+                
                 searchTimeout = setTimeout(() => {
                     this.performSearch(e.target.value);
-                }, 500);
+                    
+                    // Reset search icon
+                    if (searchIcon) {
+                        searchIcon.innerHTML = '<i class="fas fa-search"></i>';
+                    }
+                }, 300);
+            });
+
+            // Keep the keypress handler for immediate search on Enter
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(searchTimeout); // Cancel any pending debounced search
+                    const query = e.target.value.trim();
+                    this.performSearch(query);
+                }
+            });
+        }
+
+        const searchClear = document.querySelector('.search-clear');
+        if (searchClear) {
+            searchClear.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    
+                    // Add visual feedback
+                    const searchIcon = document.querySelector('.search-icon');
+                    if (searchIcon) {
+                        searchIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    }
+                    
+                    this.performSearch('');
+                    searchInput.focus();
+                    
+                    // Reset search icon after a short delay
+                    setTimeout(() => {
+                        if (searchIcon) {
+                            searchIcon.innerHTML = '<i class="fas fa-search"></i>';
+                        }
+                    }, 200);
+                }
             });
         }
 
@@ -609,56 +689,6 @@ class AdminPRFDashboard {
             });
             
             fieldSelect.dispatchEvent(new Event('change'));
-        }
-    }
-
-    setupSearch() {
-        const searchInput = document.getElementById('searchInput');
-        const searchClear = document.querySelector('.search-clear');
-        const searchForm = document.querySelector('.search-box');
-
-        if (searchForm) {
-            searchForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                if (searchInput) {
-                    const query = searchInput.value.trim();
-                    this.performSearch(query);
-                }
-            });
-        }
-
-        if (searchInput) {
-            let searchTimeout;
-
-            searchInput.addEventListener('input', (e) => {
-                const query = e.target.value.trim();
-
-                clearTimeout(searchTimeout);
-
-                if (query.length === 0) {
-                    searchTimeout = setTimeout(() => {
-                        this.performSearch('');
-                    }, 300);
-                }
-            });
-
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const query = e.target.value.trim();
-                    this.performSearch(query);
-                }
-            });
-        }
-
-        if (searchClear) {
-            searchClear.addEventListener('click', () => {
-                if (searchInput) {
-                    searchInput.value = '';
-                    this.performSearch('');
-                    searchInput.focus();
-                }
-            });
         }
     }
 

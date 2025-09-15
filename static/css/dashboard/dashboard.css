@@ -146,7 +146,7 @@
 .announcements-section {
     overflow: hidden;
     /* limit announcements section height and allow internal scrolling */
-    max-height: calc(100vh - 240px);
+    height: 100%;
     overflow-y: auto;
 }
 
@@ -186,6 +186,7 @@
     overflow-y: auto;
     padding: 0;
     background-color: var(--bg-secondary);
+    border-radius: var(--radius-lg);
 }
 
 .announcements-feed .post-card:last-child {

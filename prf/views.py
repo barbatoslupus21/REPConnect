@@ -274,8 +274,14 @@ def admin_dashboard(request):
     if search:
         prfs = prfs.filter(
             Q(employee__username__icontains=search) |
+            Q(employee__firstname__icontains=search) |
+            Q(employee__lastname__icontains=search) |
+            Q(employee__idnumber__icontains=search) |
             Q(prf_type__icontains=search) |
-            Q(purpose__icontains=search)
+            Q(prf_control_number__icontains=search) |
+            Q(control_number__icontains=search) |
+            Q(purpose__icontains=search) |
+            Q(status__icontains=search)
         )
 
     filter_form = PRFFilterForm(request.GET)
@@ -372,8 +378,14 @@ def get_table_data_ajax(request):
     if search:
         prfs = prfs.filter(
             Q(employee__username__icontains=search) |
+            Q(employee__firstname__icontains=search) |
+            Q(employee__lastname__icontains=search) |
+            Q(employee__idnumber__icontains=search) |
             Q(prf_type__icontains=search) |
-            Q(purpose__icontains=search)
+            Q(prf_control_number__icontains=search) |
+            Q(control_number__icontains=search) |
+            Q(purpose__icontains=search) |
+            Q(status__icontains=search)
         )
 
     # Apply form filters

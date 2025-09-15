@@ -108,175 +108,175 @@
                     </div>
                 </div>
 
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="prfChart"></canvas>
-                    </div>
+                <div class="chart-container">
+                    <canvas id="prfChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <div class="table-actions table-actions-bar">
-                <div class="table-actions-left">
-                    <form class="search-box">
-                        <input type="text" class="search-input" id="searchInput" placeholder="Search..." name="search" value="{{ search }}" />
-                        <span class="search-icon"><i class="fas fa-search"></i></span>
-                        {% if search %}
-                        <span class="search-clear" onclick="clearSearch()">
-                            <i class="fas fa-times"></i>
-                        </span>
-                        {% endif %}
-                    </form>
-                </div>
-                <div class="table-actions-right" style="position:relative;">
-                    <button id="bulkDeleteBtn" class="btn btn-error btn-sm" style="display:none;" onclick="confirmBulkDelete()">
-                        <i class="fas fa-trash"></i>
-                        Delete
-                    </button>
-                    <button id="filterBtn" class="btn btn-action" type="button" onclick="toggleFilterPopover()">
-                        <i class="fas fa-filter"></i> Filter
-                    </button>
-                    <div id="filterPopover" class="filter-popover">
-                        <form class="filter-popover-content" onsubmit="applyFilter(event)">
-                            <select class="filter-field-select">
-                                <option value="prf_type">PRF Type</option>
-                                <option value="category">Category</option>
-                                <option value="status" selected>Status</option>
-                            </select>
-                            <div class="filter-condition-group" id="filterConditionGroup">
-                                <label><input type="radio" name="filter_condition" value="is" checked> is</label>
-                                <label><input type="radio" name="filter_condition" value="is_not"> is not</label>
-                                <label><input type="radio" name="filter_condition" value="contains"> contains</label>
-                                <label><input type="radio" name="filter_condition" value="any"> has any value</label>
-                            </div>
-                            <input type="text" class="filter-value-input" placeholder="Value..." id="filterValueInput" />
-                            <div class="filter-popover-actions">
-                                <button type="button" class="btn btn-outline btn-sm" onclick="toggleFilterPopover()">Cancel</button>
-                                <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
-                            </div>
+        <div class="overlay-two-column">
+            <div class="table-actions table-actions-bar">
+                    <div class="table-actions-left">
+                        <form class="search-box" onsubmit="event.preventDefault();">
+                            <input type="text" class="search-input" id="searchInput" placeholder="Search by employee name, ID, PRF type, control number, or status..." name="search" value="{{ search }}" />
+                            <span class="search-icon"><i class="fas fa-search"></i></span>
+                            {% if search %}
+                            <span class="search-clear" onclick="clearSearch()">
+                                <i class="fas fa-times"></i>
+                            </span>
+                            {% endif %}
                         </form>
                     </div>
-                    <button class="btn btn-action" onclick="openModal('exportModal')">
-                        <i class="fas fa-download"></i>
-                        Export
-                    </button>
-                    <button class="tour-btn" onclick="startProductTour()">
-                        <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
-                        <span class="tour-tooltip">Page Tour</span>
-                    </button>
-                </div>
-        </div>
-
-        <div class="common-table-container" id="tableContainer">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>
-                                <label class="standard-checkbox">
-                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
-                                    <span class="checkmark"></span>
-                                </label>
-                            </th>
-                            <th>Control Number</th>
-                            <th>Employee</th>
-                            <th>PRF Type</th>
-                            <th>Purpose</th>
-                            <th style="text-align: center;">Status</th>
-                            <th>Created At</th>
-                            <th style="text-align: center;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        {% for prf in prfs %}
-                        <tr>
-                            <td>
-                                <label class="standard-checkbox">
-                                    <input type="checkbox" class="row-checkbox" value="{{ prf.id }}" onchange="updateBulkDeleteButton()">
-                                    <span class="checkmark"></span>
-                                </label>
-                            </td>
-                            <td>{{ prf.prf_control_number }}</td>
-                            <td>
-                                <div class="employee-info">
-                                    <strong>{{ prf.employee.username }}</strong>
-                                    <small>{{ prf.employee.firstname }} {{ prf.employee.lastname }}</small>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="prf-type-info">
-                                    <strong>{{ prf.get_prf_type_display }}</strong>
-                                    <small>{{ prf.get_prf_category_display }}</small>
-                                </div>
-                            </td>
-                            <td>{{ prf.purpose|truncatechars:50 }}</td>
-                            <td style="text-align: center;">
-                                <span class="status-pill status-{% if prf.status == 'approved' %}green{% elif prf.status == 'disapproved' %}red {% elif prf.status == 'cancelled' %}gray{% else %}yellow{% endif %}">
-                                    {{ prf.get_status_display }}
-                                </span>
-                            </td>
-                            <td>{{ prf.created_at|date:"M d, Y" }}</td>
-                            <td style="text-align: center;">
-                                {% if prf.status == 'pending' %}
-                                    <button class="btn btn-primary btn-sm" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
-                                        <i class="fa fa-check"></i>
-                                        Review
-                                    </button>
-                                {% else %}
-                                    <button class="btn btn-icon" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
-                                        <i class="fa fa-eye"></i>
-                                    </button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center">
-                                <div class="empty-state">
-                                    <i class="fas fa-calendar-alt"></i>
-                                    <h5>No PRF Requests Found</h5>
-                                    <p>No PRF requests match your current filters.</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-        </div>
-
-        <div class="pagination" id="paginationContainer">
-                <div class="pagination-info">
-                    Showing <span id="startRecord">{{ page_obj.start_index }}</span> to <span id="endRecord">{{ page_obj.end_index }}</span> of <span id="totalRecords">{{ page_obj.paginator.count }}</span> entries
-                </div>
-                <div class="pagination-controls" id="paginationControls">
-                    {% if page_obj.has_previous %}
-                        <button class="pagination-btn" id="prevPage" onclick="loadPage({{ page_obj.previous_page_number }})">
-                            <i class="fas fa-chevron-left"></i>
+                    <div class="table-actions-right" style="position:relative;">
+                        <button id="bulkDeleteBtn" class="btn btn-error btn-sm" style="display:none;" onclick="confirmBulkDelete()">
+                            <i class="fas fa-trash"></i>
+                            Delete
                         </button>
-                    {% else %}
-                        <button class="pagination-btn" id="prevPage" disabled>
-                            <i class="fas fa-chevron-left"></i>
+                        <button id="filterBtn" class="btn btn-action" type="button" onclick="toggleFilterPopover()">
+                            <i class="fas fa-filter"></i> Filter
                         </button>
-                    {% endif %}
-                    <div id="pageNumbers">
-                        {% for num in page_obj.paginator.page_range %}
-                            {% if page_obj.number == num %}
-                                <span class="pagination-btn active">{{ num }}</span>
-                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                <button class="pagination-btn" onclick="loadPage({{ num }})">{{ num }}</button>
-                            {% endif %}
-                        {% endfor %}
+                        <div id="filterPopover" class="filter-popover">
+                            <form class="filter-popover-content" onsubmit="applyFilter(event)">
+                                <select class="filter-field-select">
+                                    <option value="prf_type">PRF Type</option>
+                                    <option value="category">Category</option>
+                                    <option value="status" selected>Status</option>
+                                </select>
+                                <div class="filter-condition-group" id="filterConditionGroup">
+                                    <label><input type="radio" name="filter_condition" value="is" checked> is</label>
+                                    <label><input type="radio" name="filter_condition" value="is_not"> is not</label>
+                                    <label><input type="radio" name="filter_condition" value="contains"> contains</label>
+                                    <label><input type="radio" name="filter_condition" value="any"> has any value</label>
+                                </div>
+                                <input type="text" class="filter-value-input" placeholder="Value..." id="filterValueInput" />
+                                <div class="filter-popover-actions">
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="toggleFilterPopover()">Cancel</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+                                </div>
+                            </form>
+                        </div>
+                        <button class="btn btn-action" onclick="openModal('exportModal')">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                        <button class="tour-btn" onclick="startProductTour()">
+                            <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
+                            <span class="tour-tooltip">Page Tour</span>
+                        </button>
                     </div>
-                    {% if page_obj.has_next %}
-                        <button class="pagination-btn" id="nextPage" onclick="loadPage({{ page_obj.next_page_number }})">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    {% else %}
-                        <button class="pagination-btn" id="nextPage" disabled>
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    {% endif %}
-                </div>
-        </div> 
+            </div>
+
+            <div class="common-table-container" id="tableContainer">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <label class="standard-checkbox">
+                                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                                        <span class="checkmark"></span>
+                                    </label>
+                                </th>
+                                <th>Control Number</th>
+                                <th>Employee</th>
+                                <th>PRF Type</th>
+                                <th>Purpose</th>
+                                <th style="text-align: center;">Status</th>
+                                <th>Created At</th>
+                                <th style="text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            {% for prf in prfs %}
+                            <tr>
+                                <td>
+                                    <label class="standard-checkbox">
+                                        <input type="checkbox" class="row-checkbox" value="{{ prf.id }}" onchange="updateBulkDeleteButton()">
+                                        <span class="checkmark"></span>
+                                    </label>
+                                </td>
+                                <td>{{ prf.prf_control_number }}</td>
+                                <td>
+                                    <div class="employee-info">
+                                        <strong>{{ prf.employee.firstname }} {{ prf.employee.lastname }}</strong>
+                                        <small>{{ prf.employee.idnumber }}</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="prf-type-info">
+                                        <strong>{{ prf.get_prf_type_display }}</strong>
+                                        <small>{{ prf.get_prf_category_display }}</small>
+                                    </div>
+                                </td>
+                                <td>{{ prf.purpose|truncatechars:50 }}</td>
+                                <td style="text-align: center;">
+                                    <span class="status-pill status-{% if prf.status == 'approved' %}green{% elif prf.status == 'disapproved' %}red {% elif prf.status == 'cancelled' %}gray{% else %}yellow{% endif %}">
+                                        {{ prf.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ prf.created_at|date:"M d, Y" }}</td>
+                                <td style="text-align: center;">
+                                    {% if prf.status == 'pending' %}
+                                        <button class="btn btn-primary btn-sm" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
+                                            <i class="fa fa-check"></i>
+                                            Review
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-icon" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">
+                                            <i class="fa fa-eye"></i>
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center">
+                                    <div class="empty-state">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <h5>No PRF Requests Found</h5>
+                                        <p>No PRF requests match your current filters.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+            </div>
+
+            <div class="pagination" id="paginationContainer">
+                    <div class="pagination-info">
+                        Showing <span id="startRecord">{{ page_obj.start_index }}</span> to <span id="endRecord">{{ page_obj.end_index }}</span> of <span id="totalRecords">{{ page_obj.paginator.count }}</span> entries
+                    </div>
+                    <div class="pagination-controls" id="paginationControls">
+                        {% if page_obj.has_previous %}
+                            <button class="pagination-btn" id="prevPage" onclick="loadPage({{ page_obj.previous_page_number }})">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                        {% else %}
+                            <button class="pagination-btn" id="prevPage" disabled>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                        {% endif %}
+                        <div id="pageNumbers">
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <span class="pagination-btn active">{{ num }}</span>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <button class="pagination-btn" onclick="loadPage({{ num }})">{{ num }}</button>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% if page_obj.has_next %}
+                            <button class="pagination-btn" id="nextPage" onclick="loadPage({{ page_obj.next_page_number }})">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        {% else %}
+                            <button class="pagination-btn" id="nextPage" disabled>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+            </div> 
+        </div>
     </div>
 
     <div id="filterModal" class="modal modal-md">

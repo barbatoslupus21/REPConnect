@@ -50,7 +50,7 @@ class AnnouncementReaction(models.Model):
     
     announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name='reactions')
     user = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='announcement_reactions')
-    emoji = models.CharField(max_length=10, choices=EMOJI_CHOICES)
+    emoji = models.CharField(max_length=10, choices=EMOJI_CHOICES, default='like')
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

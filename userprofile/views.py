@@ -904,7 +904,6 @@ logger = logging.getLogger(__name__)
 
 @login_required(login_url="user-login")
 def import_employees(request):
-    """Handle employee import file upload and initiate processing"""
     if not request.user.hr_admin:
         return JsonResponse({'success': False, 'message': 'Access denied'})
 
@@ -917,11 +916,9 @@ def import_employees(request):
     try:
         uploaded_file = request.FILES['files']
 
-        # Validate file type
         if not uploaded_file.name.endswith(('.xlsx', '.xls')):
             return JsonResponse({'success': False, 'message': 'Invalid file format. Please upload Excel files only.'})
 
-        # Read Excel file
         try:
             df = pd.read_excel(uploaded_file)
             logger.info(f"Excel file read successfully. Shape: {df.shape}")
@@ -930,7 +927,6 @@ def import_employees(request):
             logger.error(f"Error reading Excel file: {str(e)}")
             return JsonResponse({'success': False, 'message': f'Error reading Excel file: {str(e)}'})
 
-        # Clean column names (remove extra spaces, convert to lowercase)
         df.columns = df.columns.str.strip().str.lower()
         
         # Map column names to expected format
@@ -951,12 +947,10 @@ def import_employees(request):
             'bank account': 'bank_account'
         }
         
-        # Map column names to expected format
         df.columns = df.columns.map(lambda x: column_mapping.get(x, x))
         
         logger.info(f"Column mapping completed. Final columns: {list(df.columns)}")
 
-        # Validate required columns
         required_columns = ['idnumber', 'firstname', 'lastname', 'email']
         missing_columns = [col for col in required_columns if col not in df.columns]
 
@@ -967,7 +961,6 @@ def import_employees(request):
                 'message': f'Missing required columns: {", ".join(missing_columns)}. Found columns: {", ".join(df.columns)}'
             })
 
-        # Remove empty rows
         df = df.dropna(subset=required_columns, how='all')
         logger.info(f"After removing empty rows: {len(df)} rows remaining")
 
@@ -975,10 +968,8 @@ def import_employees(request):
             logger.error("No valid data rows found after removing empty rows")
             return JsonResponse({'success': False, 'message': 'No valid data rows found in the Excel file'})
 
-        # Generate unique import ID
         import_id = str(uuid.uuid4())
 
-        # Store import data in cache
         import_data = {
             'data': df.to_dict('records'),
             'total_rows': len(df),
@@ -992,9 +983,8 @@ def import_employees(request):
         }
 
         logger.info(f"Storing import data in cache with ID: {import_id}")
-        cache.set(f'import_{import_id}', import_data, timeout=3600)  # 1 hour timeout
+        cache.set(f'import_{import_id}', import_data, timeout=3600) 
 
-        # Start background processing
         logger.info(f"Starting background thread for import ID: {import_id}")
         thread = threading.Thread(target=process_employee_import, args=(import_id,))
         thread.daemon = True
@@ -1045,7 +1035,6 @@ def import_progress(request, import_id):
     return JsonResponse(response_data)
 
 def process_employee_import(import_id):
-    """Background process to import employees"""
     try:
         logger.info(f"Starting background import process for ID: {import_id}")
         import_data = cache.get(f'import_{import_id}')
@@ -1061,12 +1050,10 @@ def process_employee_import(import_id):
         data_rows = import_data['data']
         total_rows = len(data_rows)
 
-        # Get valid choices for validation
         departments = {dept.department_name.lower(): dept for dept in Department.objects.all()}
         positions = {pos.position.lower(): pos for pos in Position.objects.all()}
         lines = {line.line_name.lower(): line for line in Line.objects.all()}
 
-        # Get actual employment type choices from the model
         employment_type_choices = EmploymentInformation.EMPLOYMENT_TYPE_CHOICES
         valid_employment_types = {choice[0].lower(): choice[0] for choice in employment_type_choices}
 
@@ -1080,19 +1067,16 @@ def process_employee_import(import_id):
 
         for index, row in enumerate(data_rows):
             try:
-                # Simulate processing delay for demonstration
                 time.sleep(0.1)
 
                 logger.info(f"Processing row {index + 1}/{total_rows}: {row.get('firstname', 'N/A')} {row.get('lastname', 'N/A')}")
 
-                # Validate required fields
                 required_fields = ['idnumber', 'firstname', 'lastname', 'email']
                 missing_fields = [field for field in required_fields if not row.get(field)]
                 if missing_fields:
                     logger.error(f"Row {index + 1}: Missing required fields: {missing_fields}")
                     raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
 
-                # Check if employee already exists
                 if EmployeeLogin.objects.filter(email=row['email']).exists():
                     logger.error(f"Row {index + 1}: Employee with email {row['email']} already exists")
                     raise ValueError(f"Employee with email {row['email']} already exists")
@@ -1101,7 +1085,6 @@ def process_employee_import(import_id):
                     logger.error(f"Row {index + 1}: Employee with ID number {row['idnumber']} already exists")
                     raise ValueError(f"Employee with ID number {row['idnumber']} already exists")
 
-                # Validate department, position, line, employment_type if provided
                 errors = []
 
                 department_obj = None
@@ -1136,7 +1119,6 @@ def process_employee_import(import_id):
                     else:
                         errors.append(f"Invalid employment type: {row['employment_type']}. Valid options: {', '.join([choice[1] for choice in EmploymentInformation.EMPLOYMENT_TYPE_CHOICES])}")
 
-                # Set default employment type if not provided
                 if not employment_type:
                     employment_type = 'Regular'  # Default to Regular
 
@@ -1144,24 +1126,23 @@ def process_employee_import(import_id):
                     logger.error(f"Row {index + 1}: Validation errors: {errors}")
                     raise ValueError("; ".join(errors))
 
-                # Create employee with transaction
                 with transaction.atomic():
                     try:
                         # Create EmployeeLogin
+                        idnumber_val = str(row['idnumber']).strip()
+                        default_password = f"Repco{idnumber_val}"
                         employee = EmployeeLogin.objects.create(
-                            idnumber=str(row['idnumber']).strip(),
-                            username=str(row['lastname']).strip(),  # Use lastname as username
+                            idnumber=idnumber_val,
+                            username=str(row['lastname']).strip().lower(), 
                             firstname=str(row['firstname']).strip(),
                             lastname=str(row['lastname']).strip(),
                             email=str(row['email']).strip().lower(),
                             status='approved',
-                            password=make_password('defaultpassword123')  # Set default password
+                            password=make_password(default_password)
                         )
 
                         logger.info(f"Created EmployeeLogin for {employee.firstname} {employee.lastname}")
 
-                        # Always create EmploymentInformation with defaults
-                        # Parse date_hired if provided
                         date_hired = timezone.now().date()
                         if row.get('date_hired'):
                             try:
@@ -1172,7 +1153,6 @@ def process_employee_import(import_id):
                             except (ValueError, TypeError) as e:
                                 logger.warning(f"Invalid date format for date_hired: {row.get('date_hired')}, using current date")
 
-                        # Extract additional fields
                         tin_number = str(row.get('tin_number', '')).strip() if row.get('tin_number') else None
                         sss_number = str(row.get('sss_number', '')).strip() if row.get('sss_number') else None
                         hdmf_number = str(row.get('hdmf_number', '')).strip() if row.get('hdmf_number') else None
@@ -1181,15 +1161,13 @@ def process_employee_import(import_id):
 
                         logger.info(f"Additional fields for {employee.firstname} {employee.lastname}: TIN={tin_number}, SSS={sss_number}, HDMF={hdmf_number}, PhilHealth={philhealth_number}, Bank={bank_account}")
 
-                        # Create employment information (always create it)
                         employment_info = EmploymentInformation.objects.create(
                             user=employee,
                             department=department_obj,
-                            position=position_obj,  # Can be None since position allows null=True
+                            position=position_obj,
                             line=line_obj,
-                            employment_type=employment_type,  # Already has default 'Regular'
+                            employment_type=employment_type,
                             date_hired=date_hired,
-                            # Add the additional fields
                             tin_number=tin_number,
                             sss_number=sss_number,
                             hdmf_number=hdmf_number,

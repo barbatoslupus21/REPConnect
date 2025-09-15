@@ -640,29 +640,6 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
     color: var(--error-color);
 } */
 
-.empty-state {
-    text-align: center;
-    padding: var(--space-4xl);
-    color: var(--text-muted);
-}
-
-.empty-state i {
-    font-size: 4rem;
-    margin-bottom: var(--space-xs);
-    opacity: 0.5;
-}
-
-.empty-state h4 {
-    color: var(--text-secondary);
-    margin-bottom: var(--space-sm);
-}
-
-.empty-state p {
-    font-size: var(--font-size-sm);
-    max-width: 400px;
-    margin: 0 auto;
-}
-
 .employee-info {
     margin-bottom: var(--space-lg);
     padding: var(--space-lg);
@@ -1336,12 +1313,6 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
 .section-content {
     padding: var(--space-xs) var(--space-lg);
     margin-bottom: var(--space-lg);
-}
-
-.empty-state {
-    text-align: center;
-    padding: var(--space-3xl);
-    color: var(--text-muted);
 }
 
 .empty-icon {

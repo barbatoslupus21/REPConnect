@@ -217,7 +217,7 @@ class EmployeeCertificateManager {
             const certificateId = certificateCard.dataset.certificateId;
             
             try {
-                await fetch(`/certificates/mark-seen/${certificateId}/`, {
+                await fetch(`/certificate/mark-seen/${certificateId}/`, {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
@@ -286,7 +286,7 @@ class EmployeeCertificateManager {
 
     async markCertificateAsSeen(certificateId) {
         try {
-            await fetch(`/certificates/mark-seen/${certificateId}/`, {
+            await fetch(`/certificate/mark-seen/${certificateId}/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
@@ -314,7 +314,9 @@ class EmployeeCertificateManager {
     async emailCertificate(certificateId) {
         console.log('Starting email certificate process for ID:', certificateId);
         
-        const loadingBtn = document.querySelector(`[data-certificate-id="${certificateId}"].email-certificate`);
+        // Select the email button in a robust way: find the certificate card first, then the button
+        const certificateCard = document.querySelector(`[data-certificate-id="${certificateId}"]`);
+        const loadingBtn = certificateCard ? certificateCard.querySelector('.email-certificate') : document.querySelector(`.email-certificate[data-certificate-id="${certificateId}"]`);
         const originalContent = loadingBtn ? loadingBtn.innerHTML : '';
         
         if (loadingBtn) {
@@ -335,7 +337,8 @@ class EmployeeCertificateManager {
 
             // Create a controller for timeout handling
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+            // Increase timeout to 120s to accommodate slower email backends
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
 
             const response = await fetch(`/certificate/email/${certificateId}/`, {
                 method: 'POST',
@@ -391,7 +394,9 @@ class EmployeeCertificateManager {
             if (error instanceof TypeError && error.message.includes('fetch')) {
                 errorMessage = 'Network connection failed. Please check your internet connection.';
             } else if (error.name === 'AbortError') {
-                errorMessage = 'Request was cancelled. Please try again.';
+                // A timeout/abort does not necessarily mean the server didn't process the request.
+                // Inform the user to check their email and avoid duplicate sends immediately.
+                errorMessage = 'Request timed out. The email may have been sent — please check your inbox. If not, try again.';
             } else if (error.message) {
                 errorMessage = `Network error: ${error.message}`;
             }
@@ -413,7 +418,7 @@ class EmployeeCertificateManager {
         // Get certificate title from the card
         const certificateCard = document.querySelector(`[data-certificate-id="${certificateId}"]`);
         const certificateTitle = certificateCard ? 
-            certificateCard.querySelector('.card-header h4').textContent : 
+            certificateCard.querySelector('.certificate-card-header h4').textContent : 
             'Certificate';
         
         this.currentCertificateId = certificateId;
