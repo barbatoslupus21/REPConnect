@@ -1742,11 +1742,6 @@
   }
 }
 
-/* Email Confirmation Modal Styles */
-#emailConfirmationModal .modal-content {
-    max-width: 400px;
-}
-
 .email-confirmation-content {
     text-align: center;
 }

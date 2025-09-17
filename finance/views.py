@@ -216,11 +216,27 @@ def user_finance(request):
     from django.db.models import Sum
     allowances = Allowance.objects.filter(employee=user).order_by('-created_at')
     loans = Loan.objects.filter(employee=user).order_by('-created_at')
-    savings = list(Savings.objects.filter(employee=user).order_by('-created_at'))
+    
+    # Filter savings based on withdrawal date criteria
+    from datetime import timedelta
+    one_week_ago = now - timedelta(weeks=1)
+    
+    # Get all savings and filter based on withdrawal criteria
+    all_savings = Savings.objects.filter(employee=user).order_by('-created_at')
+    savings = []
+    
+    for saving in all_savings:
+        if saving.is_withdrawn:
+            # If withdrawn, only show if withdrawal was within the last week
+            if saving.withdrawal_date and saving.withdrawal_date >= one_week_ago:
+                savings.append(saving)
+        else:
+            # If not withdrawn, always show
+            savings.append(saving)
+    
     savings_sorted = sorted(savings, key=lambda s: (s.is_withdrawn, -s.created_at.timestamp() if s.created_at else 0))
 
     # Dashboard stats: this month vs last month for each metric
-    from datetime import timedelta
     first_of_this_month = now.replace(day=1)
     first_of_last_month = (first_of_this_month - timedelta(days=1)).replace(day=1)
     # Payslips
@@ -1541,11 +1557,18 @@ def process_allowance_file(file):
                 except Exception:
                     errors.append(f"Invalid amount for employee {idnumber}")
                     continue
-                try:
-                    deposit_date = pd.to_datetime(row.get('Deposit Date', '')).date()
-                except Exception:
-                    errors.append(f"Invalid deposit date for employee {idnumber}")
-                    continue
+                
+                # Handle deposit date - keep as null if empty, otherwise parse
+                deposit_date_value = row.get('Deposit Date', '')
+                deposit_date = None
+                
+                if deposit_date_value and str(deposit_date_value).strip() and str(deposit_date_value).strip().lower() not in ['', 'nan', 'none', 'null']:
+                    try:
+                        deposit_date = pd.to_datetime(deposit_date_value).date()
+                    except Exception:
+                        errors.append(f"Invalid deposit date '{deposit_date_value}' for employee {idnumber}")
+                        continue
+                
                 Allowance.objects.create(
                     employee=employee,
                     allowance_type=allowance_type,

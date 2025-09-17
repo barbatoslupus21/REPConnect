@@ -5,7 +5,7 @@ from .models import Device, Ticket, DeviceType, TicketCategory
 class DeviceForm(forms.ModelForm):
     class Meta:
         model = Device
-        fields = ['device_name', 'device_code', 'device_location', 'device_type']
+        fields = ['device_name', 'device_code', 'device_brand', 'device_model', 'device_location', 'device_type']
         widgets = {
             'device_name': forms.TextInput(attrs={
                 'class': 'form-input',
@@ -14,6 +14,14 @@ class DeviceForm(forms.ModelForm):
             'device_code': forms.TextInput(attrs={
                 'class': 'form-input',
                 'placeholder': 'Enter device code'
+            }),
+            'device_brand': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Enter device brand'
+            }),
+            'device_model': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Enter device model'
             }),
             'device_location': forms.TextInput(attrs={
                 'class': 'form-input',

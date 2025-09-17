@@ -152,8 +152,12 @@ class LoanForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = EmployeeLogin.objects.filter(is_active=True).order_by('firstname', 'lastname')
-        self.fields['employee'].empty_label = "Select Employee"
+        # In some contexts (admin change view or programmatic form construction)
+        # the 'employee' field might be removed or not present. Guard against
+        # KeyError by only updating the queryset when the field exists.
+        if 'employee' in self.fields:
+            self.fields['employee'].queryset = EmployeeLogin.objects.filter(is_active=True).order_by('firstname', 'lastname')
+            self.fields['employee'].empty_label = "Select Employee"
         self.fields['loan_type'].empty_label = "Select Loan Type"
 
     def save(self, commit=True):
@@ -304,12 +308,7 @@ class SavingsForm(forms.ModelForm):
             }),
             'deposit_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['employee'].queryset = EmployeeLogin.objects.filter(is_active=True).order_by('firstname', 'lastname')
-        self.fields['employee'].empty_label = "Select Employee"
-
+        
     def save(self, commit=True):
         savings = super().save(commit=False)
         

@@ -110,11 +110,11 @@
                             <tr>
                                 <th>Ticket #</th>
                                 <th>Requested By</th>
-                                <th>Device</th>
-                                <th>Category</th>
-                                <th style="text-align: center;">Priority</th>
+                                <th class="hide-column">Device</th>
+                                <th class="hide-column">Category</th>
+                                <th class="hide-column" style="text-align: center;">Priority</th>
                                 <th style="text-align: center;">Status</th>
-                                <th>Created</th>
+                                <th class="hide-column">Created</th>
                                 <th style="text-align: center;">Actions</th>
                             </tr>
                         </thead>
@@ -185,9 +185,11 @@
                             <tr>
                                 <th>Device Name</th>
                                 <th>Device Code</th>
-                                <th>Device Type</th>
-                                <th>Location</th>
-                                <th>Created</th>
+                                <th class="hide-column">Device Brand</th>
+                                <th>Device Model</th>
+                                <th class="hide-column">Device Type</th>
+                                <th class="hide-column">Location</th>
+                                <th class="hide-column">Created</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -259,6 +261,17 @@
                         <label class="form-label">Device Code</label>
                         <input type="text" name="device_code" class="form-input" required>
                     </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Device Brand</label>
+                        <input type="text" name="device_brand" class="form-input" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Device Model</label>
+                        <input type="text" name="device_model" class="form-input" required>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Device Location</label>
                         <input type="text" name="device_location" class="form-input" required>
@@ -471,6 +484,23 @@
                             <input type="text" class="form-input" id="editDeviceCode" value="" />
                         </span>
                     </div>
+                    
+                    <div class="detail-group">
+                        <span class="detail-label">Device Brand</span>
+                        <span class="detail-value" id="detailDeviceBrand">-</span>
+                        <span class="detail-value editable">
+                            <input type="text" class="form-input" id="editDeviceBrand" value="" />
+                        </span>
+                    </div>
+                    
+                    <div class="detail-group">
+                        <span class="detail-label">Device Model</span>
+                        <span class="detail-value" id="detailDeviceModel">-</span>
+                        <span class="detail-value editable">
+                            <input type="text" class="form-input" id="editDeviceModel" value="" />
+                        </span>
+                    </div>
+                    
                     <div class="detail-group">
                         <span class="detail-label">Device Type</span>
                         <span class="detail-value" id="detailDeviceType">-</span>
@@ -516,10 +546,23 @@
                 </button>
             </div>
             <div class="modal-body">
-                <p id="confirmMessage">Are you sure you want to proceed?</p>
+                <div class="confirmation-content">
+                    <div class="confirmation-icon">
+                        <i class="fa fa-trash" style="color: #ef4444;"></i>
+                    </div>
+                    <div class="confirmation-message">
+                        <h5>Cancel Ticket Request</h5>
+                        <p id="confirmMessage">Are you sure you want to proceed?</p>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle"></i>
+                            If cancelled, this request will be removed from your dashboard.
+                        </div>
+                    </div>
+                </div>
+
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('confirmationModal')">Cancel</button>
+                <button class="btn btn-outline" onclick="closeModal('confirmationModal')">Cancel</button>
                 <button class="btn btn-error" id="confirmButton">Confirm</button>
             </div>
         </div>

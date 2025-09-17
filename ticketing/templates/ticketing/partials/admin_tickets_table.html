@@ -15,7 +15,7 @@
     </td>
     <td>
         <div class="center-align">
-            <span class="status-pill status-{% if ticket.status == 'Approved' %}green{% elif ticket.status == 'Disapproved' %}red{% elif ticket.status == 'Cancelled' %}purple{% else %}yellow{% endif %}">
+            <span class="status-pill status-{% if ticket.status == 'Approved' %}green{% elif ticket.status == 'Disapproved' %}red{% elif ticket.status == 'Cancelled' %}gray{% else %}yellow{% endif %}">
                 {{ ticket.status }}
             </span>
         </div>

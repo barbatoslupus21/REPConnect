@@ -327,7 +327,7 @@
                             <div class="allowance-item">
                                 <div class="allowance-info-left">
                                     <div class="allowance-type">{{ allowance.allowance_type }}</div>
-                                    <div class="allowance-date"><i class="fas fa-wallet allowance-date-icon"></i> Deposited {{ allowance.deposit_date|date:"M j, Y" }}</div>
+                                    <div class="allowance-date"><i class="fas fa-wallet allowance-date-icon"></i> {% if allowance.deposit_date %}Deposited {{ allowance.deposit_date|date:"M j, Y" }}{% else %}Balance{% endif %}</div>
                                 </div>
                                 <div class="allowance-amount-right">
                                     <span class="allowance-amount">₱ {{ allowance.amount }}</span>

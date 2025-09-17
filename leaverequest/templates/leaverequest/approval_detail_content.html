@@ -62,72 +62,74 @@
     <hr class="employee-info-divider">
 
     <!-- Leave Balance Information -->
-    {% if leave_request.status != 'disapproved' %}
-    <div class="detail-section">
-        <h4>Leave Balance Information</h4>
-        <div class="balance-info">
-            <div class="balance-summary">
-                <div class="balance-item">
-                    <span class="balance-label">Total Available:</span>
-                    <span class="balance-value {% if sufficient_balance %}text-success{% else %}text-danger{% endif %}">
-                        {{ total_remaining }} days
-                    </span>
+    {% if leave_request.leave_type.is_deducted %}
+        {% if leave_request.status != 'disapproved' or leave_request.leave_type.is_deducted %}
+        <div class="detail-section">
+            <h4>Leave Balance Information</h4>
+            <div class="balance-info">
+                <div class="balance-summary">
+                    <div class="balance-item">
+                        <span class="balance-label">Total Available:</span>
+                        <span class="balance-value {% if sufficient_balance %}text-success{% else %}text-danger{% endif %}">
+                            {{ total_remaining }} days
+                        </span>
+                    </div>
+                    <div class="balance-item">
+                        <span class="balance-label">Requested:</span>
+                        <span class="balance-value">{{ leave_request.days_requested }} days</span>
+                    </div>
+                    <div class="balance-item">
+                        <span class="balance-label">After Approval:</span>
+                        <span class="balance-value {% if sufficient_balance %}text-success{% else %}text-danger{% endif %}">
+                            {% if sufficient_balance %}
+                                {{ remaining_after_approval }} days
+                            {% else %}
+                                Insufficient Balance
+                            {% endif %}
+                        </span>
+                    </div>
                 </div>
-                <div class="balance-item">
-                    <span class="balance-label">Requested:</span>
-                    <span class="balance-value">{{ leave_request.days_requested }} days</span>
-                </div>
-                <div class="balance-item">
-                    <span class="balance-label">After Approval:</span>
-                    <span class="balance-value {% if sufficient_balance %}text-success{% else %}text-danger{% endif %}">
-                        {% if sufficient_balance %}
-                            {{ remaining_after_approval }} days
-                        {% else %}
-                            Insufficient Balance
-                        {% endif %}
-                    </span>
-                </div>
+
+                {% if leave_balances %}
+                    <div class="balance-details">
+                        <h5>Relevant Balance Breakdown ({{ leave_request.date_from|date:"M d, Y" }} - {{ leave_request.date_to|date:"M d, Y" }}):</h5>
+                        <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                            <strong>Debug Info:</strong> Showing {{ leave_balances|length }} balance(s) that overlap with the leave request period.
+                        </p>
+                        <table class="balance-table">
+                            <thead>
+                                <tr>
+                                    <th>Valid Period</th>
+                                    <th style="text-align: center;">Entitled</th>
+                                    <th style="text-align: center;">Used</th>
+                                    <th style="text-align: center;">Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for balance in leave_balances %}
+                                <tr>
+                                    <td>{{ balance.valid_from|date:"M d, Y" }} - {{ balance.valid_to|date:"M d, Y" }}</td>
+                                    <td style="text-align: center;">{{ balance.entitled }}</td>
+                                    <td style="text-align: center;">{{ balance.used }}</td>
+                                    <td style="text-align: center;">{{ balance.remaining }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+
+                {% if not sufficient_balance %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Warning:</strong> Employee does not have sufficient leave balance for this request.
+                    </div>
+                {% endif %}
             </div>
-
-            {% if leave_balances %}
-                <div class="balance-details">
-                    <h5>Relevant Balance Breakdown ({{ leave_request.date_from|date:"M d, Y" }} - {{ leave_request.date_to|date:"M d, Y" }}):</h5>
-                    <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
-                        <strong>Debug Info:</strong> Showing {{ leave_balances|length }} balance(s) that overlap with the leave request period.
-                    </p>
-                    <table class="balance-table">
-                        <thead>
-                            <tr>
-                                <th>Valid Period</th>
-                                <th style="text-align: center;">Entitled</th>
-                                <th style="text-align: center;">Used</th>
-                                <th style="text-align: center;">Remaining</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for balance in leave_balances %}
-                            <tr>
-                                <td>{{ balance.valid_from|date:"M d, Y" }} - {{ balance.valid_to|date:"M d, Y" }}</td>
-                                <td style="text-align: center;">{{ balance.entitled }}</td>
-                                <td style="text-align: center;">{{ balance.used }}</td>
-                                <td style="text-align: center;">{{ balance.remaining }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% endif %}
-
-            {% if not sufficient_balance %}
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Warning:</strong> Employee does not have sufficient leave balance for this request.
-                </div>
-            {% endif %}
         </div>
-    </div>
 
-    <hr class="employee-info-divider">
+        <hr class="employee-info-divider">
+        {% endif %}
     {% endif %}
 
     <!-- Approval Timeline Section -->

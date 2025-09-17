@@ -862,7 +862,7 @@ def export_prfs(request):
                 employee = prf.employee
                 
                 ws3.cell(row=row, column=1, value=prf.prf_control_number or 'N/A')
-                ws3.cell(row=row, column=2, value=prf.created_at.strftime('%Y-%m-%d'))
+                ws3.cell(row=row, column=2, value=timezone.localtime(prf.created_at).strftime('%Y-%m-%d %I:%M %p'))
                 ws3.cell(row=row, column=3, value=employee.idnumber or 'N/A')
                 ws3.cell(row=row, column=4, value=f"{employee.firstname} {employee.lastname}")
                 ws3.cell(row=row, column=5, value=employee.employment_info.position.position or 'N/A')

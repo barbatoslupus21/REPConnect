@@ -385,6 +385,44 @@
         </div>
     </div>
 
+    <!-- Emergency Loan Cutoff Warning Modal -->
+    <div id="emergencyLoanCutoffModal" class="modal modal-md">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h4>Cutoff Time Notice</h4>
+                <button class="modal-close" onclick="closeModal('emergencyLoanCutoffModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-clock"></i>
+                    <div>
+                        <h4>Heads Up!</h4>
+                        <p>
+                            <strong>It looks like the current time is already past our 10:00 AM cutoff.</strong>
+                        </p>
+                        <p>
+                            Don’t worry—your Emergency Loan request will still be taken in, but it will be <strong>processed tomorrow</strong> instead.
+                        </p>
+                        <p>
+                            Would you like to go ahead and submit it now?
+                        </p>
+
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('emergencyLoanCutoffModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="proceedWithEmergencyLoanSubmission()">
+                    <i class="fas fa-check"></i>
+                    Proceed with Submission
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/intro.js/minified/intro.min.js"></script>
     <script>
     window.USER_FULL_NAME = "{{ request.user.firstname }} {{ request.user.lastname }}";

@@ -21,6 +21,7 @@ class LeaveType(models.Model):
     code = models.CharField(max_length=10, unique=True)
     go_to_clinic = models.BooleanField(default=False)
     description = models.TextField(blank=True)
+    is_deducted = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     

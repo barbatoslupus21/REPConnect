@@ -583,6 +583,10 @@ async function viewDevice(deviceId) {
         document.getElementById('editDeviceName').value = data.device_name;
         document.getElementById('detailDeviceCode').textContent = data.device_code;
         document.getElementById('editDeviceCode').value = data.device_code;
+        document.getElementById('detailDeviceBrand').textContent = data.device_brand || '-';
+        document.getElementById('editDeviceBrand').value = data.device_brand || '';
+        document.getElementById('detailDeviceModel').textContent = data.device_model || '-';
+        document.getElementById('editDeviceModel').value = data.device_model || '';
         document.getElementById('detailDeviceType').textContent = data.device_type || '-';
         await loadDeviceTypeOptions();
         document.getElementById('editDeviceType').value = data.device_type_id || '';
@@ -650,6 +654,8 @@ async function saveDeviceChanges() {
     const formData = new FormData();
     formData.append('device_name', document.getElementById('editDeviceName').value);
     formData.append('device_code', document.getElementById('editDeviceCode').value);
+    formData.append('device_brand', document.getElementById('editDeviceBrand').value);
+    formData.append('device_model', document.getElementById('editDeviceModel').value);
     formData.append('device_type', document.getElementById('editDeviceType').value);
     formData.append('device_location', document.getElementById('editDeviceLocation').value);
     

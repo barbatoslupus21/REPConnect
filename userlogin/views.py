@@ -97,8 +97,8 @@ def user_register(request):
             try:
                 validate_email(email)
                 user = EmployeeLogin.objects.create_user(username=username, email=email, password=password)
-                user.first_name = first_name
-                user.last_name = last_name
+                user.firstname = first_name
+                user.lastname = last_name
                 user.idnumber = idnumber
                 user.save()
                 context['confirmation_modal'] = True

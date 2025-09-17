@@ -201,14 +201,20 @@
             </button>
         </div>
         <div class="modal-body">
-            <div class="email-confirmation-content">
+            <div class="confirmation-content">
+                <div class="confirmation-icon">
+                    <i class="fa fa-paper-plane" style="color: #3b82f6;"></i>
+                </div>
                 <div class="confirmation-message">
+                    <h5>Send Certificate</h5>
                     <p>Send this certificate to your email address?</p>
-                    <div class="certificate-info">
-                        <div class="cert-title" id="confirm-cert-title">Certificate Title</div>
-                        <div class="email-display">
-                            <i class="fas fa-at"></i>
-                            <span id="confirm-email">{{ request.user.email }}</span>
+                    <div class="alert alert-info">
+                        <div class="certificate-info">
+                            <div class="cert-title" id="confirm-cert-title">Certificate Title</div>
+                            <div class="email-display">
+                                <i class="fas fa-at"></i>
+                                <span id="confirm-email">{{ request.user.email }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

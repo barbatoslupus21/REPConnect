@@ -111,7 +111,8 @@ class Allowance(models.Model):
     employee = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='allowances')
     allowance_type = models.ForeignKey(AllowanceType, on_delete=models.CASCADE, related_name='allowance_types')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    deposit_date = models.DateField()
+    # Make deposit_date optional so imported allowances can have null dates
+    deposit_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -186,7 +187,7 @@ class Savings(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_withdrawn = models.BooleanField(default=False)
     withdrawal_date = models.DateTimeField(null=True, blank=True)
-    deposit_date = models.DateField()
+    deposit_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -272,10 +272,22 @@ async function reviewTicket(ticketId) {
                     <span class="info-label">Requestor</span>
                     <span class="info-value">${data.requestor_name}</span>
                 </div>
+
+                <div class="info-item">
+                    <span class="info-label">Department & Line</span>
+                    <span class="info-value">${data.requestor_department || ' '} ${data.requestor_line || ' '}</span>
+                </div>
+
                 <div class="info-item">
                     <span class="info-label">Device</span>
                     <span class="info-value">${data.device || '-'}</span>
                 </div>
+
+                <div class="info-item">
+                    <span class="info-label">Device Model & Brand</span>
+                    <span class="info-value">${data.device_brand || ' '} ${data.device_model || '-'}</span>
+                </div>
+
                 <div class="info-item">
                     <span class="info-label">Priority</span>
                     <span class="info-value">
@@ -329,10 +341,22 @@ async function viewTicket(ticketId) {
                     <span class="detail-label">Requestor</span>
                     <span class="detail-value">${data.requestor_name}</span>
                 </div>
+
+                <div class="detail-group">
+                    <span class="detail-label">Department & Line</span>
+                    <span class="detail-value">${data.requestor_department || ' '} ${data.requestor_line || ' '}</span>
+                </div>
+
                 <div class="detail-group">
                     <span class="detail-label">Device</span>
                     <span class="detail-value">${data.device || '-'}</span>
                 </div>
+
+                <div class="detail-group">
+                    <span class="detail-label">Device Model & Brand</span>
+                    <span class="detail-value">${data.device_brand || ' '} ${data.device_model || '-'}</span>
+                </div>
+
                 <div class="detail-group">
                     <span class="detail-label">Priority Level</span>
                     <span class="detail-value">
@@ -413,6 +437,14 @@ async function viewDevice(deviceId) {
                     <span class="detail-value">${data.device_code}</span>
                 </div>
                 <div class="detail-group">
+                    <span class="detail-label">Device Brand</span>
+                    <span class="detail-value">${data.device_brand || '-'}</span>
+                </div>
+                <div class="detail-group">
+                    <span class="detail-label">Device Model</span>
+                    <span class="detail-value">${data.device_model || '-'}</span>
+                </div>
+                <div class="detail-group">
                     <span class="detail-label">Device Type</span>
                     <span class="detail-value">${data.device_type || '-'}</span>
                 </div>
@@ -422,13 +454,13 @@ async function viewDevice(deviceId) {
                 </div>
                 <div class="detail-group">
                     <span class="detail-label">Owner</span>
-                    <span class="detail-value">${data.owner || '-'}</span>
+                    <span class="detail-value">${data.user || '-'}</span>
                 </div>
                 <div class="detail-group">
                     <span class="detail-label">Status</span>
                     <span class="detail-value">
-                        <span class="status-pill status-${data.is_active ? 'green' : 'red'}">
-                            ${data.is_active ? 'Active' : 'Inactive'}
+                        <span class="status-pill status-${data.is_active ? 'red' : 'green'}">
+                            ${data.is_active ? 'Inactive' : 'Active'}
                         </span>
                     </span>
                 </div>

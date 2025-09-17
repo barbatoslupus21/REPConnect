@@ -558,6 +558,22 @@ class EmployeePRFManager {
     }
     
     async submitEmergencyLoan() {
+        // Check if current time is past 10:00 AM
+        const now = new Date();
+        const cutoffTime = new Date();
+        cutoffTime.setHours(10, 0, 0, 0); // Set to 10:00 AM today
+        
+        if (now > cutoffTime) {
+            // Show cutoff warning modal
+            openModal('emergencyLoanCutoffModal');
+            return;
+        }
+        
+        // Proceed with normal submission if before cutoff
+        this.performEmergencyLoanSubmission();
+    }
+    
+    async performEmergencyLoanSubmission() {
         const form = document.getElementById('emergencyLoanForm');
         const submitBtn = document.getElementById('emergency-loan-submit');
         const originalText = submitBtn.innerHTML;
@@ -611,6 +627,14 @@ class EmployeePRFManager {
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         }
+    }
+}
+
+// Global function to handle proceeding with emergency loan after cutoff warning
+function proceedWithEmergencyLoanSubmission() {
+    closeModal('emergencyLoanCutoffModal');
+    if (window.prfManager) {
+        window.prfManager.performEmergencyLoanSubmission();
     }
 }
 

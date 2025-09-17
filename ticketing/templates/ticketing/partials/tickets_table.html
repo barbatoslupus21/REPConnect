@@ -4,9 +4,9 @@
         <span class="control-number">{{ ticket.ticket_number }}</span>
     </td>
     <td>{{ ticket.requestor.firstname }} {{ ticket.requestor.lastname }}</td>
-    <td>{{ ticket.device.device_name|default:"-" }}</td>
-    <td>{{ ticket.category.name|default:"-" }}</td>
-    <td>
+    <td class="hide-column">{{ ticket.device.device_name|default:"-" }}</td>
+    <td class="hide-column">{{ ticket.category.name|default:"-" }}</td>
+    <td class="hide-column">
         <div class="center-align">
             <span class="status-pill status-{% if ticket.priority_level == 'Urgent' %}red{% elif ticket.priority_level == 'High' %}orange{% elif ticket.priority_level == 'Medium' %}blue{% else %}green{% endif %}">
                 {{ ticket.priority_level }}
@@ -15,12 +15,12 @@
     </td>
     <td>
         <div class="center-align">
-            <span class="status-pill status-{% if ticket.status == 'Approved' %}green{% elif ticket.status == 'Disapproved' %}red{% elif ticket.status == 'Cancelled' %}purple{% else %}yellow{% endif %}">
+            <span class="status-pill status-{% if ticket.status == 'Approved' %}green{% elif ticket.status == 'Disapproved' %}red{% elif ticket.status == 'Cancelled' %}gray{% else %}yellow{% endif %}">
                 {{ ticket.status }}
             </span>
         </div>
     </td>
-    <td>{{ ticket.created_at|date:"M d, Y" }}</td>
+    <td class="hide-column">{{ ticket.created_at|date:"M d, Y" }}</td>
     <td>
         <div class="center-align">
             <button class="btn btn-icon" onclick="viewTicket({{ ticket.id }})" title="View">
@@ -28,7 +28,7 @@
             </button>
             {% if ticket.status == 'Processing' %}
             <button class="btn btn-icon btn-error" onclick="confirmCancelTicket({{ ticket.id }})" title="Cancel">
-                <i class="fas fa-times"></i>
+                <i class="fa fa-times-circle"></i>
             </button>
             {% endif %}
         </div>

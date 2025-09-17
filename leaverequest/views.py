@@ -9,7 +9,7 @@ from django.db.models import Q, F, Exists, OuterRef, Subquery, Count, Q
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from userlogin.models import EmployeeLogin
-from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction, LeaveReason
+from .models import LeaveRequest, LeaveType, LeaveBalance, LeaveApprovalAction, LeaveReason, SundayException
 from .forms import LeaveRequestForm, LeaveApprovalForm, LeaveSearchForm
 from django.db.models import Case, When, IntegerField, Max
 from datetime import date, datetime, timedelta
@@ -92,6 +92,32 @@ def leave_dashboard(request):
     requests_paginator = Paginator(all_requests, 10)
     my_requests_page_obj = requests_paginator.get_page(requests_page)
 
+    # compute can_cancel flag for recent_leaves and for items in my_requests_page_obj
+    now = timezone.now()
+    def _can_cancel(leave):
+        try:
+            if leave.status == 'routing':
+                return True
+            if leave.status == 'approved' and leave.updated_at:
+                # allow cancel if updated within the last 1 minute
+                return (now - leave.updated_at).total_seconds() <= 172800
+        except Exception:
+            return False
+        return False
+
+    # annotate recent_leaves list
+    annotated_recent = []
+    for l in recent_leaves:
+        l.can_cancel = _can_cancel(l)
+        annotated_recent.append(l)
+
+    # annotate page object leaves
+    for l in my_requests_page_obj:
+        try:
+            l.can_cancel = _can_cancel(l)
+        except Exception:
+            l.can_cancel = False
+
     context={
         'leave_types': leave_types,
         'leave_reasons': leave_reasons,
@@ -99,7 +125,7 @@ def leave_dashboard(request):
         'pending_approvals': pending_approvals_page_obj,
         'pending_routing_count': pending_routing_count,
         'is_approver': for_leave_approval.exists(),
-        'recent_leaves': recent_leaves,
+        'recent_leaves': annotated_recent,
         'my_requests_page_obj': my_requests_page_obj,
         'search_query': search_query,
         'today': timezone.now().date(),
@@ -365,26 +391,120 @@ def edit_leave(request, control_number):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
+def restore_leave_balances(leave_request):
+    """
+    Restore leave balances when canceling an approved leave request.
+    Split the leave request across matching leave balance periods and restore balances.
+    """
+    from datetime import timedelta
+    
+    # Get all leave balances for this employee and leave type
+    leave_balances = LeaveBalance.objects.filter(
+        employee=leave_request.employee,
+        leave_type=leave_request.leave_type
+    ).order_by('valid_from')
+    
+    current_date = leave_request.date_from
+    
+    while current_date <= leave_request.date_to:
+        # Find the leave balance that covers this date
+        matching_balance = None
+        for balance in leave_balances:
+            if balance.valid_from <= current_date <= balance.valid_to:
+                matching_balance = balance
+                break
+        
+        if not matching_balance:
+            current_date += timedelta(days=1)
+            continue
+        
+        # Find the end date for this balance period
+        period_end = min(leave_request.date_to, matching_balance.valid_to)
+        
+        # Calculate hours for this period
+        period_hours = 0
+        temp_date = current_date
+        
+        # Get holidays and sunday exceptions for the period
+        from usercalendar.models import Holiday
+        holidays = set(Holiday.objects.filter(
+            date__range=[current_date, period_end]
+        ).values_list('date', flat=True))
+        
+        sunday_exceptions = set(SundayException.objects.filter(
+            date__range=[current_date, period_end]
+        ).values_list('date', flat=True))
+        
+        while temp_date <= period_end:
+            is_holiday = temp_date in holidays
+            is_sunday = temp_date.weekday() == 6
+            is_sunday_exempted = temp_date in sunday_exceptions
+            
+            # Count as working day if not holiday and (not sunday or sunday exempted)
+            if not is_holiday and (not is_sunday or is_sunday_exempted):
+                period_hours += 8  # 8 hours per working day
+            
+            temp_date += timedelta(days=1)
+        
+        # Convert hours to days (8 hours = 1 day)
+        days_to_restore = period_hours / 8
+        
+        if days_to_restore > 0:
+            # Restore the balance
+            from decimal import Decimal
+            days_decimal = Decimal(str(days_to_restore))
+            
+            # First, calculate what the new used value would be
+            new_used = matching_balance.used - days_decimal
+            
+            # If new_used would be negative, we can only restore up to the current used amount
+            if new_used < 0:
+                # Restore only what was actually used
+                actual_days_to_restore = matching_balance.used
+                matching_balance.remaining += actual_days_to_restore
+                matching_balance.used = Decimal('0.00')
+            else:
+                # Normal case: restore the full amount
+                matching_balance.remaining += days_decimal
+                matching_balance.used = new_used
+            
+            matching_balance.save()
+        
+        # Move to the next period
+        current_date = period_end + timedelta(days=1)
+
 @login_required(login_url="user-login")
 @require_POST
 def cancel_leave(request, control_number):
     leave_request = get_object_or_404(LeaveRequest, control_number=control_number)
     
     if (leave_request.employee != request.user or 
-        leave_request.status not in ['routing']):
+        leave_request.status not in ['routing', 'approved']):
         return JsonResponse({'success': False, 'message': 'Cannot cancel this leave request.'})
+    
+    # Store original status to determine if balance restoration is needed
+    original_status = leave_request.status
+    
+    # If the leave was approved, restore leave balances
+    if original_status == 'approved':
+        try:
+            restore_leave_balances(leave_request)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f'Failed to restore leave balances: {str(e)}'})
     
     leave_request.status = 'cancelled'
     leave_request.cancelled_at = timezone.now()
     leave_request.current_approver = None
     leave_request.save()
 
-    LeaveApprovalAction.objects.filter(leave_request=leave_request).delete()
+    # Only delete approval actions if it was routing
+    if original_status == 'routing':
+        LeaveApprovalAction.objects.filter(leave_request=leave_request).delete()
 
     LeaveApprovalAction.objects.create(
         leave_request=leave_request,
         approver=request.user,
-        sequence=1,
+        sequence=leave_request.approval_actions.count() + 1,
         status=leave_request.status,
         action='cancelled',
         comments="Leave request cancelled by employee",
@@ -1388,6 +1508,7 @@ def admin_approve_leave(request, control_number):
         
         if leave_request.status != "disapproved":
             leave_request.status = 'approved'
+            leave_request.updated_at = timezone.now()
             leave_request.save()
 
             start_date_fmt = leave_request.date_from.strftime("%b %d, %Y")
@@ -1524,9 +1645,18 @@ def process_leave_approval_with_balance_check(leave_request, original_comments):
             return additional_comment
     
     leave_type = leave_request.leave_type
+    
+    # Check if this leave type should be deducted from balance
+    if not leave_type.is_deducted:
+        additional_comment = f"Leave approved without balance deduction (Leave type '{leave_type.name}' is configured to not deduct from balance)."
+        if original_comments:
+            return f"{original_comments}\n\n{additional_comment}"
+        else:
+            return additional_comment
+    
     request_start = leave_request.date_from
     request_end = leave_request.date_to
-    days_requested = leave_request.days_requested
+    hrs_requested = leave_request.hrs_requested / 8
     
     balances = LeaveBalance.objects.filter(
         employee=employee,
@@ -1547,8 +1677,8 @@ def process_leave_approval_with_balance_check(leave_request, original_comments):
     
     total_remaining = sum(balance.remaining for balance in balances)
 
-    if total_remaining < days_requested:
-        additional_comment = f"Insufficient leave balance. Available: {total_remaining} days, Requested: {days_requested} days. Leave approved but balance may go negative."
+    if total_remaining < hrs_requested:
+        additional_comment = f"Insufficient leave balance. Available: {total_remaining} hours, Requested: {hrs_requested} days. Leave approved but balance may go negative."
         if original_comments:
             comments_with_warning = f"{original_comments}\n\n{additional_comment}"
         else:
@@ -1564,7 +1694,7 @@ def process_leave_approval_with_balance_check(leave_request, original_comments):
     
     try:
         deduct_leave_balance(leave_request)
-        success_comment = f"Leave balance deducted successfully. Remaining balance: {total_remaining - days_requested} days."
+        success_comment = f"Leave balance deducted successfully. Remaining balance: {total_remaining - hrs_requested} days."
         if original_comments:
             return f"{original_comments}\n\n{success_comment}"
         else:
@@ -1577,64 +1707,90 @@ def process_leave_approval_with_balance_check(leave_request, original_comments):
             return error_comment
 
 def deduct_leave_balance(leave_request):
+    """
+    Deduct leave balances when approving a leave request.
+    Split the leave request across matching leave balance periods and deduct balances.
+    Uses the same logic as restore_leave_balances but in reverse.
+    """
+    from datetime import timedelta
+    
     employee = leave_request.employee
     leave_type = leave_request.leave_type
-    request_start = leave_request.date_from
-    request_end = leave_request.date_to
-    total_days = leave_request.days_requested
     
-    balances = LeaveBalance.objects.filter(
+    # Get all leave balances for this employee and leave type
+    leave_balances = LeaveBalance.objects.filter(
         employee=employee,
-        leave_type=leave_type,
-        valid_from__lte=request_end,
-        valid_to__gte=request_start,
+        leave_type=leave_type
     ).order_by('valid_from')
     
-    if not balances.exists():
+    if not leave_balances.exists():
         raise Exception(f"No valid leave balance found for {employee.full_name} - {leave_type.name}")
     
-    remaining_days = Decimal(str(total_days))
+    current_date = leave_request.date_from
     
-    for balance in balances:
-        if remaining_days <= 0:
-            break
+    while current_date <= leave_request.date_to:
+        # Find the leave balance that covers this date
+        matching_balance = None
+        for balance in leave_balances:
+            if balance.valid_from <= current_date <= balance.valid_to:
+                matching_balance = balance
+                break
         
-        if balance.valid_from <= request_start and balance.valid_to >= request_end:
-            days_to_deduct = min(remaining_days, balance.remaining)
-            
-            if days_to_deduct > 0:
-                balance.used += days_to_deduct
-                balance.remaining = balance.entitled - balance.used
-                balance.save()
-                
-                remaining_days -= days_to_deduct
-                print(f"Deducted {days_to_deduct} days from balance {balance.id} (Complete coverage). Remaining balance: {balance.remaining}")
-    
-    for balance in balances:
-        if remaining_days <= 0:
-            break
-        
-        if balance.valid_from <= request_start and balance.valid_to >= request_end:
+        if not matching_balance:
+            current_date += timedelta(days=1)
             continue
         
-        overlap_start = max(request_start, balance.valid_from)
-        overlap_end = min(request_end, balance.valid_to)
+        # Find the end date for this balance period
+        period_end = min(leave_request.date_to, matching_balance.valid_to)
         
-        if overlap_start <= overlap_end:
-            days_to_deduct = min(remaining_days, balance.remaining)
+        # Calculate hours for this period
+        period_hours = 0
+        temp_date = current_date
+        
+        # Get holidays and sunday exceptions for the period
+        from usercalendar.models import Holiday
+        holidays = set(Holiday.objects.filter(
+            date__range=[current_date, period_end]
+        ).values_list('date', flat=True))
+        
+        sunday_exceptions = set(SundayException.objects.filter(
+            date__range=[current_date, period_end]
+        ).values_list('date', flat=True))
+        
+        while temp_date <= period_end:
+            is_holiday = temp_date in holidays
+            is_sunday = temp_date.weekday() == 6
+            is_sunday_exempted = temp_date in sunday_exceptions
             
-            if days_to_deduct > 0:
-                balance.used += days_to_deduct
-                balance.remaining = balance.entitled - balance.used
-                balance.save()
-                
-                remaining_days -= days_to_deduct
-                print(f"Deducted {days_to_deduct} days from balance {balance.id} (Partial overlap). Remaining balance: {balance.remaining}")
+            # Count as working day if not holiday and (not sunday or sunday exempted)
+            if not is_holiday and (not is_sunday or is_sunday_exempted):
+                period_hours += 8  # 8 hours per working day
+            
+            temp_date += timedelta(days=1)
+        
+        # Convert hours to days (8 hours = 1 day)
+        days_to_deduct = period_hours / 8
+        
+        if days_to_deduct > 0:
+            # Deduct the balance
+            from decimal import Decimal
+            days_decimal = Decimal(str(days_to_deduct))
+            
+            # Deduct from balance (opposite of restore)
+            matching_balance.used += days_decimal
+            matching_balance.remaining -= days_decimal
+            
+            # Ensure remaining doesn't go below 0 (though we allow negative for approved leaves)
+            if matching_balance.remaining < 0:
+                print(f"Warning: Balance {matching_balance.id} remaining went negative: {matching_balance.remaining}")
+            
+            matching_balance.save()
+            print(f"Deducted {days_to_deduct} days from balance {matching_balance.id} for period {current_date} to {period_end}. New remaining: {matching_balance.remaining}")
+        
+        # Move to the next period
+        current_date = period_end + timedelta(days=1)
     
-    if remaining_days > 0:
-        print(f"Warning: Could not fully deduct leave days for {employee.full_name}. {remaining_days} days remaining after deduction.")
-    else:
-        print(f"Successfully deducted {total_days} days for {employee.full_name} - {leave_type.name}")
+    print(f"Successfully processed leave deduction for {employee.full_name} - {leave_type.name}")
 
 def send_leave_decision_email(leave_request, is_approved, comments):
     try:
@@ -1649,7 +1805,7 @@ def send_leave_decision_email(leave_request, is_approved, comments):
             'leave_type': leave_request.leave_type.name,
             'date_from': leave_request.date_from,
             'date_to': leave_request.date_to,
-            'days_requested': leave_request.days_requested,
+            'days_requested': leave_request.hrs_requested / 8,
             'reason': leave_request.reason,
             'is_approved': final_decision_approved,
             'comments': comments,
@@ -1742,7 +1898,7 @@ def hr_admin_approval_detail(request, control_number):
             print(f"  Balance {bal.id}: {bal.valid_from} to {bal.valid_to}, remaining: {bal.remaining}, overlap: {overlap_check}")
         
         total_remaining = sum(balance.remaining for balance in leave_balances)
-        remaining_after_approval = total_remaining - leave_request.days_requested
+        remaining_after_approval = total_remaining - leave_request.hrs_requested / 8
         
         all_active_balances = LeaveBalance.objects.filter(
             employee=leave_request.employee,
@@ -1761,7 +1917,7 @@ def hr_admin_approval_detail(request, control_number):
             'all_active_balances': all_active_balances,
             'total_remaining': total_remaining,
             'remaining_after_approval': remaining_after_approval,
-            'sufficient_balance': total_remaining >= leave_request.days_requested
+            'sufficient_balance': total_remaining >= leave_request.hrs_requested / 8
         }, request=request)
         
         return JsonResponse({

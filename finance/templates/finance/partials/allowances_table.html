@@ -16,7 +16,7 @@
             <tr>
                 <td>{{ allowance.allowance_type.allowance_type }}</td>
                 <td>₱{{ allowance.amount|floatformat:2 }}</td>
-                <td>{{ allowance.deposit_date|date:"Y-m-d" }}</td>
+                <td>{% if allowance.deposit_date %}{{ allowance.deposit_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
                 <td>{{ allowance.created_at|date:"M d, Y H:i" }}</td>
                 <td>
                     <button class="btn btn-sm btn-icon delete-allowance-btn" title="Delete Allowance" data-allowance-id="{{ allowance.id }}">

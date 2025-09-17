@@ -28,11 +28,26 @@ class TicketCategoryAdmin(admin.ModelAdmin):
 # ========================
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
-    list_display = ('id', 'device_name', 'device_code', 'device_type', 'is_active', 'user_display')
-    list_filter = ['device_type', 'is_active', 'created_at']
-    search_fields = ('device_name', 'device_code', 'device_type__name')
+    list_display = ('id', 'device_name', 'device_code', 'device_brand', 'device_model', 'device_type', 'is_active', 'user_display')
+    list_filter = ['device_type', 'is_active', 'created_at', 'device_brand']
+    search_fields = ('device_name', 'device_code', 'device_brand', 'device_model', 'device_type__name')
     # removed autocomplete_fields to avoid needing EmployeeLoginAdmin
     ordering = ['-created_at']
+    
+    fieldsets = (
+        ('Device Information', {
+            'fields': ('device_name', 'device_code', 'device_brand', 'device_model', 'device_type', 'device_location')
+        }),
+        ('User & Status', {
+            'fields': ('user', 'is_active')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    readonly_fields = ['created_at', 'updated_at']
 
     def user_display(self, obj):
         return f"{obj.user.full_name} ({obj.user.id})" if obj.user else "-"

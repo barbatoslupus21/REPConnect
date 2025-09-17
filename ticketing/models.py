@@ -32,6 +32,8 @@ class Device(models.Model):
     user = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='devices')
     device_name = models.CharField(max_length=200)
     device_code = models.CharField(max_length=100, unique=True)
+    device_model = models.CharField(max_length=200, null=True)
+    device_brand = models.CharField(max_length=200, null=True)
     device_location = models.CharField(max_length=200)
     device_type = models.ForeignKey(DeviceType, on_delete=models.SET_NULL, null=True, blank=True)
     is_active = models.BooleanField(default=True)
