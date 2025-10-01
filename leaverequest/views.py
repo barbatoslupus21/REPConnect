@@ -2147,7 +2147,7 @@ def create_summary_sheet(wb, leave_requests, date_from, date_to):
     ws.merge_cells('A2:G2')
     
     # Column headers
-    headers = ['Control Number', 'Date Prepared', 'Employee Name', 'Department', 'Leave Type', 'Leave Reason', 'Status']
+    headers = ['Control Number', 'Date Prepared', 'Id Number', 'Employee Name', 'Department', 'Leave Category', 'Leave Type', 'Leave Reason', 'Status']
     for col, header in enumerate(headers, 1):
         ws.cell(row=4, column=col, value=header)
     
@@ -2164,13 +2164,15 @@ def create_summary_sheet(wb, leave_requests, date_from, date_to):
     for leave in leave_requests.order_by('-date_prepared'):
         ws.cell(row=row, column=1, value=leave.control_number)
         ws.cell(row=row, column=2, value=leave.date_prepared.strftime('%Y-%m-%d'))
-        ws.cell(row=row, column=3, value=leave.employee.full_name)
-        ws.cell(row=row, column=4, value=leave.employee.employment_info.department.department_name if leave.employee.employment_info else 'N/A')
-        ws.cell(row=row, column=5, value=leave.leave_type.name)
-        ws.cell(row=row, column=6, value=leave.leave_reason.reason_text if leave.leave_reason else 'N/A')
+        ws.cell(row=row, column=3, value=leave.employee.idnumber)
+        ws.cell(row=row, column=4, value=leave.employee.full_name)
+        ws.cell(row=row, column=5, value=leave.employee.employment_info.department.department_name if leave.employee.employment_info else 'N/A')
+        ws.cell(row=row, column=6, value=leave.leave_type.name)
+        ws.cell(row=row, column=7, value=leave.leave_reason.reason_text if leave.leave_reason else 'N/A')
+        ws.cell(row=row, column=8, value=leave.reason if leave.reason else 'N/A')
         
         # Status cell with color
-        status_cell = ws.cell(row=row, column=7, value=leave.get_status_display())
+        status_cell = ws.cell(row=row, column=9, value=leave.get_status_display())
         if leave.status in status_colors:
             status_cell.fill = status_colors[leave.status]
         
@@ -2193,7 +2195,7 @@ def create_routing_sheet(wb, leave_requests, date_from, date_to):
     ws.merge_cells('A2:G2')
     
     # Column headers
-    headers = ['Control Number', 'Employee Name', 'Department', 'Leave Type', 'Leave Reason', 'Duration', 'Current Approver']
+    headers = ['Control Number', 'Id Number', 'Employee Name', 'Department', 'Leave Type', 'Leave Category', 'Leave Reason', 'Duration', 'Current Approver']
     for col, header in enumerate(headers, 1):
         ws.cell(row=4, column=col, value=header)
     
@@ -2208,12 +2210,14 @@ def create_routing_sheet(wb, leave_requests, date_from, date_to):
         current_approver = current_action.approver.full_name if current_action else 'N/A'
         
         ws.cell(row=row, column=1, value=leave.control_number)
-        ws.cell(row=row, column=2, value=leave.employee.full_name)
-        ws.cell(row=row, column=3, value=leave.employee.employment_info.department.department_name if leave.employee.employment_info else 'N/A')
-        ws.cell(row=row, column=4, value=leave.leave_type.name)
-        ws.cell(row=row, column=5, value=leave.leave_reason.reason_text if leave.leave_reason else 'N/A')
-        ws.cell(row=row, column=6, value=leave.duration_display)
-        ws.cell(row=row, column=7, value=current_approver)
+        ws.cell(row=row, column=2, value=leave.employee.idnumber)
+        ws.cell(row=row, column=3, value=leave.employee.full_name)
+        ws.cell(row=row, column=4, value=leave.employee.employment_info.department.department_name if leave.employee.employment_info else 'N/A')
+        ws.cell(row=row, column=5, value=leave.leave_type.name)
+        ws.cell(row=row, column=6, value=leave.leave_reason.reason_text if leave.leave_reason else 'N/A')
+        ws.cell(row=row, column=7, value=leave.reason if leave.reason else 'N/A')
+        ws.cell(row=row, column=8, value=leave.duration_display)
+        ws.cell(row=row, column=9, value=current_approver)
         row += 1
     
     apply_sheet_formatting(ws, 4)

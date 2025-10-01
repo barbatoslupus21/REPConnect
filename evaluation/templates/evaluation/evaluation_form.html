@@ -36,12 +36,14 @@
             <!-- Header Row with Numbers -->
             <div class="rating-header">
                 <div class="rating-question-header">TaskList</div>
-                <div class="rating-scale-header">
-                    <div class="rating-number-header">1</div>
-                    <div class="rating-number-header">2</div>
-                    <div class="rating-number-header">3</div>
-                    <div class="rating-number-header">4</div>
-                    <div class="rating-number-header">5</div>
+                <div class="rating-display">
+                    <div class="rating-stars-display">
+                        <div class="rating-number-header">1</div>
+                        <div class="rating-number-header">2</div>
+                        <div class="rating-number-header">3</div>
+                        <div class="rating-number-header">4</div>
+                        <div class="rating-number-header">5</div>
+                    </div>
                 </div>
             </div>
             
@@ -49,13 +51,15 @@
             {% for task_rating in task_ratings %}
             <div class="rating-row">
                 <div class="rating-question">{{ task_rating.task_name }}</div>
-                <div class="rating-stars-row" data-question-name="task_rating_{{ task_rating.task_id }}">
-                    {% for value in "12345" %}
-                    <div class="rating-star-cell">
-                        <i class="fas fa-star rating-star {% if task_rating.rating and value|add:0 <= task_rating.rating %}filled{% else %}empty{% endif %}" 
-                           data-value="{{ value }}" data-question="task_rating_{{ task_rating.task_id }}"></i>
+                <div class="rating-display">
+                    <div class="rating-stars-display" data-question-name="task_rating_{{ task_rating.task_id }}">
+                        {% for value in "12345" %}
+                        <div class="rating-star-cell">
+                            <i class="fas fa-star rating-star {% if task_rating.rating and value|add:0 <= task_rating.rating %}filled{% else %}empty{% endif %}" 
+                            data-value="{{ value }}" data-question="task_rating_{{ task_rating.task_id }}"></i>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
                 <input type="hidden" name="task_rating_{{ task_rating.task_id }}" value="{{ task_rating.rating|default:'' }}">
             </div>

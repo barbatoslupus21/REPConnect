@@ -213,7 +213,7 @@
                                         {{ prf.get_status_display }}
                                     </span>
                                 </td>
-                                <td>{{ prf.created_at|date:"M d, Y" }}</td>
+                                <td>{{ prf.created_at|date:"M d, Y g:i A" }}</td>
                                 <td style="text-align: center;">
                                     {% if prf.status == 'pending' %}
                                         <button class="btn btn-primary btn-sm" onclick="viewAdminPRFDetail({{ prf.id }})" title="View Details">

@@ -1979,19 +1979,9 @@ def employee_table_partial(request):
     ).exclude(
         id=user.id
     ).exclude(
-        wire_admin=True
-    ).exclude(
-        clinic_admin=True
-    ).exclude(
-        iad_admin=True
-    ).exclude(
         accounting_admin=True
     ).exclude(
         hr_admin=True
-    ).exclude(
-        hr_manager=True
-    ).exclude(
-        mis_admin=True
     )
 
     search = request.GET.get('search', '').strip()

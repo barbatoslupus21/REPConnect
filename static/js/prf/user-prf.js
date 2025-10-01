@@ -447,8 +447,9 @@ class EmployeePRFManager {
         this.setupEmergencyLoanForm();
         
         // Set minimum date to today
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('emergency_start_date').setAttribute('min', today);
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        document.getElementById('emergency_start_date').setAttribute('min', todayStr);
         
         openModal('emergencyLoanModal');
     }
@@ -547,12 +548,28 @@ class EmployeePRFManager {
         const cutoff = document.getElementById('emergency_cutoff').value;
         const startDate = document.getElementById('emergency_start_date').value;
         const fullName = document.getElementById('employee_full_name').value.trim();
+        const fullNameInput = document.getElementById('employee_full_name');
         const submitBtn = document.getElementById('emergency-loan-submit');
         
-        // Check if all fields are filled and full name matches exactly
+        // Check if all fields are filled and full name matches (case-insensitive)
         const expectedName = window.USER_FULL_NAME || '';
-        const nameMatches = fullName === expectedName;
+        const nameMatches = fullName.length > 0 && fullName.toLowerCase() === expectedName.toLowerCase();
         const isValid = amount && cutoff && startDate && nameMatches;
+        
+        // Visual feedback for name validation
+        if (fullName.length > 0) {
+            if (nameMatches) {
+                fullNameInput.style.borderColor = '#28a745'; // Green for valid
+                fullNameInput.style.backgroundColor = '#f8fff8';
+            } else {
+                fullNameInput.style.borderColor = '#dc3545'; // Red for invalid
+                fullNameInput.style.backgroundColor = '#fff8f8';
+            }
+        } else {
+            // Reset to default if empty
+            fullNameInput.style.borderColor = '';
+            fullNameInput.style.backgroundColor = '';
+        }
         
         submitBtn.disabled = !isValid;
     }
@@ -616,6 +633,12 @@ class EmployeePRFManager {
                     document.getElementById('existing-balance').textContent = `₱${data.current_balance.toLocaleString()}`;
                     closeModal('emergencyLoanModal');
                     openModal('emergencyLoanErrorModal');
+                } else if (data.message === 'date_restriction_error') {
+                    this.showToast(data.friendly_message || 'Oops! Emergency loan requests are only accepted from the 3rd–9th and 18th–24th of the month. Please come back during those dates', 'error');
+                    closeModal('emergencyLoanModal');
+                } else if (data.message === 'pending_emergency_loan_exists') {
+                    this.showToast('You already have a pending emergency loan request.', 'error');
+                    closeModal('emergencyLoanModal');
                 } else {
                     this.showToast(data.message || 'Failed to submit Emergency Loan request', 'error');
                 }

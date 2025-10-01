@@ -30,8 +30,9 @@ class Evaluation(models.Model):
 
     STATUS_CHOICES = [
         ('pending', 'Pending'),
-        ('supervisor_review', 'Supervisor Review'),
-        ('manager_review', 'Manager Review'),
+        ('for_evaluation', 'For Evaluation'),
+        ('for_review', 'For Reviewing'),
+        ('for_approval', 'For Approval'),
         ('approved', 'Approved'),
         ('disapproved', 'Disapproved'),
     ]
@@ -136,13 +137,8 @@ class Evaluation(models.Model):
 
     def is_employee_eligible(self, employee):
         excluded_roles = [
-            getattr(employee, 'wire_admin', False),
-            getattr(employee, 'clinic_admin', False),
-            getattr(employee, 'iad_admin', False),
             getattr(employee, 'accounting_admin', False),
             getattr(employee, 'hr_admin', False),
-            getattr(employee, 'hr_manager', False),
-            getattr(employee, 'mis_admin', False),
         ]
         return getattr(employee, 'active', True) and not any(excluded_roles)
 
@@ -208,13 +204,10 @@ class EmployeeEvaluation(models.Model):
     evaluation = models.ForeignKey(Evaluation, on_delete=models.CASCADE)
     evaluation_instance = models.OneToOneField(EvaluationInstance, on_delete=models.CASCADE, null=True, blank=True, related_name='employee_evaluation')
     employee = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='employee_evaluations')
-    supervisor = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='supervised_evaluations', null=True, blank=True)
-    manager = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='managed_evaluations', null=True, blank=True)
+    line_leader = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='leader_evaluations', null=True, blank=True)
+    supervisor = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='supervisor_evaluations', null=True, blank=True)
+    manager = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='manager_evaluations', null=True, blank=True)
     status = models.CharField(max_length=20, choices=Evaluation.STATUS_CHOICES, default='pending')
-
-    self_completed_at = models.DateTimeField(null=True, blank=True)
-
-    supervisor_completed_at = models.DateTimeField(null=True, blank=True)
     
     # Supervisor evaluation criteria
     cost_consciousness_rating = models.IntegerField(null=True, blank=True, help_text="Rating 1-5 for Cost Consciousness")
@@ -236,12 +229,16 @@ class EmployeeEvaluation(models.Model):
     strengths = models.TextField(blank=True)
     weaknesses = models.TextField(blank=True)
     training_required = models.TextField(blank=True)
-    supervisor_comments = models.TextField(blank=True)
+    leader_comments = models.TextField(blank=True)
     employee_comments = models.TextField(blank=True)
+
+    supervisor_completed_at = models.DateTimeField(null=True, blank=True)
+    supervisor_comments = models.TextField(blank=True)
 
     manager_completed_at = models.DateTimeField(null=True, blank=True)
     manager_comments = models.TextField(blank=True)
 
+    self_completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -254,9 +251,9 @@ class EmployeeEvaluation(models.Model):
     def save(self, *args, **kwargs):
         # Update status based on completion stages
         if self.self_completed_at and self.status == 'pending':
-            self.status = 'supervisor_review'
-        elif self.supervisor_completed_at and self.status == 'supervisor_review':
-            self.status = 'manager_review'
+            self.status = 'for_evaluation'
+        elif self.supervisor_completed_at and self.status == 'for_evaluation':
+            self.status = 'for_review'
         
         super().save(*args, **kwargs)
         

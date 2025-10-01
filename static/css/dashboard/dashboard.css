@@ -9,7 +9,7 @@
 }
 
 [data-theme="dark"] .user-greeting-section {
-    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    background: var(--bg-secondary) !important;
 }
 
 .greeting-icon-container {

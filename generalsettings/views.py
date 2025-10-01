@@ -66,16 +66,27 @@ def api_line_detail(request, line_id):
 def api_departments(request):
     if request.method == 'GET':
         departments = Department.objects.all().order_by('department_name')
-        data = [{"id": d.id, "name": d.department_name} for d in departments]
+        data = [{
+            "id": d.id, 
+            "name": d.department_name,
+            "has_line_leader": d.has_line_leader
+        } for d in departments]
         return JsonResponse({"departments": data})
     
     elif request.method == 'POST':
         try:
             data = json.loads(request.body)
-            department = Department.objects.create(department_name=data['name'])
+            department = Department.objects.create(
+                department_name=data['name'],
+                has_line_leader=data.get('has_line_leader', False)
+            )
             return JsonResponse({
                 "success": True,
-                "department": {"id": department.id, "name": department.department_name}
+                "department": {
+                    "id": department.id, 
+                    "name": department.department_name,
+                    "has_line_leader": department.has_line_leader
+                }
             })
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)})
@@ -88,10 +99,15 @@ def api_department_detail(request, dept_id):
         try:
             data = json.loads(request.body)
             department.department_name = data['name']
+            department.has_line_leader = data.get('has_line_leader', False)
             department.save()
             return JsonResponse({
                 "success": True,
-                "department": {"id": department.id, "name": department.department_name}
+                "department": {
+                    "id": department.id, 
+                    "name": department.department_name,
+                    "has_line_leader": department.has_line_leader
+                }
             })
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)})
@@ -108,7 +124,7 @@ def api_department_detail(request, dept_id):
 def api_positions(request):
     if request.method == 'GET':
         positions = Position.objects.all().order_by('position')
-        data = [{"id": p.id, "name": p.position, "level": p.level} for p in positions]
+        data = [{"id": p.id, "name": p.position, "level": p.level, "is_line_leader": p.is_line_leader} for p in positions]
         return JsonResponse({"positions": data})
     
     elif request.method == 'POST':
@@ -116,11 +132,12 @@ def api_positions(request):
             data = json.loads(request.body)
             position = Position.objects.create(
                 position=data['name'],
-                level=data['level']
+                level=data['level'],
+                is_line_leader=data.get('is_line_leader', False)
             )
             return JsonResponse({
                 "success": True,
-                "position": {"id": position.id, "name": position.position, "level": position.level}
+                "position": {"id": position.id, "name": position.position, "level": position.level, "is_line_leader": position.is_line_leader}
             })
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)})
@@ -134,10 +151,11 @@ def api_position_detail(request, pos_id):
             data = json.loads(request.body)
             position.position = data['name']
             position.level = data['level']
+            position.is_line_leader = data.get('is_line_leader', False)
             position.save()
             return JsonResponse({
                 "success": True,
-                "position": {"id": position.id, "name": position.position, "level": position.level}
+                "position": {"id": position.id, "name": position.position, "level": position.level, "is_line_leader": position.is_line_leader}
             })
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)})
@@ -425,7 +443,8 @@ def api_leavetypes(request):
             "name": lt.name,
             "code": lt.code,
             "go_to_clinic": lt.go_to_clinic,
-            "is_active": lt.is_active
+            "is_active": lt.is_active,
+            "is_deducted": lt.is_deducted
         } for lt in leavetypes]
         return JsonResponse({"leavetypes": data})
     
@@ -436,7 +455,8 @@ def api_leavetypes(request):
                 name=data['name'],
                 code=data['code'],
                 go_to_clinic=data.get('go_to_clinic', False),
-                is_active=data.get('is_active', True)
+                is_active=data.get('is_active', True),
+                is_deducted=data.get('is_deducted', False)
             )
             return JsonResponse({
                 "success": True,
@@ -445,7 +465,8 @@ def api_leavetypes(request):
                     "name": leavetype.name,
                     "code": leavetype.code,
                     "go_to_clinic": leavetype.go_to_clinic,
-                    "is_active": leavetype.is_active
+                    "is_active": leavetype.is_active,
+                    "is_deducted": leavetype.is_deducted
                 }
             })
         except Exception as e:
@@ -462,6 +483,7 @@ def api_leavetype_detail(request, leavetype_id):
             leavetype.code = data['code']
             leavetype.go_to_clinic = data.get('go_to_clinic', False)
             leavetype.is_active = data.get('is_active', True)
+            leavetype.is_deducted = data.get('is_deducted', False)
             leavetype.save()
             return JsonResponse({
                 "success": True,
@@ -470,7 +492,8 @@ def api_leavetype_detail(request, leavetype_id):
                     "name": leavetype.name,
                     "code": leavetype.code,
                     "go_to_clinic": leavetype.go_to_clinic,
-                    "is_active": leavetype.is_active
+                    "is_active": leavetype.is_active,
+                    "is_deducted": leavetype.is_deducted
                 }
             })
         except Exception as e:

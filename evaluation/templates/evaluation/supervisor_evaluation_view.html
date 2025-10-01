@@ -12,19 +12,9 @@
                     </span>
                 {% endif %}
                 <span class="meta-item">
-                    <i class="fas fa-user"></i>
-                    {{ employee_eval.employee.full_name }}
-                </span>
-                <span class="meta-item">
                     <i class="fas fa-clock"></i>
                     Self Completed: {{ employee_eval.self_completed_at|date:"M j, Y" }}
                 </span>
-                {% if employee_eval.supervisor_completed_at %}
-                <span class="meta-item">
-                    <i class="fas fa-check-circle"></i>
-                    Supervisor Reviewed: {{ employee_eval.supervisor_completed_at|date:"M j, Y" }}
-                </span>
-                {% endif %}
                 <span class="meta-item status-item">
                     <i class="fas fa-info-circle"></i>
                     Status: {{ employee_eval.get_status_display }}
@@ -39,7 +29,9 @@
                 <div class="rating-header">
                     <div class="rating-question-header">Employee Tasklists</div>
                     <div class="rating-scale-header">Employee Rating</div>
-                    <div class="rating-scale-header">Supervisor Rating</div>
+                    {% if task_rating.supervisor_rating %}
+                        <div class="rating-scale-header">Assessment Rating</div>
+                    {% endif %}
                 </div>
                 
                 <!-- Rating Rows -->
@@ -56,14 +48,16 @@
                         <span class="evaluation-rating-number">{{ task_rating.rating }}/5</span>
                     </div>
 
-                    <div class="rating-display">
-                        <div class="rating-stars-display">
-                            {% for value in "12345" %}
-                                <i class="fas fa-star {% if value|add:0 <= task_rating.supervisor_rating %}filled{% else %}empty{% endif %}"></i>
-                            {% endfor %}
+                    {% if task_rating.supervisor_rating %}
+                        <div class="rating-display">
+                            <div class="rating-stars-display">
+                                {% for value in "12345" %}
+                                    <i class="fas fa-star {% if value|add:0 <= task_rating.supervisor_rating %}filled{% else %}empty{% endif %}"></i>
+                                {% endfor %}
+                            </div>
+                            <span class="evaluation-rating-number">{{ task_rating.supervisor_rating }}/5</span>
                         </div>
-                        <span class="evaluation-rating-number">{{ task_rating.supervisor_rating }}/5</span>
-                    </div>
+                    {% endif %}
                 </div>
                 {% empty %}
                 <div class="rating-row">
@@ -81,8 +75,29 @@
                 <p class="evaluation-instruction">Provide detailed feedback on the employee's strengths, areas for improvement, and any training requirements.</p>
                 
                 <div class="response-grid">
+                    
                     <div class="response-section">
+                        <h5>Total Average Rating</h5>
+
+                        <div class="text-response">
+                            <h6>Average Employee Rating</h6>
+                            <p>
+                                <span class="supervisor-stat-value">{{ employee_eval.average_rating|floatformat:1|default:"N/A" }}/5</span>
+                            </p>
+                        </div>
+
+                        {% if employee_eval.average_supervisor_rating %}
+                            <div class="text-response">
+                                <h6>Average Assessment Rating</h6>
+                                <p>
+                                    <span class="supervisor-stat-value">{{ employee_eval.average_supervisor_rating|floatformat:1 }}/5</span>
+                                </p>
+                            </div>
+                        {% endif %}
+
+                        {% if employee_eval.strengths or employee_eval.weaknesses or employee_eval.training_required %}
                         <h5>Performance Assessment</h5>
+                        {% endif %}
                         
                         {% if employee_eval.strengths %}
                         <div class="text-response">
@@ -107,31 +122,41 @@
                     </div>
 
                     <div class="response-section">
+                        {% if employee_eval.cost_consciousness_comments or employee_eval.cost_consciousness_rating or employee_eval.cost_consciousness_comments or employee_eval.cost_consciousness_rating or employee_eval.work_ethics_comments or employee_eval.work_ethics_rating or employee_eval.attendance_comments or employee_eval.attendance_rating %}
                         <h5>Employee Behavioral Assessment</h5>
+                        {% endif %}
 
+                        {% if employee_eval.cost_consciousness_comments or employee_eval.cost_consciousness_rating %}
                         <div class="text-response">
                             <h6>Cost Consciousness</h6>
                             <p>{{ employee_eval.cost_consciousness_comments }}</p>
                             <span class="supervisor-stat-value">{{ employee_eval.cost_consciousness_rating|floatformat:1 }}/5</span>
                         </div>
+                        {% endif %}
 
+                        {% if employee_eval.dependability_comments or employee_eval.dependability_rating %}
                         <div class="text-response">
                             <h6>Dependability</h6>
                             <p>{{ employee_eval.dependability_comments }}</p>
                             <span class="supervisor-stat-value">{{ employee_eval.dependability_rating|floatformat:1 }}/5</span>
                         </div>
+                        {% endif %}
 
+                        {% if employee_eval.work_ethics_comments or employee_eval.work_ethics_rating %}
                         <div class="text-response">
                             <h6>Work Ethics</h6>
                             <p>{{ employee_eval.work_ethics_comments }}</p>
                             <span class="supervisor-stat-value">{{ employee_eval.work_ethics_rating|floatformat:1 }}/5</span>
                         </div>
+                        {% endif %}
 
+                        {% if employee_eval.attendance_comments or employee_eval.attendance_rating %}
                         <div class="text-response">
                             <h6>Attendance</h6>
                             <p>{{ employee_eval.attendance_comments }}</p>
                             <span class="supervisor-stat-value">{{ employee_eval.attendance_rating|floatformat:1 }}/5</span>
                         </div>
+                        {% endif %}
 
                     </div>
 
@@ -154,27 +179,6 @@
                             {% endif %}
                         </div>     
                     {% endif %}
-
-                    <div class="response-section">
-                        <h5>Total Average Rating</h5>
-
-                        <div class="text-response">
-                            <h6>Average Employee Rating</h6>
-                            <p>
-                                <span class="supervisor-stat-value">{{ employee_eval.average_rating|floatformat:1|default:"N/A" }}/5</span>
-                            </p>
-                        </div>
-
-                        {% if employee_eval.average_supervisor_rating %}
-                        <div class="text-response">
-                            <h6>Average Supervisor Rating</h6>
-                            <p>
-                                <span class="supervisor-stat-value">{{ employee_eval.average_supervisor_rating|floatformat:1 }}/5</span>
-                            </p>
-                        </div>
-                        {% endif %}
-
-                    </div>
                 </div>
             </div>
 

@@ -30,8 +30,38 @@ class FamilyBackgroundAdmin(admin.ModelAdmin):
 
 @admin.register(EmploymentInformation)
 class EmploymentInformationAdmin(admin.ModelAdmin):
-    list_display = ['user', 'position', 'department', 'employment_type', 'date_hired']
-    list_filter = ['employment_type', 'department', 'date_hired', 'created_at']
-    search_fields = ['user__firstname', 'user__lastname', 'position', 'department']
+    list_display = ['user', 'position', 'department', 'line', 'approver', 'line_leader', 'employment_type', 'date_hired']
+    list_filter = ['employment_type', 'department', 'line', 'date_hired', 'created_at']
+    search_fields = ['user__firstname', 'user__lastname']
     readonly_fields = ['created_at', 'updated_at']
-    raw_id_fields = ['user', 'approver']
+    raw_id_fields = ['user', 'approver', 'line_leader']
+    
+    fieldsets = (
+        ('Employee', {
+            'fields': ('user',)
+        }),
+        ('Position & Department', {
+            'fields': ('position', 'department', 'line')
+        }),
+        ('Management', {
+            'fields': ('approver', 'line_leader')
+        }),
+        ('Employment Details', {
+            'fields': ('employment_type', 'date_hired')
+        }),
+        ('Government IDs', {
+            'fields': ('tin_number', 'sss_number', 'hdmf_number', 'philhealth_number')
+        }),
+        ('Banking', {
+            'fields': ('bank_account',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'user', 'position', 'department', 'line', 'approver', 'line_leader'
+        )

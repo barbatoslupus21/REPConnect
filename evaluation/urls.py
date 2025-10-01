@@ -14,6 +14,7 @@ urlpatterns = [
     path('user/<int:user_id>/tasklists/create/', views.create_tasklist_item, name='create_tasklist_item'),
     path('tasklist/<int:tasklist_id>/update/', views.update_tasklist_item, name='update_tasklist_item'),
     path('tasklist/<int:tasklist_id>/delete/', views.delete_tasklist_item, name='delete_tasklist_item'),
+    
     # Evaluation detail and update for admin modal edit
     path('<int:evaluation_id>/detail/', views.get_evaluation_detail, name='get_evaluation_detail'),
     path('<int:evaluation_id>/update/', views.update_evaluation, name='update_evaluation'),
@@ -33,6 +34,7 @@ urlpatterns = [
     # Supervisor Evaluation
     path('supervisor/evaluation/<int:evaluation_id>/', views.get_supervisor_evaluation, name='get_supervisor_evaluation'),
     path('supervisor/evaluation/<int:evaluation_id>/submit/', views.submit_supervisor_evaluation, name='submit_supervisor_evaluation'),
+    path('supervisor/evaluation/<int:evaluation_id>/revise/', views.save_revise_evaluation, name='save_revise_evaluation'),
     path('supervisor/evaluation/<int:evaluation_id>/view/', views.view_supervisor_evaluation, name='view_supervisor_evaluation'),
     
     # Manager Evaluation

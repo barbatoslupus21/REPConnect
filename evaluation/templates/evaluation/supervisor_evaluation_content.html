@@ -47,8 +47,8 @@
                     <div class="rating-question-header" style="padding: 0 !important;">Employee Tasklists</div>
                     <div class="rating-scale-header">Employee Rating</div>
                     <div class="supervisor-rating-header">
-                        <div class="supervisor-rating-header">Supervisor Rating</div>
-                        <div class="supervisor-rating-number">
+                        <div class="supervisor-rating-header">Assessment Rating</div>
+                        <div class="rating-stars-display">
                             <div class="rating-number-header">1</div>
                             <div class="rating-number-header">2</div>
                             <div class="rating-number-header">3</div>
@@ -72,8 +72,8 @@
                         <span class="evaluation-rating-number">{{ task_rating.rating }}/5</span>
                     </div>
 
-                    <div class="supervisor-rating-row">
-                        <div class="rating-stars-row" data-question-name="supervisor_task_rating_{{ task_rating.task_id }}">
+                    <div class="rating-display">
+                        <div class="rating-stars-display" data-question-name="supervisor_task_rating_{{ task_rating.task_id }}">
                             {% for value in "12345" %}
                             <div class="rating-star-cell">
                                 <i class="fas fa-star rating-star {% if task_rating.supervisor_rating and value|add:0 <= task_rating.supervisor_rating %}filled{% else %}empty{% endif %}" 
@@ -110,7 +110,7 @@
                                 <div class="rating-scale-header">Comments</div>
                                 <div class="supervisor-rating-header">
                                     <div class="supervisor-rating-header">Rating</div>
-                                    <div class="supervisor-rating-number">
+                                    <div class="rating-stars-display">
                                         <div class="rating-number-header">1</div>
                                         <div class="rating-number-header">2</div>
                                         <div class="rating-number-header">3</div>
@@ -129,8 +129,8 @@
                                 <div class="rating-display">
                                     {{ form.cost_consciousness_comments }}
                                 </div>
-                                <div class="supervisor-rating-row">
-                                    <div class="rating-stars-row" data-question-name="cost_consciousness_rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display" data-question-name="cost_consciousness_rating">
                                         {% for value in "12345" %}
                                         <div class="rating-star-cell">
                                             <i class="fas fa-star rating-star {% if form.cost_consciousness_rating.value and value|add:0 <= form.cost_consciousness_rating.value %}filled{% else %}empty{% endif %}" 
@@ -151,8 +151,8 @@
                                 <div class="rating-display">
                                     {{ form.dependability_comments }}
                                 </div>
-                                <div class="supervisor-rating-row">
-                                    <div class="rating-stars-row" data-question-name="dependability_rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display" data-question-name="dependability_rating">
                                         {% for value in "12345" %}
                                         <div class="rating-star-cell">
                                             <i class="fas fa-star rating-star {% if form.dependability_rating.value and value|add:0 <= form.dependability_rating.value %}filled{% else %}empty{% endif %}" 
@@ -173,8 +173,8 @@
                                 <div class="rating-display">
                                     {{ form.communication_comments }}
                                 </div>
-                                <div class="supervisor-rating-row">
-                                    <div class="rating-stars-row" data-question-name="communication_rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display" data-question-name="communication_rating">
                                         {% for value in "12345" %}
                                         <div class="rating-star-cell">
                                             <i class="fas fa-star rating-star {% if form.communication_rating.value and value|add:0 <= form.communication_rating.value %}filled{% else %}empty{% endif %}" 
@@ -195,8 +195,8 @@
                                 <div class="rating-display">
                                     {{ form.work_ethics_comments }}
                                 </div>
-                                <div class="supervisor-rating-row">
-                                    <div class="rating-stars-row" data-question-name="work_ethics_rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display" data-question-name="work_ethics_rating">
                                         {% for value in "12345" %}
                                         <div class="rating-star-cell">
                                             <i class="fas fa-star rating-star {% if form.work_ethics_rating.value and value|add:0 <= form.work_ethics_rating.value %}filled{% else %}empty{% endif %}" 
@@ -217,8 +217,8 @@
                                 <div class="rating-display">
                                     {{ form.attendance_comments }}
                                 </div>
-                                <div class="supervisor-rating-row">
-                                    <div class="rating-stars-row" data-question-name="attendance_rating">
+                                <div class="rating-display">
+                                    <div class="rating-stars-display" data-question-name="attendance_rating">
                                         {% for value in "12345" %}
                                         <div class="rating-star-cell">
                                             <i class="fas fa-star rating-star {% if form.attendance_rating.value and value|add:0 <= form.attendance_rating.value %}filled{% else %}empty{% endif %}" 
@@ -240,7 +240,7 @@
                             {{ form.strengths }}
                         </div>
                         <div class="form-group">
-                            <label for="{{ form.weaknesses.id_for_label }}">Areas for Improvement:</label>
+                            <label for="{{ form.weaknesses.id_for_label }}">Weaknesses:</label>
                             {{ form.weaknesses }}
                         </div>
                         <div class="form-group">
@@ -269,10 +269,17 @@
                             <i class="fas fa-arrow-left"></i>
                             Back to Evaluations
                         </button>
+                        {% if is_manager_review %}
+                        <button type="submit" class="btn btn-primary" id="saveReviseEvaluation">
+                            <i class="fas fa-save"></i>
+                            Save Evaluation
+                        </button>
+                        {% else %}
                         <button type="submit" class="btn btn-primary" id="submitSupervisorEvaluation">
                             <i class="fas fa-save"></i>
-                            {% if is_manager_review %}Approve Evaluation{% else %}Submit Assessment{% endif %}
+                            Submit Assessment
                         </button>
+                        {% endif %}
                     </div>
                 {% else %}
                     <div class="evaluation-form-actions">

@@ -103,11 +103,13 @@ class EmploymentInformation(models.Model):
 
     user = models.OneToOneField(EmployeeLogin, on_delete=models.CASCADE, related_name='employment_info')
     approver = models.ForeignKey(EmployeeLogin, on_delete=models.SET_NULL, blank=True, null=True, related_name='supervised_employees')
+    # innovator = models.ForeignKey(EmployeeLogin, on_delete=models.SET_NULL, blank=True, null=True, related_name='innovator_employees')
+    line_leader = models.ForeignKey(EmployeeLogin, on_delete=models.SET_NULL, blank=True, null=True, related_name='line_leader_employees')
     position = models.ForeignKey(Position, on_delete=models.SET_NULL, null=True)
     line = models.ForeignKey(Line, on_delete=models.SET_NULL, blank=True, null=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, blank=True, null=True)
     employment_type = models.CharField(max_length=20, choices=EMPLOYMENT_TYPE_CHOICES)
-    date_hired = models.DateField()
+    date_hired = models.DateField(blank=True, null=True)
 
     tin_number = models.CharField(max_length=15, null=True)
     sss_number = models.CharField(max_length=15, null=True)

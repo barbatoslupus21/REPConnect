@@ -90,12 +90,13 @@ class EmploymentInformationForm(forms.ModelForm):
     class Meta:
         model = EmploymentInformation
         fields = [
-        'approver', 'position', 'line', 'department', 'employment_type',
+        'approver', 'line_leader', 'position', 'line', 'department', 'employment_type',
         'date_hired', 'tin_number', 'sss_number', 'hdmf_number',
         'philhealth_number', 'bank_account'
         ]
         widgets = {
         'approver': forms.Select(attrs={'class': 'form-input'}),
+        'line_leader': forms.Select(attrs={'class': 'form-input'}),
         'position': forms.TextInput(attrs={'class': 'form-input', 'readonly': True}),
         'line': forms.Select(attrs={'class': 'form-input'}),
         'department': forms.TextInput(attrs={'class': 'form-input', 'readonly': True}),
@@ -113,6 +114,11 @@ class EmploymentInformationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         self.fields['approver'].queryset = EmployeeLogin.objects.filter(hr_admin=True)
+        
+        # Set line_leader queryset to all employees that can be line leaders
+        # Will be filtered by JavaScript based on position.is_line_leader
+        self.fields['line_leader'].queryset = EmployeeLogin.objects.all()
+        self.fields['line_leader'].required = False
 
         if user_role == 'employee':
             readonly_fields = ['position', 'department', 'employment_type', 'date_hired',
@@ -123,6 +129,13 @@ class EmploymentInformationForm(forms.ModelForm):
             for field_name, field in self.fields.items():
                 if 'readonly' in field.widget.attrs:
                     del field.widget.attrs['readonly']
+                    
+    def clean_line_leader(self):
+        line_leader = self.cleaned_data.get('line_leader')
+        # Allow empty line leader
+        if not line_leader:
+            return None
+        return line_leader
 
 class CreateEmployeeForm(forms.ModelForm):
     department = forms.ModelChoiceField(queryset=Department.objects.all().order_by('department_name'), widget=forms.Select(attrs={'class': 'form-input'}), required=True)

@@ -10,7 +10,7 @@ class LineAdmin(admin.ModelAdmin):
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ('id', 'department_name', 'get_lines')
+    list_display = ('id', 'department_name', 'has_line_leader', 'get_lines')
     search_fields = ('department_name',)
     ordering = ('department_name',)
     filter_horizontal = ('lines',)

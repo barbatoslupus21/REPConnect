@@ -95,7 +95,7 @@ def get_chart_data(request, period):
 
 @login_required
 def employee_prf_view(request):
-    if request.user.hr_admin:
+    if request.user.hr_admin or request.user.accounting_admin:
         return redirect('admin_prf')
     
     user_prfs = PRFRequest.objects.filter(employee=request.user)
@@ -252,7 +252,7 @@ def get_prf_detail(request, prf_id):
 
 @login_required
 def admin_dashboard(request):
-    if not request.user.hr_admin:
+    if not request.user.hr_admin and not request.user.accounting_admin:
         return redirect('user_prf')
 
     period = request.GET.get('period', 'month')
@@ -354,7 +354,7 @@ def admin_dashboard(request):
 
 @login_required
 def get_chart_data_ajax(request):
-    if not request.user.hr_admin:
+    if not request.user.hr_admin and not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
 
     period = request.GET.get('period', 'month')
@@ -368,7 +368,7 @@ def get_chart_data_ajax(request):
 
 @login_required
 def get_table_data_ajax(request):
-    if not request.user.hr_admin:
+    if not request.user.hr_admin and not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
 
     prfs = PRFRequest.objects.all().select_related('employee', 'processed_by')
@@ -547,7 +547,7 @@ def process_prf_action(request):
 
 @login_required
 def get_admin_prf_detail(request, prf_id):
-    if not request.user.hr_admin:
+    if not request.user.hr_admin and not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
     
     prf = get_object_or_404(PRFRequest, id=prf_id)
@@ -589,7 +589,7 @@ def get_admin_prf_detail(request, prf_id):
 
 @login_required
 def export_prfs(request):
-    if not request.user.hr_admin:
+    if not request.user.hr_admin and not request.user.accounting_admin:
         return redirect('admin_prf')
     
     prfs = PRFRequest.objects.all().select_related('employee', 'processed_by')
@@ -870,10 +870,17 @@ def export_prfs(request):
                 ws3.cell(row=row, column=7, value=prf.purpose)
                 ws3.cell(row=row, column=8, value=prf.get_status_display())
                 ws3.cell(row=row, column=9, value=prf.control_number or 'N/A')
-                ws3.cell(row=row, column=10, value=f"₱{loan.amount:,}")
+                
+                # Show ₱0 for cancelled or disapproved emergency loans
+                if prf.status in ['cancelled', 'disapproved']:
+                    ws3.cell(row=row, column=10, value="₱0")
+                    ws3.cell(row=row, column=13, value="₱0.00")
+                else:
+                    ws3.cell(row=row, column=10, value=f"₱{loan.amount:,}")
+                    ws3.cell(row=row, column=13, value=f"₱{loan.deduction_per_cutoff:,.2f}")
+                
                 ws3.cell(row=row, column=11, value=f"{loan.number_of_cutoff} Cut-offs")
                 ws3.cell(row=row, column=12, value=loan.starting_date.strftime('%Y-%m-%d') if loan.starting_date else 'N/A')
-                ws3.cell(row=row, column=13, value=f"₱{loan.deduction_per_cutoff:,.2f}")
                 ws3.cell(row=row, column=14, value=employee.employment_info.bank_account or 'N/A')
 
                 # Add borders and wrap text to all cells
@@ -912,7 +919,7 @@ def export_prfs(request):
 @require_POST
 @login_required
 def bulk_delete_prfs(request):
-    if not request.user.hr_admin:
+    if not request.user.hr_admin and not request.user.accounting_admin:
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
     
     if request.method == 'POST':
@@ -1011,26 +1018,30 @@ def get_cutoff_choices(request):
 def check_existing_emergency_loan(request):
     """Check if user has an existing Emergency Loan"""
     try:
-        # Get or create Emergency Loan type
+        from datetime import date
+        
         emergency_loan_type, created = LoanType.objects.get_or_create(
             loan_type="Emergency Loan",
             defaults={'description': 'Emergency loan for employees'}
         )
         
-        # Check for existing active Emergency Loan
         existing_loan = Loan.objects.filter(
             employee=request.user,
             loan_type=emergency_loan_type,
             is_active=True
         ).first()
         
-        # Check if existing loan balance is more than one monthly deduction
-        if existing_loan and existing_loan.current_balance > existing_loan.monthly_deduction:
+        today = date.today()
+        is_payroll_period = (3 <= today.day <= 9) or (18 <= today.day <= 24)
+        
+        # Emergency loan can proceed if balance <= monthly_deduction AND within payroll periods
+        if existing_loan and existing_loan.current_balance >= existing_loan.monthly_deduction and not is_payroll_period:
             return JsonResponse({
                 'has_existing_loan': True,
                 'current_balance': float(existing_loan.current_balance),
                 'principal_amount': float(existing_loan.principal_amount),
-                'monthly_deduction': float(existing_loan.monthly_deduction)
+                'monthly_deduction': float(existing_loan.monthly_deduction),
+                'next_payroll_date': '3rd-9th' if today.day < 3 else '18th-24th' if today.day < 18 else '3rd-9th (next month)'
             })
         else:
             return JsonResponse({'has_existing_loan': False})
@@ -1063,6 +1074,22 @@ def submit_emergency_loan(request):
         form = EmergencyLoanForm(request.POST, user=request.user)
         
         if form.is_valid():
+            from datetime import date
+            
+            # Check for existing pending emergency loan PRF request
+            existing_prf = PRFRequest.objects.filter(
+                employee=request.user,
+                prf_type='emergency_loan',
+                status='pending'
+            ).first()
+            
+            if existing_prf:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'pending_emergency_loan_exists',
+                    'error_message': 'You already have a pending emergency loan request.'
+                })
+            
             # Double-check for existing Emergency Loan
             emergency_loan_type, created = LoanType.objects.get_or_create(
                 loan_type="Emergency Loan",
@@ -1075,12 +1102,18 @@ def submit_emergency_loan(request):
                 is_active=True
             ).first()
             
+            # Get today's date
+            today = date.today()
+            is_payroll_period = (3 <= today.day <= 9) or (18 <= today.day <= 24)
+            
             # Check if existing loan balance is more than one monthly deduction
-            if existing_loan and existing_loan.current_balance > existing_loan.monthly_deduction:
+            # AND if today is NOT within payroll periods (3rd-9th or 18th-24th)
+            if existing_loan and existing_loan.current_balance >= existing_loan.monthly_deduction and not is_payroll_period:
                 return JsonResponse({
                     'success': False,
-                    'message': 'existing_loan_error',
-                    'current_balance': float(existing_loan.current_balance)
+                    'message': 'date_restriction_error',
+                    'current_balance': float(existing_loan.current_balance),
+                    'friendly_message': 'Oops! Emergency loan requests are only accepted from the 3rd–9th and 18th–24th of the month. Please come back during those dates'
                 })
             
             # Generate control number

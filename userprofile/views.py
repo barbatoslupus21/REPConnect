@@ -69,13 +69,8 @@ def admin_employees(request):
 
     search_query = request.GET.get('search', '')
     employees = EmployeeLogin.objects.filter(
-        wire_admin=False,
-        clinic_admin=False,
-        iad_admin=False,
         accounting_admin=False,
         hr_admin=False,
-        hr_manager=False,
-        mis_admin=False,
         is_active=True
     )
 
@@ -143,13 +138,26 @@ def update_employment_info(request):
         user = request.user
         employment_info, created = EmploymentInformation.objects.get_or_create(user=user)
 
+        # Debug: Print the POST data to see what's being sent
+        print(f"POST data: {request.POST}")
+        print(f"Line Leader in POST: {request.POST.get('line_leader', 'Not found')}")
+
         user_role = 'admin' if request.user.hr_admin else 'employee'
         employment_form = EmploymentInformationForm(request.POST, instance=employment_info, user_role=user_role)
 
         if employment_form.is_valid():
-            employment_form.save()
+            # Debug: Print the cleaned data
+            print(f"Form cleaned data: {employment_form.cleaned_data}")
+            print(f"Line Leader in cleaned data: {employment_form.cleaned_data.get('line_leader', 'Not found')}")
+            
+            employment_info = employment_form.save()
+            
+            # Debug: Print the saved line_leader
+            print(f"Saved line_leader: {employment_info.line_leader}")
+            
             return JsonResponse({'success': True, 'message': 'Employment information updated successfully'})
         else:
+            print(f"Form errors: {employment_form.errors}")
             return JsonResponse({'success': False, 'errors': employment_form.errors})
 
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
@@ -548,6 +556,20 @@ def update_profile_section(request):
                     else:
                         employment_info.approver = None
                     
+                    # Handle Line Leader
+                    line_leader_id = request.POST.get('line_leader')
+                    print(f"Line leader ID from POST: {line_leader_id}")  # Debug
+                    if line_leader_id:
+                        try:
+                            employment_info.line_leader = EmployeeLogin.objects.get(id=line_leader_id)
+                            print(f"Set line leader to: {employment_info.line_leader}")  # Debug
+                        except EmployeeLogin.DoesNotExist:
+                            employment_info.line_leader = None
+                            print("Line leader not found, set to None")  # Debug
+                    else:
+                        employment_info.line_leader = None
+                        print("No line leader ID provided, set to None")  # Debug
+                    
                     # Fields that can only be edited by HR admins
                     if is_hr_admin:
                         position_name = request.POST.get('position', '').strip()
@@ -890,6 +912,39 @@ def api_approvers(request):
         return JsonResponse({'approvers': approver_list})
     except Department.DoesNotExist:
         return JsonResponse({'approvers': []})
+
+@login_required(login_url="user-login")
+def api_line_leaders(request):
+    """API endpoint to get line leaders based on department"""
+    department_name = request.GET.get('department')
+    
+    if not department_name:
+        return JsonResponse({'line_leaders': []})
+    
+    try:
+        department = Department.objects.get(department_name=department_name)
+        
+        # Check if department has line leader enabled
+        if not department.has_line_leader:
+            return JsonResponse({'line_leaders': []})
+            
+        # Get users from same department with positions marked as line leader
+        line_leaders = EmployeeLogin.objects.filter(
+            employment_info__department=department,
+            employment_info__position__is_line_leader=True
+        ).exclude(id=request.user.id)
+        
+        line_leader_list = []
+        for leader in line_leaders:
+            line_leader_list.append({
+                'id': leader.id,
+                'name': f"{leader.firstname} {leader.lastname}",
+                'position': leader.employment_info.position.position if leader.employment_info.position else '',
+            })
+        
+        return JsonResponse({'line_leaders': line_leader_list})
+    except Department.DoesNotExist:
+        return JsonResponse({'line_leaders': []})
 
 import uuid
 import pandas as pd

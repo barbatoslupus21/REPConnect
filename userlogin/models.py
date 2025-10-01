@@ -9,8 +9,8 @@ class EmployeeLogin(AbstractUser):
     ]
     
     avatar = models.ImageField(upload_to='profile/', null=True, blank=True, default='profile/avatar.svg') 
-    idnumber = models.CharField(max_length=10, null=True)
-    username = models.CharField(max_length=20, unique=True, null=True)
+    idnumber = models.CharField(max_length=10, null=True, unique=True, )
+    username = models.CharField(max_length=20, null=True)
     firstname = models.CharField(max_length=20, null=True)
     lastname = models.CharField(max_length=20, null=True)
     email = models.EmailField(unique=True, blank=True)
@@ -26,7 +26,7 @@ class EmployeeLogin(AbstractUser):
     status = models.CharField(max_length=20, choices=STATUS_TYPE, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    USERNAME_FIELD = 'username'
+    USERNAME_FIELD = 'idnumber'
     REQUIRED_FIELDS = []
 
     def save(self, *args, **kwargs):

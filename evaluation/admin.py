@@ -36,7 +36,7 @@ class TaskRatingInline(admin.TabularInline):
 @admin.register(EmployeeEvaluation)
 class EmployeeEvaluationAdmin(admin.ModelAdmin):
     list_display = [
-        'employee', 'evaluation', 'status', 'average_rating', 'supervisor_criteria_avg',
+        'employee', 'evaluation', 'status', 'average_rating', 'average_supervisor_criteria',
         'self_completed_at', 'supervisor_completed_at', 'manager_completed_at'
     ]
     list_filter = ['status', 'evaluation', 'created_at']
@@ -46,11 +46,12 @@ class EmployeeEvaluationAdmin(admin.ModelAdmin):
     ]
     ordering = ['-created_at']
     inlines = [TaskRatingInline]
-    autocomplete_fields = ['employee', 'supervisor', 'manager', 'evaluation']
-    
+    autocomplete_fields = ['employee', 'line_leader', 'supervisor', 'manager', 'evaluation']
+    raw_id_fields = ['employee', 'line_leader', 'supervisor', 'manager']
+
     fieldsets = (
         ('Basic Information', {
-            'fields': ('evaluation', 'employee', 'supervisor', 'manager', 'status')
+            'fields': ('evaluation', 'employee', 'line_leader', 'supervisor', 'manager', 'status')
         }),
         ('Self-Evaluation', {
             'fields': ('self_completed_at',)
@@ -75,16 +76,16 @@ class EmployeeEvaluationAdmin(admin.ModelAdmin):
             'fields': ('manager_completed_at', 'manager_comments')
         }),
     )
-    
+
     def average_rating(self, obj):
         avg = obj.average_rating
         return f"{avg:.1f}" if avg else "N/A"
     average_rating.short_description = "Avg Rating"
-    
-    def supervisor_criteria_avg(self, obj):
+
+    def average_supervisor_criteria(self, obj):
         avg = obj.average_supervisor_criteria_rating
         return f"{avg:.1f}" if avg else "N/A"
-    supervisor_criteria_avg.short_description = "Supervisor Criteria Avg"
+    average_supervisor_criteria.short_description = "Supervisor Criteria Avg"
 
 @admin.register(TaskRating)
 class TaskRatingAdmin(admin.ModelAdmin):
@@ -92,7 +93,7 @@ class TaskRatingAdmin(admin.ModelAdmin):
     list_filter = ['rating', 'employee_evaluation__evaluation']
     search_fields = [
         'employee_evaluation__employee__username',
-        'task__task_name'
+        'task__tasklist'
     ]
     ordering = ['-employee_evaluation__created_at']
     autocomplete_fields = ['employee_evaluation', 'task']

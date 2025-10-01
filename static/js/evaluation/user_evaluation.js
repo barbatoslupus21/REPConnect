@@ -64,9 +64,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (e.target.classList.contains('submit-evaluation-btn')) {
+            console.log('submit-evaluation-btn clicked');
+            e.preventDefault(); // Prevent any default form submission
             const form = document.getElementById('evaluationForm');
             if (form) {
+                console.log('Form found, calling handleSubmitEvaluation');
                 handleSubmitEvaluation(form);
+            } else {
+                console.error('Form not found!');
             }
         }
         
@@ -122,6 +127,21 @@ document.addEventListener('DOMContentLoaded', function() {
             switchTab(target);
         });
     });
+    
+    // Check if we need to return to manager evaluation after page refresh
+    const returnToManagerEvaluation = sessionStorage.getItem('returnToManagerEvaluation');
+    if (returnToManagerEvaluation) {
+        // Clear the session storage
+        sessionStorage.removeItem('returnToManagerEvaluation');
+        
+        // Switch to approvals tab first
+        switchTab('approvals');
+        
+        // Wait a bit for tab switch, then load manager evaluation
+        setTimeout(() => {
+            loadManagerEvaluationAfterRevise(returnToManagerEvaluation);
+        }, 100);
+    }
 });
 
 // Handle starting an evaluation
@@ -186,13 +206,20 @@ function handleStartEvaluation(instanceId, btn) {
 function handleViewEvaluation(instanceId, btn) {
     console.log('handleViewEvaluation: viewing instanceId=', instanceId);
     
+    const employeeEvalId = btn.getAttribute('data-employee-eval-id');
+    
+    if (!employeeEvalId) {
+        showErrorMessage('Evaluation data not found. Please refresh the page and try again.');
+        return;
+    }
+    
     // Show loading state
     const originalText = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
     
-    // Load evaluation instance
-    fetch(`/evaluation/instance/${instanceId}/view/`)
+    // Load supervisor evaluation view
+    fetch(`/evaluation/supervisor/evaluation/${employeeEvalId}/view/`)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network error: ' + response.status);
@@ -201,7 +228,15 @@ function handleViewEvaluation(instanceId, btn) {
         })
         .then(data => {
             console.log('view evaluation payload:', data);
-            displayCompletedEvaluation(data);
+            if (data.success) {
+                // Display the evaluation in the content area
+                const contentArea = document.getElementById('contentArea');
+                if (contentArea) {
+                    contentArea.innerHTML = data.html;
+                }
+            } else {
+                throw new Error(data.error || 'Failed to load evaluation');
+            }
         })
         .catch(error => {
             console.error('Error loading evaluation:', error);
@@ -270,7 +305,7 @@ function displayEvaluation(data, originBtn) {
                     <i class="fas fa-arrow-left"></i>
                     Back to Dashboard
                 </button>
-                <button class="btn btn-primary submit-evaluation-btn" type="submit" form="evaluationForm">
+                <button class="btn btn-primary submit-evaluation-btn" type="button">
                     <i class="fas fa-paper-plane"></i>
                     Submit Evaluation
                 </button>
@@ -320,34 +355,120 @@ function displayCompletedEvaluation(data) {
 // Setup evaluation form functionality
 function setupEvaluationForm() {
     const form = document.getElementById('evaluationForm');
-    if (!form) return;
+    if (!form) {
+        console.warn('setupEvaluationForm: evaluationForm not found');
+        return;
+    }
+    
+    console.log('setupEvaluationForm: Form found, setting up...');
     
     // Setup star rating functionality
     setupStarRatings(form);
+    
+    // Prevent default form submission to ensure AJAX handling
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        console.log('Form submit event prevented - using AJAX instead');
+        handleSubmitEvaluation(form);
+    });
+    
+    console.log('setupEvaluationForm: Setup complete');
+}
+
+// Helper function to highlight a task row with error styling
+function highlightTaskError(taskRow) {
+    if (!taskRow) return;
+    
+    taskRow.style.border = '2px solid #dc3545';
+    taskRow.style.borderRadius = '8px';
+    taskRow.style.backgroundColor = '#fff5f5';
+    taskRow.style.transition = 'all 0.3s ease';
+    
+    // Add pulsing animation
+    taskRow.classList.add('task-error-highlight');
+    
+    // Also highlight the rating stars container
+    const starsContainer = taskRow.querySelector('.rating-stars-display');
+    if (starsContainer) {
+        starsContainer.style.backgroundColor = '#fee2e2';
+        starsContainer.style.borderRadius = '4px';
+    }
+}
+
+// Helper function to clear all task error highlighting
+function clearTaskErrorHighlighting(form) {
+    const taskRows = form.querySelectorAll('.rating-row');
+    taskRows.forEach(row => {
+        row.style.border = '';
+        row.style.borderRadius = '';
+        row.style.backgroundColor = '';
+        row.classList.remove('task-error-highlight');
+        
+        const starsContainer = row.querySelector('.rating-stars-display');
+        if (starsContainer) {
+            starsContainer.style.backgroundColor = '';
+            starsContainer.style.borderRadius = '';
+        }
+    });
 }
 
 // Handle evaluation submission
 function handleSubmitEvaluation(form) {
-    console.log('handleSubmitEvaluation: submitting evaluation');
+    console.log('handleSubmitEvaluation: Starting submission process');
+    console.log('handleSubmitEvaluation: Form element:', form);
     
     const formData = new FormData(form);
     const submitBtn = document.querySelector('.submit-evaluation-btn');
     const originalText = submitBtn.innerHTML;
     
+    console.log('handleSubmitEvaluation: Submit button found:', submitBtn);
+    
+    // Clear any existing error highlighting
+    clearTaskErrorHighlighting(form);
+    
     // Check if all required ratings are filled
     const hiddenInputs = form.querySelectorAll('input[type="hidden"][name^="task_rating_"]');
-    let hasEmptyRating = false;
+    console.log('handleSubmitEvaluation: Found', hiddenInputs.length, 'rating inputs');
+    
+    let unratedTasks = [];
     
     hiddenInputs.forEach(input => {
-        if (!input.value || input.value === '0') {
-            hasEmptyRating = true;
+        const value = input.value;
+        console.log('handleSubmitEvaluation: Task', input.name, 'has value:', value);
+        
+        if (!value || value === '0') {
+            const taskId = input.name.replace('task_rating_', '');
+            const ratingRow = form.querySelector(`.rating-stars-display[data-question-name="${input.name}"]`);
+            if (ratingRow) {
+                unratedTasks.push({
+                    taskId: taskId,
+                    element: ratingRow.closest('.rating-row')
+                });
+                console.log('handleSubmitEvaluation: Task', taskId, 'is unrated');
+            }
         }
     });
     
-    if (hasEmptyRating) {
-        showErrorMessage('Please rate all tasks before submitting.');
+    if (unratedTasks.length > 0) {
+        console.log('handleSubmitEvaluation: Found', unratedTasks.length, 'unrated tasks - preventing submission');
+        
+        // Highlight all unrated tasks with red border
+        unratedTasks.forEach(task => {
+            highlightTaskError(task.element);
+        });
+        
+        // Scroll to the first unrated task
+        const firstUnratedTask = unratedTasks[0].element;
+        firstUnratedTask.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+        
+        showErrorMessage(`Please rate all tasks before submitting. ${unratedTasks.length} task(s) remaining.`);
         return;
     }
+    
+    console.log('handleSubmitEvaluation: All tasks rated, proceeding with submission');
     
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
@@ -416,7 +537,7 @@ function handleCloseEvaluation() {
 
 // Setup star rating interactivity
 function setupStarRatings(container) {
-    const ratingContainers = container.querySelectorAll('.rating-stars-row');
+    const ratingContainers = container.querySelectorAll('.rating-stars-display');
     
     ratingContainers.forEach(starsEl => {
         const questionName = starsEl.dataset.questionName;
@@ -466,6 +587,28 @@ function setupStarRatings(container) {
                 const value = parseInt(this.dataset.value, 10) || 0;
                 hiddenInput.value = value;
                 setVisual(value);
+                
+                // Clear error highlighting when task gets rated
+                const taskRow = this.closest('.rating-row');
+                if (taskRow && value > 0) {
+                    taskRow.style.border = '';
+                    taskRow.style.borderRadius = '';
+                    taskRow.style.backgroundColor = '';
+                    taskRow.classList.remove('task-error-highlight');
+                    
+                    const starsContainer = taskRow.querySelector('.rating-stars-display');
+                    if (starsContainer) {
+                        starsContainer.style.backgroundColor = '';
+                        starsContainer.style.borderRadius = '';
+                    }
+                    
+                    // Clear question text error styling
+                    const questionText = taskRow.querySelector('.rating-question');
+                    if (questionText) {
+                        questionText.style.color = '';
+                        questionText.style.fontWeight = '';
+                    }
+                }
                 
                 // Add a brief highlight effect
                 this.style.transform = 'scale(1.2)';
@@ -768,6 +911,7 @@ function handleEvaluateSubordinate(evaluationId, btn) {
 function initializeSupervisorEvaluationForm() {
     const form = document.getElementById('supervisorEvaluationForm');
     if (form) {
+        // Handle regular submit button
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -777,50 +921,100 @@ function initializeSupervisorEvaluationForm() {
             }
             
             const submitBtn = document.getElementById('submitSupervisorEvaluation');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-            
-            const formData = new FormData(form);
-            const evaluationId = form.getAttribute('data-evaluation-id');
-            
-            // Collect supervisor task ratings
-            const supervisorRatingInputs = document.querySelectorAll('input[name^="supervisor_task_rating_"]');
-            supervisorRatingInputs.forEach(input => {
-                if (input.value) {
-                    formData.append(input.name, input.value);
-                }
-            });
-            
-            fetch(`/evaluation/supervisor/evaluation/${evaluationId}/submit/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showSuccessMessage('Evaluation assessment submitted successfully!');
-                    // Refresh the approvals list
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    showErrorMessage(data.error || 'Failed to submit assessment');
-                }
-            })
-            .catch(error => {
-                console.error('Error submitting assessment:', error);
-                showErrorMessage('Failed to submit assessment. Please try again.');
-            })
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            });
+            if (submitBtn) {
+                handleFormSubmission(form, 'submit', submitBtn);
+            }
         });
+
+        // Handle save revise evaluation button
+        const saveReviseBtn = document.getElementById('saveReviseEvaluation');
+        if (saveReviseBtn) {
+            saveReviseBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Don't validate ratings for save revise - allow partial completion
+                handleFormSubmission(form, 'revise', saveReviseBtn);
+            });
+        }
     }
+}
+
+// Handle form submission for both submit and revise actions
+function handleFormSubmission(form, actionType, button) {
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    
+    if (actionType === 'submit') {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    } else {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+    
+    const formData = new FormData(form);
+    const evaluationId = form.getAttribute('data-evaluation-id');
+    
+    // Collect supervisor task ratings
+    const supervisorRatingInputs = document.querySelectorAll('input[name^="supervisor_task_rating_"]');
+    supervisorRatingInputs.forEach(input => {
+        if (input.value) {
+            formData.append(input.name, input.value);
+        }
+    });
+    
+    // Determine the endpoint based on action type
+    const endpoint = actionType === 'submit' 
+        ? `/evaluation/supervisor/evaluation/${evaluationId}/submit/`
+        : `/evaluation/supervisor/evaluation/${evaluationId}/revise/`;
+    
+    fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const message = actionType === 'submit' 
+                ? 'Evaluation assessment submitted successfully!'
+                : data.message || 'Evaluation revised successfully!';
+            
+            showSuccessMessage(message);
+            
+            if (actionType === 'submit') {
+                // For submit, reload the page
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else if (actionType === 'revise') {
+                // For revise, refresh and return to manager evaluation view
+                setTimeout(() => {
+                    // Store the evaluation ID for after page refresh
+                    sessionStorage.setItem('returnToManagerEvaluation', evaluationId);
+                    window.location.reload();
+                }, 1500);
+            }
+        } else {
+            const errorMessage = actionType === 'submit' 
+                ? data.error || 'Failed to submit assessment'
+                : data.error || 'Failed to save revision';
+            
+            showErrorMessage(errorMessage);
+        }
+    })
+    .catch(error => {
+        console.error(`Error ${actionType}ing assessment:`, error);
+        const errorMessage = actionType === 'submit' 
+            ? 'Failed to submit assessment. Please try again.'
+            : 'Failed to save revision. Please try again.';
+        
+        showErrorMessage(errorMessage);
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
 }
 
 // Validation function for supervisor ratings
@@ -998,9 +1192,6 @@ function handleManagerEvaluation(evaluationId, btn) {
 function handleManagerApprovalModal(evaluationId) {
     const modal = document.getElementById('evaluationApprovalModal');
     const approveBtn = document.getElementById('approveEvaluation');
-    const disapproveBtn = document.getElementById('disapproveEvaluation');
-    const commentsField = document.getElementById('managerComments');
-    const commentsError = document.getElementById('commentsError');
     
     if (!modal) {
         console.error('Modal not found!');
@@ -1010,52 +1201,29 @@ function handleManagerApprovalModal(evaluationId) {
     // Store evaluation ID for later use
     modal.setAttribute('data-evaluation-id', evaluationId);
     
-    // Clear previous comments and errors
-    if (commentsField) commentsField.value = '';
-    if (commentsError) commentsError.style.display = 'none';
-    
     // Show modal
     modal.classList.add('show');
     
     // Handle approve button
     if (approveBtn) {
         approveBtn.onclick = function() {
-            handleManagerApprovalAction(evaluationId, 'approve');
-        };
-    }
-    
-    // Handle disapprove button
-    if (disapproveBtn) {
-        disapproveBtn.onclick = function() {
-            const comments = commentsField ? commentsField.value.trim() : '';
-            if (!comments) {
-                if (commentsError) commentsError.style.display = 'block';
-                if (commentsField) commentsField.focus();
-                return;
-            }
-            if (commentsError) commentsError.style.display = 'none';
-            handleManagerApprovalAction(evaluationId, 'disapprove');
+            handleManagerApprovalAction(evaluationId);
         };
     }
 }
 
 // Handle manager approval action
-function handleManagerApprovalAction(evaluationId, action) {
+function handleManagerApprovalAction(evaluationId) {
     const modal = document.getElementById('evaluationApprovalModal');
-    const commentsField = document.getElementById('managerComments');
     const approveBtn = document.getElementById('approveEvaluation');
-    const disapproveBtn = document.getElementById('disapproveEvaluation');
     
     // Show loading state
-    const actionBtn = action === 'approve' ? approveBtn : disapproveBtn;
-    const originalText = actionBtn.innerHTML;
-    actionBtn.disabled = true;
-    actionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    const originalText = approveBtn.innerHTML;
+    approveBtn.disabled = true;
+    approveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
     
-    // Prepare form data
+    // Prepare form data with CSRF token
     const formData = new FormData();
-    formData.append('action', action);
-    formData.append('manager_comments', commentsField.value.trim());
     formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
     
     fetch(`/evaluation/manager/evaluation/${evaluationId}/approve/`, {
@@ -1083,22 +1251,29 @@ function handleManagerApprovalAction(evaluationId, action) {
         showErrorMessage('Failed to process evaluation. Please try again.');
     })
     .finally(() => {
-        actionBtn.disabled = false;
-        actionBtn.innerHTML = originalText;
+        approveBtn.disabled = false;
+        approveBtn.innerHTML = originalText;
     });
 }
 
 // Initialize supervisor rating functionality
 function initializeSupervisorRatings() {
-    // Handle supervisor rating star clicks
+    console.log('Initializing supervisor ratings...');
+    
+    // Handle supervisor rating star clicks for both task ratings and behavioral criteria
     document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('rating-star') && e.target.closest('.supervisor-rating-row')) {
+        if (e.target.classList.contains('rating-star') && 
+            (e.target.closest('.rating-row') || e.target.closest('.behavioral-rating-row'))) {
+            
+            console.log('Supervisor rating star clicked');
             const star = e.target;
             const value = parseInt(star.getAttribute('data-value'));
             const question = star.getAttribute('data-question');
-            const starsRow = star.closest('.rating-stars-row');
-            const supervisorRatingRow = star.closest('.supervisor-rating-row');
+            const starsRow = star.closest('.rating-stars-display');
+            const ratingRow = star.closest('.rating-row') || star.closest('.behavioral-rating-row');
             const hiddenInput = document.querySelector(`input[name="${question}"]`);
+            
+            console.log('Rating details:', { question, value, hiddenInput });
             
             if (hiddenInput) {
                 // Update hidden input value
@@ -1117,17 +1292,31 @@ function initializeSupervisorRatings() {
                 });
                 
                 // Clear error styling if present
-                clearRatingError(supervisorRatingRow);
+                if (typeof clearRatingError === 'function') {
+                    clearRatingError(ratingRow);
+                }
+                
+                // Add brief highlight effect
+                star.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    star.style.transform = '';
+                }, 150);
+                
+                console.log('Rating updated successfully');
+            } else {
+                console.warn('Hidden input not found for question:', question);
             }
         }
     });
     
     // Handle star hover effects for supervisor ratings
     document.addEventListener('mouseover', function(e) {
-        if (e.target.classList.contains('rating-star') && e.target.closest('.supervisor-rating-row')) {
+        if (e.target.classList.contains('rating-star') && 
+            (e.target.closest('.rating-row') || e.target.closest('.behavioral-rating-row'))) {
+            
             const star = e.target;
             const value = parseInt(star.getAttribute('data-value'));
-            const starsRow = star.closest('.rating-stars-row');
+            const starsRow = star.closest('.rating-stars-display');
             const allStars = starsRow.querySelectorAll('.rating-star');
             
             allStars.forEach((s, index) => {
@@ -1141,12 +1330,29 @@ function initializeSupervisorRatings() {
     });
     
     document.addEventListener('mouseout', function(e) {
-        if (e.target.classList.contains('rating-star') && e.target.closest('.supervisor-rating-row')) {
-            const starsRow = e.target.closest('.rating-stars-row');
+        if (e.target.classList.contains('rating-star') && 
+            (e.target.closest('.rating-row') || e.target.closest('.behavioral-rating-row'))) {
+            
+            const starsRow = e.target.closest('.rating-stars-display');
             const allStars = starsRow.querySelectorAll('.rating-star');
             allStars.forEach(s => s.classList.remove('hover'));
         }
     });
+    
+    // Make star cells clickable for better UX
+    const supervisorContent = document.querySelector('.supervisor-assessment-container');
+    if (supervisorContent) {
+        supervisorContent.querySelectorAll('.rating-star-cell').forEach(cell => {
+            cell.addEventListener('click', function() {
+                const star = this.querySelector('.rating-star');
+                if (star) {
+                    star.click();
+                }
+            });
+        });
+    }
+    
+    console.log('Supervisor ratings initialized');
 }
 
 function showSuccessMessage(message) {
@@ -1526,3 +1732,102 @@ window.addEventListener('resize', function() {
         mobileBackBtns.forEach(btn => btn.remove());
     }
 });
+
+// Revise Evaluation function for manager evaluation content
+function reviseEvaluation(evaluationId) {
+    console.log('Revising evaluation:', evaluationId);
+    
+    // Get the approvals content area specifically
+    const approvalsContentArea = document.querySelector('#approvalsContentArea');
+    if (!approvalsContentArea) {
+        console.error('Approvals content area not found');
+        return;
+    }
+    
+    // Show loading indicator in approvals content area
+    approvalsContentArea.innerHTML = `
+        <div class="loading-spinner" style="text-align: center; padding: 50px;">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p style="margin-top: 20px;">Loading evaluation for revision...</p>
+        </div>
+    `;
+    
+    // Make AJAX call to get supervisor evaluation content (editable form)
+    fetch(`/evaluation/supervisor/evaluation/${evaluationId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Replace approvals content area with editable supervisor evaluation content
+            approvalsContentArea.innerHTML = data.html;
+            
+            // Initialize any JavaScript functionality needed for the form
+            if (typeof initializeSupervisorRatings === 'function') {
+                initializeSupervisorRatings();
+            }
+            
+            // Initialize form submission handler
+            if (typeof initializeSupervisorEvaluationForm === 'function') {
+                initializeSupervisorEvaluationForm();
+            }
+            
+            // Show content on mobile if needed
+            showEvaluationContent();
+            
+            console.log('Evaluation loaded for revision successfully');
+        } else {
+            approvalsContentArea.innerHTML = `
+                <div class="error-message" style="padding: 40px; text-align: center;">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>Error Loading Evaluation</h4>
+                        <p>${data.error}</p>
+                    </div>
+                    <button onclick="location.reload()" class="btn btn-primary">
+                        <i class="fas fa-refresh"></i> Refresh Page
+                    </button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading evaluation for revision:', error);
+        approvalsContentArea.innerHTML = `
+            <div class="error-message" style="padding: 40px; text-align: center;">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h4>Connection Error</h4>
+                    <p>Failed to load evaluation. Please check your connection and try again.</p>
+                </div>
+                <button onclick="location.reload()" class="btn btn-primary">
+                    <i class="fas fa-refresh"></i> Refresh Page
+                </button>
+            </div>
+        `;
+    });
+}
+
+// Function to load manager evaluation content after revision
+function loadManagerEvaluationAfterRevise(evaluationId) {
+    $.ajax({
+        url: `/evaluation/manager/evaluation/${evaluationId}/`,
+        method: 'GET',
+        success: function(data) {
+            const approvalsContentArea = document.getElementById('approvalsContentArea');
+            if (approvalsContentArea) {
+                approvalsContentArea.innerHTML = data;
+                // Reinitialize any form handlers if needed
+                initializeManagerEvaluationForm();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading manager evaluation content:', error);
+            showAlert('Error loading evaluation content. Please refresh the page.', 'error');
+        }
+    });
+}

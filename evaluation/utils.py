@@ -14,12 +14,15 @@ def calculate_evaluation_due_date(evaluation):
 
 def create_evaluation_instances(evaluation):
     """Create evaluation instances for all eligible employees based on evaluation duration"""
-    # Filter employees by active status and employment type (Regular or Probationary only)
+    # Filter employees by active status, employment type, and exclude admin users
     eligible_employees = EmployeeLogin.objects.filter(
         active=True,
-        employment_info__employment_type__in=['Regular', 'Probationary']
+        employment_info__employment_type__in=['Regular', 'Probationary'],
+        hr_admin=False,           # Explicitly exclude HR admins
+        accounting_admin=False    # Explicitly exclude Accounting admins
     ).select_related('employment_info')
     
+    # Additional filtering through model method for other admin roles
     eligible_employees = [emp for emp in eligible_employees if evaluation.is_employee_eligible(emp)]
     
     now = timezone.now()
@@ -28,7 +31,7 @@ def create_evaluation_instances(evaluation):
     for employee in eligible_employees:
         instances_created += create_instances_for_employee(evaluation, employee, now)
     
-    logger.info(f"Created {instances_created} evaluation instances for evaluation '{evaluation.title}'")
+    logger.info(f"Created {instances_created} evaluation instances for evaluation '{evaluation.title}' (excluded hr_admin and accounting_admin users)")
     return instances_created
 
 def create_instances_for_employee(evaluation, employee, current_time=None):

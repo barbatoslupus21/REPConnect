@@ -44,7 +44,7 @@
                 <div class="rating-header">
                     <div class="rating-question-header">Employee Tasklists</div>
                     <div class="rating-scale-header">Employee Rating</div>
-                    <div class="rating-scale-header">Supervisor Rating</div>
+                    <div class="rating-scale-header">Assessment Rating</div>
                 </div>
                 
                 <!-- Rating Rows -->
@@ -87,6 +87,24 @@
                 
                 <div class="response-grid">
                     <div class="response-section">
+                        <h5>Total Average Rating</h5>
+
+                        <div class="text-response">
+                            <h6>Average Employee Rating</h6>
+                            <p>
+                                <span class="supervisor-stat-value">{{ employee_eval.average_rating|floatformat:1|default:"N/A" }}/5</span>
+                            </p>
+                        </div>
+
+                        {% if employee_eval.average_supervisor_rating %}
+                            <div class="text-response">
+                                <h6>Average Assessment Rating</h6>
+                                <p>
+                                    <span class="supervisor-stat-value">{{ employee_eval.average_supervisor_rating|floatformat:1 }}/5</span>
+                                </p>
+                            </div>
+                        {% endif %}
+
                         <h5>Performance Assessment</h5>
                         
                         {% if employee_eval.strengths %}
@@ -159,27 +177,6 @@
                             {% endif %}
                         </div>     
                     {% endif %}
-
-                    <div class="response-section">
-                        <h5>Total Average Rating</h5>
-
-                        <div class="text-response">
-                            <h6>Average Employee Rating</h6>
-                            <p>
-                                <span class="supervisor-stat-value">{{ employee_eval.average_rating|floatformat:1|default:"N/A" }}/5</span>
-                            </p>
-                        </div>
-
-                        {% if employee_eval.average_supervisor_rating %}
-                        <div class="text-response">
-                            <h6>Average Supervisor Rating</h6>
-                            <p>
-                                <span class="supervisor-stat-value">{{ employee_eval.average_supervisor_rating|floatformat:1 }}/5</span>
-                            </p>
-                        </div>
-                        {% endif %}
-
-                    </div>
                 </div>
             </div>
 
@@ -189,9 +186,14 @@
                     Back to Evaluations
                 </button>
 
+                <button type="button" class="btn btn-secondary" onclick="reviseEvaluation({{ employee_eval.id }})">
+                    <i class="fa fa-refresh"></i>
+                    Revise Evaluation
+                </button>
+
                 <button type="button" class="btn btn-primary manager-review-btn" data-evaluation-id="{{ employee_eval.id }}">
                     <i class="fas fa-check-square"></i>
-                    Review Evaluation
+                    Approve Evaluation
                 </button>
             </div>
         </div>

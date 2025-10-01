@@ -308,6 +308,13 @@
                                                 <option value="">Select Approver</option>
                                             </select>
                                         </div>
+                                        <div class="form-group" id="line-leader-group">
+                                            <label class="form-label">Line Leader</label>
+                                            <div class="form-value">{{ employment_info.line_leader.firstname|default:'-' }} {{ employment_info.line_leader.lastname|default:'' }}</div>
+                                            <select name="line_leader" class="form-input line-leader-select" disabled data-current-value="{{ employment_info.line_leader.id|default:'' }}">
+                                                <option value="">Select Line Leader</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

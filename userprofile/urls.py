@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/provinces/', views.api_provinces, name='api_provinces'),
     path('api/cities/', views.api_cities, name='api_cities'),
     path('api/approvers/', views.api_approvers, name='api_approvers'),
+    path('api/line-leaders/', views.api_line_leaders, name='api_line_leaders'),
     path('download-employee-template/', views.download_employee_template, name='download_employee_template'),
     path('import-employees/', views.import_employees, name='import_employees'),
     path('import-progress/<str:import_id>/', views.import_progress, name='import_progress'),

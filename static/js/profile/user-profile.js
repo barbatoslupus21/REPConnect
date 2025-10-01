@@ -488,6 +488,11 @@ document.addEventListener('DOMContentLoaded', function() {
         card.classList.remove('edit-mode', 'has-changes');
         currentEditingCard = null;
 
+        // Update Line Leader visibility for view mode
+        if (group === 'employment-info') {
+            updateLineLeaderVisibility();
+        }
+
         // Hide card actions and show edit button
         const cardActions = card.querySelector('.card-actions');
         if (cardActions) {
@@ -523,6 +528,11 @@ document.addEventListener('DOMContentLoaded', function() {
         card.classList.add('edit-mode');
         currentEditingCard = group;
 
+        // Update Line Leader visibility for edit mode
+        if (group === 'employment-info') {
+            updateLineLeaderVisibility();
+        }
+
         const detailValues = card.querySelectorAll('.form-value');
         const editInputs = card.querySelectorAll('.form-input');
         const editInputGroups = card.querySelectorAll('.edit-input-group');
@@ -538,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fieldName = input ? input.name : null;
 
                 // Check if this field should be editable for non-HR admin users
-                const editableFields = ['department', 'line', 'approver'];
+                const editableFields = ['department', 'line', 'approver', 'line_leader'];
                 const isHROnlyField = !editableFields.includes(fieldName);
 
                 if (isHROnlyField && !window.isHRAdmin) {
@@ -696,10 +706,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Collecting data from ${inputs.length} form inputs:`);
 
         inputs.forEach(input => {
-            // Only collect data from visible, enabled inputs
+            // Special handling for line_leader field
+            const isLineLeader = input.name === 'line_leader';
+            
+            // Only collect data from visible inputs (disabled check adjusted for line_leader)
             const isVisible = input.offsetParent !== null &&
                              input.style.display !== 'none' &&
-                             !input.disabled;
+                             (isLineLeader || !input.disabled);
 
             if (isVisible && input.name) {
                 let value;
@@ -718,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append(input.name, value);
                 console.log(`Added to FormData: ${input.name} = "${value}"`);
             } else {
-                console.log(`Skipped input: ${input.name} (visible: ${isVisible})`);
+                console.log(`Skipped input: ${input.name} (visible: ${isVisible}, disabled: ${input.disabled})`);
             }
         });
 
@@ -973,6 +986,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const departmentSelect = document.querySelector('select[name="department"]');
         const lineSelect = document.querySelector('select[name="line"]');
         const approverSelect = document.querySelector('select[name="approver"]');
+        const lineLeaderSelect = document.querySelector('select[name="line_leader"]');
+        const lineLeaderGroup = lineLeaderSelect ? lineLeaderSelect.closest('.form-group') : null;
 
         if (!departmentSelect || !lineSelect) return;
 
@@ -1013,6 +1028,44 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        async function populateLineLeaders(departmentName) {
+            if (!lineLeaderSelect || !lineLeaderGroup) return;
+            
+            try {
+                const url = `/profile/api/line-leaders/?department=${encodeURIComponent(departmentName)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                lineLeaderSelect.innerHTML = '<option value="">Select Line Leader</option>';
+                
+                if (data.line_leaders && data.line_leaders.length > 0) {
+                    // Show the line leader field if there are line leaders available
+                    lineLeaderGroup.style.display = 'block';
+                    lineLeaderSelect.disabled = false;
+                    
+                    // Remove any inline display styles and let CSS handle visibility
+                    const formValue = lineLeaderGroup.querySelector('.form-value');
+                    if (formValue) formValue.style.display = '';
+                    lineLeaderSelect.style.display = '';
+                    
+                    data.line_leaders.forEach(leader => {
+                        const option = document.createElement('option');
+                        option.value = leader.id;
+                        option.textContent = `${leader.name} (${leader.position})`;
+                        lineLeaderSelect.appendChild(option);
+                    });
+                } else {
+                    // Hide the line leader field if no line leaders available
+                    lineLeaderGroup.style.display = 'none';
+                    lineLeaderSelect.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error fetching line leaders:', error);
+                lineLeaderGroup.style.display = 'none';
+                lineLeaderSelect.disabled = true;
+            }
+        }
+
         departmentSelect.addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
             if (selectedOption && selectedOption.value) {
@@ -1024,6 +1077,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     approverSelect.disabled = false;
                     populateApprovers(selectedOption.value);
                 }
+                
+                // Handle line leader dropdown
+                populateLineLeaders(selectedOption.value);
             } else {
                 lineSelect.disabled = true;
                 lineSelect.innerHTML = '<option value="">Select Line</option>';
@@ -1032,6 +1088,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (approverSelect) {
                     approverSelect.disabled = true;
                     approverSelect.innerHTML = '<option value="">Select Approver</option>';
+                }
+                
+                // Hide line leader dropdown
+                if (lineLeaderGroup && lineLeaderSelect) {
+                    lineLeaderGroup.style.display = 'none';
+                    lineLeaderSelect.disabled = true;
+                    lineLeaderSelect.innerHTML = '<option value="">Select Line Leader</option>';
                 }
             }
         });
@@ -1056,6 +1119,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                 }
                             });
                         }
+                        
+                        // Initialize line leader dropdown
+                        populateLineLeaders(currentDept).then(() => {
+                            if (lineLeaderSelect) {
+                                const currentLineLeader = lineLeaderSelect.getAttribute('data-current-value');
+                                if (currentLineLeader) {
+                                    lineLeaderSelect.value = currentLineLeader;
+                                }
+                            }
+                        });
                         break;
                     }
                 }
@@ -1076,6 +1149,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     approverSelect.disabled = true;
                     approverSelect.innerHTML = '<option value="">Select Approver</option>';
                 }
+                
+                if (lineLeaderGroup && lineLeaderSelect) {
+                    lineLeaderGroup.style.display = 'none';
+                    lineLeaderSelect.disabled = true;
+                    lineLeaderSelect.innerHTML = '<option value="">Select Line Leader</option>';
+                }
             }
         }
 
@@ -1087,6 +1166,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+
+        // Initialize line leader visibility on page load
+        setTimeout(() => {
+            const currentDept = departmentSelect.getAttribute('data-current-value');
+            if (currentDept) {
+                populateLineLeaders(currentDept);
+            } else {
+                // Hide line leader field if no department selected
+                if (lineLeaderGroup && lineLeaderSelect) {
+                    lineLeaderGroup.style.display = 'none';
+                    lineLeaderSelect.disabled = true;
+                }
+            }
+        }, 100);
+    }
+
+    // Handle Line Leader field visibility during edit mode changes
+    function updateLineLeaderVisibility() {
+        const lineLeaderSelect = document.querySelector('select[name="line_leader"]');
+        const lineLeaderGroup = lineLeaderSelect ? lineLeaderSelect.closest('.form-group') : null;
+        
+        if (!lineLeaderGroup || !lineLeaderSelect) return;
+        
+        // Only handle if the group is visible (has line leaders)
+        const computedStyle = window.getComputedStyle(lineLeaderGroup);
+        if (computedStyle.display !== 'none') {
+            // Remove any inline display styles and let CSS handle visibility
+            const formValue = lineLeaderGroup.querySelector('.form-value');
+            if (formValue) formValue.style.display = '';
+            lineLeaderSelect.style.display = '';
+        }
     }
 
     // Education modal functions

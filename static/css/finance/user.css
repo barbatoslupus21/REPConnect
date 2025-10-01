@@ -835,3 +835,68 @@
         page-break-inside: avoid;
     }
 }
+
+/* Privacy Toggle Styles */
+.modern-stat-header {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.privacy-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    color: var(--text-muted, #6b7280);
+    font-size: 14px;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.privacy-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.privacy-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+.privacy-value {
+    display: inline-block;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.privacy-value.hidden {
+    opacity: 1;
+    letter-spacing: 2px;
+    color: var(--text-muted, #6b7280);
+    font-weight: normal;
+}
+
+.privacy-value.showing {
+    opacity: 1;
+    letter-spacing: normal;
+    color: var(--text-primary, #1f2937);
+    font-weight: 600;
+}
+
+.privacy-value.transitioning {
+    opacity: 0;
+    transform: scale(0.9);
+}
+
+/* Eye icon states */
+.privacy-toggle-btn i.fa-eye {
+    color: var(--primary-color, #3b82f6);
+}
+
+.privacy-toggle-btn i.fa-eye-slash {
+    color: var(--text-muted, #6b7280);
+}

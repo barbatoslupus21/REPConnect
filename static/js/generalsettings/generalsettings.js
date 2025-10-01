@@ -299,21 +299,34 @@ function addDepartmentField(departmentData = null) {
     
     const deptId = departmentData ? departmentData.id : '';
     const deptName = departmentData ? departmentData.name : '';
+    const hasLineLeader = departmentData ? departmentData.has_line_leader : false;
     
     fieldDiv.innerHTML = `
-        <div class="input-with-icon">
-            <i class="fas fa-building"></i>
-            <input type="text" 
-                   placeholder="Enter department name..." 
-                   value="${deptName}"
-                   data-id="${deptId}"
-                   data-original="${deptName}"
-                   oninput="handleFieldChange(this)">
+        <div class="department-inputs">
+            <div class="input-with-icon">
+                <i class="fas fa-building"></i>
+                <input type="text" 
+                       placeholder="Enter department name..." 
+                       value="${deptName}"
+                       data-id="${deptId}"
+                       data-original="${deptName}"
+                       data-field="name"
+                       oninput="handleFieldChange(this)">
+            </div>
+            <div class="department-checkboxes">
+                <div class="checkbox-container">
+                    <label class="standard-checkbox">
+                        <input type="checkbox" ${hasLineLeader ? 'checked' : ''} data-field="has_line_leader" onchange="handleFieldChange(this)">
+                        <span class="checkmark"></span>
+                    </label>
+                    <span>Has Line Leader</span>
+                </div>
+            </div>
         </div>
-        <button type="button" class="btn-department-lines" onclick="openDepartmentLinesModal(this)" title="Manage Lines">
-            <i class="fas fa-list"></i>
-        </button>
-        <div class="field-actions">
+        <div class="department-actions">
+            <button type="button" class="btn-department-lines" onclick="openDepartmentLinesModal(this)" title="Manage Lines">
+                <i class="fas fa-list"></i>
+            </button>
             <button type="button" class="btn-update" onclick="updateDepartment(this)" title="Update">
                 <i class="fas fa-check"></i>
             </button>
@@ -326,7 +339,7 @@ function addDepartmentField(departmentData = null) {
     fieldsContainer.appendChild(fieldDiv);
     
     if (!departmentData) {
-        fieldDiv.querySelector('input').focus();
+        fieldDiv.querySelector('input[data-field="name"]').focus();
     }
 }
 
@@ -369,9 +382,12 @@ function loadExistingDepartments() {
 
 function updateDepartment(button) {
     const field = button.closest('.invite-field');
-    const input = field.querySelector('input');
-    const deptId = input.dataset.id;
-    const newName = input.value.trim();
+    const nameInput = field.querySelector('input[data-field="name"]');
+    const hasLineLeaderInput = field.querySelector('input[data-field="has_line_leader"]');
+    
+    const deptId = nameInput.dataset.id;
+    const newName = nameInput.value.trim();
+    const hasLineLeader = hasLineLeaderInput.checked;
     
     if (!newName) {
         showToast('Department name cannot be empty', 'error');
@@ -383,19 +399,24 @@ function updateDepartment(button) {
     const url = deptId ? `/general-settings/api/departments/${deptId}/` : '/general-settings/api/departments/';
     const method = deptId ? 'PUT' : 'POST';
     
+    const data = {
+        name: newName,
+        has_line_leader: hasLineLeader
+    };
+    
     fetch(url, {
         method: method,
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCsrfToken()
         },
-        body: JSON.stringify({ name: newName })
+        body: JSON.stringify(data)
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            input.dataset.id = data.department.id;
-            input.dataset.original = newName;
+            nameInput.dataset.id = data.department.id;
+            nameInput.dataset.original = newName;
             field.classList.remove('changed', 'field-loading');
             showToast(deptId ? 'Department updated successfully' : 'Department created successfully', 'success');
         } else {
@@ -410,9 +431,9 @@ function updateDepartment(button) {
 
 function deleteDepartment(button) {
     const field = button.closest('.invite-field');
-    const input = field.querySelector('input');
-    const deptId = input.dataset.id;
-    const deptName = input.value;
+    const nameInput = field.querySelector('input[data-field="name"]');
+    const deptId = nameInput.dataset.id;
+    const deptName = nameInput.value;
     const fieldsContainer = document.getElementById('departmentFields');
     
     // If empty field and more than 3 fields, just remove it
@@ -423,8 +444,8 @@ function deleteDepartment(button) {
     
     // If empty field and only 3 fields, just clear it
     if (!deptId && !deptName.trim() && fieldsContainer.children.length <= 3) {
-        input.value = '';
-        input.dataset.original = '';
+        nameInput.value = '';
+        nameInput.dataset.original = '';
         field.classList.remove('changed');
         return;
     }
@@ -448,9 +469,9 @@ function deleteDepartment(button) {
                 .then(data => {
                     if (data.success) {
                         // Clear the field but don't remove it
-                        input.value = '';
-                        input.dataset.id = '';
-                        input.dataset.original = '';
+                        nameInput.value = '';
+                        nameInput.dataset.id = '';
+                        nameInput.dataset.original = '';
                         field.classList.remove('changed', 'field-loading');
                         showToast('Department deleted successfully', 'success');
                     } else {
@@ -463,8 +484,8 @@ function deleteDepartment(button) {
                 });
             } else {
                 // Just clear the field for unsaved entries
-                input.value = '';
-                input.dataset.original = '';
+                nameInput.value = '';
+                nameInput.dataset.original = '';
                 field.classList.remove('changed');
                 showToast('Field cleared', 'info');
             }
@@ -524,6 +545,7 @@ function addPositionField(positionData = null) {
     const posId = positionData ? positionData.id : '';
     const posName = positionData ? positionData.name : '';
     const posLevel = positionData ? positionData.level : '1';
+    const isLineLeader = positionData ? positionData.is_line_leader : false;
     
     fieldDiv.innerHTML = `
         <div class="input-with-icon">
@@ -540,6 +562,13 @@ function addPositionField(positionData = null) {
             <option value="2" ${posLevel == '2' ? 'selected' : ''}>Level 2</option>
             <option value="3" ${posLevel == '3' ? 'selected' : ''}>Level 3</option>
         </select>
+        <div class="checkbox-container">
+            <label class="standard-checkbox">
+                <input type="checkbox" ${isLineLeader ? 'checked' : ''} data-original="${isLineLeader}" onchange="handleFieldChange(this)">
+                <span class="checkmark"></span>
+            </label>
+            <span>Is Line Leader</span>
+        </div>
         <div class="field-actions">
             <button type="button" class="btn-update" onclick="updatePosition(this)" title="Update">
                 <i class="fas fa-check"></i>
@@ -598,9 +627,11 @@ function updatePosition(button) {
     const field = button.closest('.invite-field');
     const input = field.querySelector('input');
     const select = field.querySelector('select');
+    const checkbox = field.querySelector('input[type="checkbox"]');
     const posId = input.dataset.id;
     const newName = input.value.trim();
     const newLevel = select.value;
+    const isLineLeader = checkbox.checked;
     
     if (!newName) {
         showToast('Position name cannot be empty', 'error');
@@ -620,7 +651,8 @@ function updatePosition(button) {
         },
         body: JSON.stringify({ 
             name: newName,
-            level: newLevel
+            level: newLevel,
+            is_line_leader: isLineLeader
         })
     })
     .then(response => response.json())
@@ -629,6 +661,7 @@ function updatePosition(button) {
             input.dataset.id = data.position.id;
             input.dataset.original = newName;
             select.dataset.original = newLevel;
+            checkbox.dataset.original = isLineLeader;
             field.classList.remove('changed', 'field-loading');
             showToast(posId ? 'Position updated successfully' : 'Position created successfully', 'success');
         } else {
@@ -950,9 +983,9 @@ let currentDepartmentName = '';
 
 function openDepartmentLinesModal(button) {
     const field = button.closest('.invite-field');
-    const input = field.querySelector('.input-with-icon input'); // Updated selector
-    const deptId = input.dataset.id;
-    const deptName = input.value.trim();
+    const nameInput = field.querySelector('input[data-field="name"]');
+    const deptId = nameInput.dataset.id;
+    const deptName = nameInput.value.trim();
     
     console.log('Department ID:', deptId, 'Name:', deptName); // Debug log
     
@@ -1328,7 +1361,7 @@ function updateLoanType(button) {
                 loanTypeInput.dataset.id = result.loantype.id;
                 loanTypeInput.dataset.original = loanType;
                 resetFieldState(fieldDiv);
-                addLoanTypeField(); // Add new empty field
+                // Removed automatic field addition
             } else {
                 showToast(result.error || 'Failed to create loan type', 'error');
             }
@@ -1499,7 +1532,7 @@ function updateAllowanceType(button) {
                 input.dataset.id = result.allowancetype.id;
                 input.dataset.original = allowanceType;
                 resetFieldState(fieldDiv);
-                addAllowanceTypeField(); // Add new empty field
+                // Removed automatic field addition
             } else {
                 showToast(result.error || 'Failed to create allowance type', 'error');
             }
@@ -1680,7 +1713,7 @@ function updateOJTRate(button) {
                     rateBtn.disabled = false;
                 }
                 
-                addOJTRateField(); // Add new empty field
+                // Removed automatic field addition
             } else {
                 showToast(result.error || 'Failed to create OJT rate', 'error');
             }
@@ -1875,6 +1908,7 @@ function addLeaveTypeField(leaveTypeData = null) {
     const code = leaveTypeData ? leaveTypeData.code : '';
     const goToClinic = leaveTypeData ? leaveTypeData.go_to_clinic : false;
     const isActive = leaveTypeData ? leaveTypeData.is_active : true;
+    const isDeducted = leaveTypeData ? leaveTypeData.is_deducted : false;
     
     fieldDiv.innerHTML = `
         <div class="leave-type-inputs">
@@ -1910,6 +1944,13 @@ function addLeaveTypeField(leaveTypeData = null) {
                         <span class="checkmark"></span>
                     </label>
                     <span>Is Active</span>
+                </div>
+                <div class="checkbox-container">
+                    <label class="standard-checkbox">
+                        <input type="checkbox" ${isDeducted ? 'checked' : ''} data-field="is_deducted" onchange="handleFieldChange(this)">
+                        <span class="checkmark"></span>
+                    </label>
+                    <span>Is Deducted</span>
                 </div>
             </div>
         </div>
@@ -1964,12 +2005,14 @@ function updateLeaveType(button) {
     const codeInput = fieldDiv.querySelector('input[data-field="code"]');
     const goToClinicInput = fieldDiv.querySelector('input[data-field="go_to_clinic"]');
     const isActiveInput = fieldDiv.querySelector('input[data-field="is_active"]');
+    const isDeductedInput = fieldDiv.querySelector('input[data-field="is_deducted"]');
     
     const leaveTypeId = nameInput.dataset.id;
     const name = nameInput.value.trim();
     const code = codeInput.value.trim();
     const goToClinic = goToClinicInput.checked;
     const isActive = isActiveInput.checked;
+    const isDeducted = isDeductedInput.checked;
     
     if (!name || !code) {
         showToast('Please enter both name and code', 'error');
@@ -1980,7 +2023,8 @@ function updateLeaveType(button) {
         name: name,
         code: code,
         go_to_clinic: goToClinic,
-        is_active: isActive
+        is_active: isActive,
+        is_deducted: isDeducted
     };
     
     if (leaveTypeId) {
@@ -2030,7 +2074,7 @@ function updateLeaveType(button) {
                     listBtn.disabled = false;
                 }
                 
-                addLeaveTypeField(); // Add new empty field
+                // Removed automatic field addition
             } else {
                 showToast(result.error || 'Failed to create leave type', 'error');
             }
@@ -2218,7 +2262,7 @@ function updateSundayException(button) {
                 dateInput.dataset.id = result.sundayexception.id;
                 dateInput.dataset.original = date;
                 resetFieldState(fieldDiv);
-                addSundayExceptionField(); // Add new empty field
+                // Removed automatic field addition
             } else {
                 showToast(result.error || 'Failed to create sunday exception', 'error');
             }
@@ -2652,9 +2696,7 @@ function updateDeviceType(button) {
             resetFieldState(fieldDiv);
             showToast(`Device type ${deviceTypeId ? 'updated' : 'created'} successfully`, 'success');
             
-            if (!deviceTypeId) {
-                addDeviceTypeField(); // Add new empty field
-            }
+            // Removed automatic field addition
         } else {
             showToast(result.error || 'Failed to save device type', 'error');
         }
@@ -2849,9 +2891,7 @@ function updateTicketCategory(button) {
             resetFieldState(fieldDiv);
             showToast(`Ticket category ${ticketCategoryId ? 'updated' : 'created'} successfully`, 'success');
             
-            if (!ticketCategoryId) {
-                addTicketCategoryField(); // Add new empty field
-            }
+            // Removed automatic field addition
         } else {
             showToast(result.error || 'Failed to save ticket category', 'error');
         }

@@ -1410,6 +1410,62 @@ function getCookie(name) {
     return cookieValue;
 }
 
+// Privacy Toggle Functionality
+function togglePrivacy(type) {
+    const valueElement = document.getElementById(`${type}-value`);
+    const eyeIcon = document.getElementById(`${type}-eye-icon`);
+    
+    if (!valueElement || !eyeIcon) return;
+    
+    const isHidden = valueElement.classList.contains('hidden');
+    const actualValue = valueElement.getAttribute('data-value');
+    
+    // Add transitioning class for smooth effect
+    valueElement.classList.add('transitioning');
+    
+    setTimeout(() => {
+        if (isHidden) {
+            // Show the actual value
+            valueElement.textContent = actualValue;
+            valueElement.classList.remove('hidden');
+            valueElement.classList.add('showing');
+            eyeIcon.classList.remove('fa-eye-slash');
+            eyeIcon.classList.add('fa-eye');
+        } else {
+            // Hide the value
+            valueElement.textContent = '₱ - - - -';
+            valueElement.classList.remove('showing');
+            valueElement.classList.add('hidden');
+            eyeIcon.classList.remove('fa-eye');
+            eyeIcon.classList.add('fa-eye-slash');
+        }
+        
+        // Remove transitioning class
+        setTimeout(() => {
+            valueElement.classList.remove('transitioning');
+        }, 50);
+    }, 150);
+}
+
+// Initialize privacy states on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial state for all privacy values
+    const privacyTypes = ['allowances', 'savings', 'loans'];
+    
+    privacyTypes.forEach(type => {
+        const valueElement = document.getElementById(`${type}-value`);
+        const eyeIcon = document.getElementById(`${type}-eye-icon`);
+        
+        if (valueElement && eyeIcon) {
+            // Ensure initial hidden state
+            valueElement.classList.add('hidden');
+            valueElement.classList.remove('showing');
+            eyeIcon.classList.add('fa-eye-slash');
+            eyeIcon.classList.remove('fa-eye');
+        }
+    });
+});
+
 // Export for potential external use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = EmployeeFinanceModule;

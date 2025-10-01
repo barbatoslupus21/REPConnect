@@ -42,9 +42,15 @@
                         <div class="modern-stat-icon orange">
                             <i class="fas fa-gift"></i>
                         </div>
+                        
                     </div>
                     <div class="modern-stat-label">Total Allowances</div>
-                    <div class="modern-stat-value">₱ {{ total_allowances|floatformat:2 }}</div>
+                    <div class="modern-stat-value">
+                        <span class="privacy-value hidden" id="allowances-value" data-value="₱ {{ total_allowances|floatformat:2 }}">₱ - - - -</span>
+                        <button class="privacy-toggle-btn" onclick="togglePrivacy('allowances')" title="Toggle visibility">
+                            <i class="fas fa-eye-slash" id="allowances-eye-icon"></i>
+                        </button>
+                    </div>
                     <div class="modern-stat-change">
                         <span class="modern-stat-change-text">This Month</span>
                     </div>
@@ -54,9 +60,15 @@
                         <div class="modern-stat-icon green">
                             <i class="fas fa-piggy-bank"></i>
                         </div>
+                        
                     </div>
                     <div class="modern-stat-label">Total Savings</div>
-                    <div class="modern-stat-value">₱ {{ total_savings|floatformat:2 }}</div>
+                    <div class="modern-stat-value">
+                        <span class="privacy-value hidden" id="savings-value" data-value="₱ {{ total_savings|floatformat:2 }}">₱ - - - -</span>
+                        <button class="privacy-toggle-btn" onclick="togglePrivacy('savings')" title="Toggle visibility">
+                            <i class="fas fa-eye-slash" id="savings-eye-icon"></i>
+                        </button>
+                    </div>
                     <div class="modern-stat-change">
                         <span class="modern-stat-change-text">This Month</span>
                     </div>
@@ -66,9 +78,15 @@
                         <div class="modern-stat-icon red">
                             <i class="fas fa-money-check-alt"></i>
                         </div>
+                        
                     </div>
                     <div class="modern-stat-label">Total Loans</div>
-                    <div class="modern-stat-value">₱ {{ total_loans|floatformat:2 }}</div>
+                    <div class="modern-stat-value">
+                        <span class="privacy-value hidden" id="loans-value" data-value="₱ {{ total_loans|floatformat:2 }}">₱ - - - -</span>
+                        <button class="privacy-toggle-btn" onclick="togglePrivacy('loans')" title="Toggle visibility">
+                            <i class="fas fa-eye-slash" id="loans-eye-icon"></i>
+                        </button>
+                    </div>
                     <div class="modern-stat-change">
                         <span class="modern-stat-change-text">This Month</span>
                     </div>
@@ -107,7 +125,7 @@
                                     <tr>
                                         <th>Loan</th>
                                         <th>Principal Balance</th>
-                                        <th class="loan-hide-mobile">Monthly Payment</th>
+                                        <th class="loan-hide-mobile">Cut-Off Payment</th>
                                         <th class="loan-hide-mobile">Payment Progress</th>
                                         <th style="text-align: center !important;">Balance</th>
                                         <th class="loan-hide-mobile" style="text-align: center !important;" >Status</th>
@@ -188,7 +206,7 @@
                             <table class="data-table" data-tour="payslips-table" data-intro="<b>Payslips Table</b><br>Access all your payslips with cutoff dates, file information, and download/email options." data-step="6">
                                 <thead>
                                     <tr>
-                                        <th>Cutoff Date</th>
+                                        <th>Payroll Date</th>
                                         <th class="payslip-hide-mobile">File Name</th>
                                         <th class="center-align" style="text-align: center !important;">Status</th>
                                         <th style="text-align: center !important;">Action</th>
@@ -250,7 +268,7 @@
                             <table class="data-table" data-tour="payslips-table" data-intro="<b>Payslips Table</b><br>Access all your payslips with cutoff dates, file information, and download/email options." data-step="6">
                                 <thead>
                                     <tr>
-                                        <th>Cutoff Date</th>
+                                        <th>Payroll Date</th>
                                         <th class="payslip-hide-mobile">Regular Day</th>
                                         <th>Net OJT Share</th>
                                         <th>OT Pay Allowance</th>

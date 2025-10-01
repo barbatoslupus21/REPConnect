@@ -137,7 +137,7 @@
                                         
                                         <div class="training-actions">
                                             {% if not evaluation_data.can_start %}
-                                                <button class="btn btn-outline view-evaluation-btn" data-instance-id="{{ evaluation_data.instance.id }}">
+                                                <button class="btn btn-outline view-evaluation-btn" data-instance-id="{{ evaluation_data.instance.id }}" data-employee-eval-id="{{ evaluation_data.employee_eval_id }}">
                                                     <i class="fas fa-eye"></i>
                                                     View Evaluation
                                                 </button>
@@ -207,7 +207,7 @@
                         </select>
                     </div>
                 </div>
-                
+                 
                 <div class="trainings-list" id="approvalsList">
                     {% for evaluation in pending_approver_assessments %}
                             <div class="training-item" data-training-id="{{ evaluation.evaluation.id }}" data-status="{% if evaluation.evaluation.status == 'supervisor_review' %}pending{% elif evaluation.evaluation.status == 'manager_review' %}pending{% else %}reviewed{% endif %}">
@@ -215,10 +215,12 @@
                                     <div class="training-header" role="button" tabindex="0">
                                         <div class="training-title">{{ evaluation.evaluation.evaluation.title }}</div>
                                         <div class="training-status">
-                                            {% if evaluation.evaluation.status == "supervisor_review" %}
-                                                <span class="status-pill status-orange">Supervisor Review</span>
-                                            {% elif evaluation.evaluation.status == "manager_review" %}
-                                                <span class="status-pill status-blue">Manager Review</span>
+                                            {% if evaluation.evaluation.status == "for_evaluation" %}
+                                                <span class="status-pill status-orange">For Evaluation</span>
+                                            {% elif evaluation.evaluation.status == "for_review" %}
+                                                <span class="status-pill status-blue">For Review</span>
+                                            {% elif evaluation.evaluation.status == "for_approval" %}
+                                                <span class="status-pill status-blue">For Approval</span>
                                             {% else %}
                                                 <span class="status-pill status-green">Completed</span>
                                             {% endif %}
@@ -255,12 +257,12 @@
                                         </div>
                                         
                                         <div class="training-actions">
-                                            {% if evaluation.approver == request.user and not evaluation.is_completed and evaluation.evaluation.status == 'supervisor_review'%}
+                                            {% if evaluation.evaluation.line_leader == request.user and not evaluation.is_completed and evaluation.evaluation.status == 'for_evaluation' or evaluation.evaluation.supervisor == request.user and not evaluation.is_completed and evaluation.evaluation.status == 'for_evaluation' %}
                                                 <button class="btn btn-primary evaluate-subordinate-btn" data-evaluation-id="{{ evaluation.evaluation.id }}">
                                                     <i class="fas fa-clipboard-check"></i>
                                                     Review Evaluation
                                                 </button>
-                                            {% elif evaluation.approver == request.user and not evaluation.is_completed and evaluation.evaluation.status == 'manager_review' %}
+                                            {% elif evaluation.evaluation.manager == request.user and not evaluation.is_completed and evaluation.evaluation.status == 'for_approval' or evaluation.evaluation.supervisor == request.user and not evaluation.is_completed and evaluation.evaluation.status == 'for_review' %}
                                                 <button class="btn btn-primary evaluate-subordinate-btn" data-evaluation-id="{{ evaluation.evaluation.id }}">
                                                     <i class="fas fa-clipboard-check"></i>
                                                     Approve Evaluation
@@ -306,7 +308,7 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h4>Training Evaluation Approval</h4>
+            <h4>Confirm Evaluation Approval</h4>
             <button type="button" class="modal-close" data-action="close-modal">
                 <i class="fas fa-times"></i>
             </button>
@@ -314,34 +316,27 @@
         <div class="modal-body">
             <div class="confirmation-content">
                 <div class="confirmation-icon">
-                    <i class="fas fa-clipboard-check icon-success"></i>
+                    <i class="fa fa-check-circle icon-success" aria-hidden="true"></i>
                 </div>
                 <div class="confirmation-message">
-                    <h5>Approve or Disapprove Performance Evaluation</h5>
-                    <p>Are you sure you want to take action on this performance evaluation? You can either approve or disapprove:</p>
+                    <h5>Are you sure you want to approve this performance evaluation?</h5>
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i>
-                        If disapproved, this evaluation will be returned to the supervisor for re-evaluation.
-                    </div>
-                </div>
-                <div class="form-group">
-                    <textarea id="managerComments" name="manager_comments" class="form-input" rows="2" placeholder="Enter your comments here..."></textarea>
-                    <div class="error-message" id="commentsError" style="display: none;">
-                        Comments are required when disapproving an evaluation.
+                        Once confirmed, this evaluation will be marked as approved.
                     </div>
                 </div>
             </div>
         </div>
         <div class="modal-footer">
 
-            <button type="button" class="btn btn-error" id="disapproveEvaluation">
-                <i class="fas fa-times-circle"></i>
-                Disapprove
+            <button type="button" class="btn btn-outline" id="cancelApproval" data-action="close-modal">
+                <i class="fas fa-times"></i>
+                Cancel
             </button>
 
              <button type="button" class="btn btn-success" id="approveEvaluation">
                 <i class="fas fa-check-circle"></i>
-                Approve
+                Confirm
             </button>
         </div>
     </div>

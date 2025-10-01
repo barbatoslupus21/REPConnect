@@ -788,7 +788,8 @@
 /* Loan Type specific styles */
 .loan-type-inputs,
 .leave-type-inputs,
-.sunday-exception-inputs {
+.sunday-exception-inputs,
+.department-inputs {
     display: flex;
     gap: 8px;
     flex: 1;
@@ -801,6 +802,20 @@
 .loan-type-inputs .checkbox-wrapper {
     margin-top: 4px;
     margin-left: 24px; /* Align with input text due to icon */
+}
+
+/* Department specific styles */
+.department-checkboxes {
+    display: flex;
+    gap: 20px;
+    margin-top: 8px;
+    align-items: center;
+}
+
+.department-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }
 
 /* OJT Rate button styling */

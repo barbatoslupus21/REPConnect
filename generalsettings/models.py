@@ -15,6 +15,7 @@ class Line(models.Model):
 class Department(models.Model):
     department_name = models.CharField(max_length=100, unique=True, verbose_name="Department Name")
     lines = models.ManyToManyField(Line, related_name='departments')
+    has_line_leader = models.BooleanField(default=False, verbose_name="Has Line Leader")
 
     class Meta:
         ordering = ['department_name']
@@ -33,6 +34,7 @@ class Position(models.Model):
     ]
     position = models.CharField(max_length=200, null=True, unique=True)
     level = models.CharField(max_length=1, choices=level_choice, default='1')
+    is_line_leader = models.BooleanField(default=False, verbose_name="Is Line Leader")
 
     def __str__(self):
         return self.position

@@ -654,6 +654,10 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
     transition: all var(--transition-normal);
 }
 
+.line-leader-select {
+    margin-top: 1.2rem !important;
+}
+
 .form-input:focus {
     outline: none;
     border-color: var(--primary-color);

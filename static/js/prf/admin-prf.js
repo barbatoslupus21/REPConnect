@@ -1513,14 +1513,25 @@ function handleExportSubmit(event) {
 }
 
 function getCSRFToken() {
+    // First try to get from meta tag
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    if (metaTag) {
+        console.log('PRF: CSRF token found in meta tag');
+        return metaTag.getAttribute('content');
+    }
+    
+    // Fallback to cookie
     const name = 'csrftoken';
     const cookies = document.cookie.split(';');
     for (let i = 0; i < cookies.length; i++) {
         const cookie = cookies[i].trim();
         if (cookie.startsWith(name + '=')) {
+            console.log('PRF: CSRF token found in cookie');
             return decodeURIComponent(cookie.substring(name.length + 1));
         }
     }
+    
+    console.warn('PRF: CSRF token not found');
     return '';
 }
 

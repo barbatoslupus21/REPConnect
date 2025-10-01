@@ -54,6 +54,13 @@ def evaluation_user_view(request):
     
     evaluations_data = []
     for instance in user_instances:
+        # Get the associated employee evaluation if it exists
+        try:
+            employee_eval = EmployeeEvaluation.objects.get(evaluation_instance=instance)
+            employee_eval_id = employee_eval.id
+        except EmployeeEvaluation.DoesNotExist:
+            employee_eval_id = None
+        
         evaluation_data = {
             'instance': instance,
             'evaluation': instance.evaluation,
@@ -64,11 +71,10 @@ def evaluation_user_view(request):
             'is_overdue': instance.status == 'overdue',
             'can_start': instance.status == 'pending',
             'is_completed': instance.status == 'completed',
+            'employee_eval_id': employee_eval_id,
         }
         evaluations_data.append(evaluation_data)
 
-    # Sort the training list by desired status order for the UI:
-    # pending -> in_progress -> completed -> overdue
     status_order = {
         'pending': 0,
         'in_progress': 1,
@@ -87,19 +93,28 @@ def evaluation_user_view(request):
     approval_tab_label = "Employee Evaluation"
     
     if hasattr(request.user, 'employment_info') and request.user.employment_info:
-        # Count supervisor pending evaluations
+        # Count innovator pending evaluations
+        innovator_pending_count = EmployeeEvaluation.objects.filter(
+            line_leader=request.user,
+            status='for_evaluation'
+        ).select_related('evaluation', 'employee')
+
         supervisor_pending_count = EmployeeEvaluation.objects.filter(
             supervisor=request.user,
-            status='supervisor_review'
+            status='for_review'
         ).select_related('evaluation', 'employee')
 
         # Count manager pending evaluations
         manager_pending_count = EmployeeEvaluation.objects.filter(
             manager=request.user,
-            status='manager_review'
+            status='for_approval'
         ).select_related('evaluation', 'employee')
 
         # Combine pending evaluations for display
+        evals_for_innovator = EmployeeEvaluation.objects.filter(
+            line_leader=request.user
+        ).select_related('evaluation', 'employee')
+
         evals_for_supervisor = EmployeeEvaluation.objects.filter(
             supervisor=request.user
         ).select_related('evaluation', 'employee')
@@ -109,26 +124,29 @@ def evaluation_user_view(request):
         ).select_related('evaluation', 'employee')
 
         # Calculate total pending count
-        pending_routing_count = supervisor_pending_count.count() + manager_pending_count.count()
+        pending_routing_count = supervisor_pending_count.count() + manager_pending_count.count() + innovator_pending_count.count()
 
-        if evals_for_supervisor.exists() or evals_for_manager.exists():
+        if evals_for_supervisor.exists() or evals_for_manager.exists() or evals_for_innovator.exists():
             is_approver = True
             approval_tab_label = 'Employee Evaluation' if evals_for_supervisor.exists() else 'Employee Evaluation'
 
-            if evals_for_supervisor.exists() and evals_for_manager.exists():
-                pending_qs = (evals_for_supervisor | evals_for_manager).distinct()
+            if evals_for_supervisor.exists() and evals_for_manager.exists() and evals_for_innovator.exists():
+                pending_qs = (evals_for_innovator | evals_for_supervisor | evals_for_manager).distinct()
+            
+            elif evals_for_innovator.exists():
+                pending_qs = evals_for_innovator
+
             elif evals_for_supervisor.exists():
                 pending_qs = evals_for_supervisor
             else:
                 pending_qs = evals_for_manager
 
-            # Ensure the pending assessments are ordered by our desired status priority
-            # Priority: supervisor_review, manager_review, approved, disapproved
             status_priority = {
-                'supervisor_review': 0,
-                'manager_review': 1,
-                'approved': 2,
-                'disapproved': 3,
+                'for_evaluation': 0,
+                'for_review': 1,
+                'for_approval': 2,
+                'approved': 3,
+                'disapproved': 4,
             }
 
             # Convert to list (if it's a queryset) so we can apply a stable sort with our mapping
@@ -145,9 +163,9 @@ def evaluation_user_view(request):
     assessment_data = []
     for assessment in pending_approver_assessments:
         approver = None
-        if assessment.status == 'supervisor_review' and hasattr(assessment.employee, 'employment_info'):
+        if assessment.status == 'for_evaluation':
             approver = assessment.employee.employment_info.approver if assessment.employee.employment_info else None
-        elif assessment.status == 'manager_review' and hasattr(assessment.employee, 'employment_info') and assessment.employee.employment_info.approver:
+        elif assessment.status == 'for_review':
             supervisor = assessment.employee.employment_info.approver
             if hasattr(supervisor, 'employment_info') and supervisor.employment_info:
                 approver = supervisor.employment_info.approver
@@ -163,7 +181,6 @@ def evaluation_user_view(request):
         'evaluations_data': evaluations_data,
         'total_evaluations': total_evaluations,
         'pending_evaluations': pending_evaluations,
-        'pendinsg_evaluations': pending_evaluations,
         'in_progress_evaluations': in_progress_evaluations,
         'completed_evaluations': completed_evaluations,
         'overdue_evaluations': overdue_evaluations,
@@ -266,16 +283,16 @@ def evaluation_admin_view(request):
     
     # Active Evaluations (pending or in progress)
     active_evaluations = EmployeeEvaluation.objects.filter(
-        status__in=['pending', 'supervisor_review', 'manager_review']
+        status__in=['pending', 'for_evaluation', 'for_review']
     ).count()
     active_this_month = EmployeeEvaluation.objects.filter(
         created_at__gte=first_of_this_month,
-        status__in=['pending', 'supervisor_review', 'manager_review']
+        status__in=['pending', 'for_evaluation', 'for_review']
     ).count()
     active_last_month = EmployeeEvaluation.objects.filter(
         created_at__gte=first_of_last_month, 
         created_at__lt=first_of_this_month,
-        status__in=['pending', 'supervisor_review', 'manager_review']
+        status__in=['pending', 'for_evaluation', 'for_review']
     ).count()
     
     # Calculate percentage for active evaluations
@@ -603,11 +620,7 @@ def export_tasklist_template(request):
     employees = EmployeeLogin.objects.filter(
         active=True,
         hr_admin=False,
-        wire_admin=False,
-        clinic_admin=False,
-        iad_admin=False,
         accounting_admin=False,
-        mis_admin=False
     ).exclude(
         status='disapproved'
     ).order_by('idnumber')
@@ -1047,9 +1060,19 @@ def submit_evaluation_instance(request, employee_evaluation_id):
         
         if not employee_eval.self_completed_at:
             employee_eval.self_completed_at = timezone.now()
-            employee_eval.status = 'supervisor_review'
-            if hasattr(request.user, 'employment_info') and request.user.employment_info and getattr(request.user.employment_info, 'approver', None):
-                employee_eval.supervisor = request.user.employment_info.approver
+            employee_eval.status = 'for_evaluation'
+            
+            if hasattr(request.user, 'employment_info') and request.user.employment_info:
+                employment_info = request.user.employment_info
+                
+                if hasattr(employment_info, 'line_leader') and employment_info.line_leader:
+                    employee_eval.line_leader = employment_info.line_leader
+                    recipient = employment_info.line_leader
+
+                elif hasattr(employment_info, 'approver') and employment_info.approver:
+                    employee_eval.supervisor = employment_info.approver
+                    recipient = employment_info.approver
+                    
             employee_eval.save()
         
         task_lists = TaskList.objects.filter(employee=request.user, is_active=True)
@@ -1072,7 +1095,7 @@ def submit_evaluation_instance(request, employee_evaluation_id):
         Notification.objects.create(
             title="Self-Evaluation Submitted",
             sender=request.user,
-            recipient= request.user.employment_info.approver,
+            recipient=recipient,
             message=f'{request.user.firstname} {request.user.lastname} has completed and submitted their evaluation for your review',
             module='evaluation',
             notification_type='approval'
@@ -1087,7 +1110,7 @@ def submit_evaluation_instance(request, employee_evaluation_id):
             'message': 'Evaluation submitted successfully!'
         })
         
-    except Exception as e:
+    except Exception as e: 
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -1151,27 +1174,21 @@ def get_supervisor_evaluation(request, evaluation_id):
         employee_eval = get_object_or_404(
             EmployeeEvaluation,
             id=evaluation_id,
-            status__in=['supervisor_review', 'manager_review']
+            status__in=['for_evaluation', 'for_review', 'for_approval']
         )
         
-        # Check if user is the approver
-        is_supervisor_approver = False
-        is_manager_approver = False
+        # Check if user is authorized to review this evaluation
+        is_line_leader = employee_eval.line_leader == request.user
+        is_supervisor = employee_eval.supervisor == request.user
+        is_manager = employee_eval.manager == request.user
         
-        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
-            supervisor = employee_eval.employee.employment_info.approver
-            if supervisor == request.user:
-                is_supervisor_approver = True
-            elif hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
-                is_manager_approver = True
-        
-        if not (is_supervisor_approver or is_manager_approver):
+        if not (is_line_leader or is_supervisor or is_manager):
             return JsonResponse({
                 'success': False,
                 'error': 'You are not authorized to review this evaluation'
             }, status=403)
         
-        is_read_only = employee_eval.status not in ['supervisor_review', 'manager_review']
+        is_read_only = employee_eval.status not in ['for_evaluation', 'for_review', 'for_approval']
         
         form = SupervisorEvaluationForm(instance=employee_eval)
         
@@ -1192,8 +1209,8 @@ def get_supervisor_evaluation(request, evaluation_id):
             'employee_eval': employee_eval,
             'task_ratings': task_ratings_data,
             'is_read_only': is_read_only,
-            'is_supervisor_review': employee_eval.status == 'supervisor_review',
-            'is_manager_review': employee_eval.status == 'manager_review'
+            'is_supervisor_review': employee_eval.status == 'for_evaluation',
+            'is_manager_review': employee_eval.status == 'for_review' or employee_eval.status == 'for_approval',
         }
         
         return JsonResponse({
@@ -1214,20 +1231,15 @@ def submit_supervisor_evaluation(request, evaluation_id):
         employee_eval = get_object_or_404(
             EmployeeEvaluation,
             id=evaluation_id,
-            status__in=['supervisor_review', 'manager_review']
+            status__in=['for_evaluation', 'for_review', 'for_approval']
         )
         
-        is_supervisor_approver = False
-        is_manager_approver = False
+        # Check if user is authorized to review this evaluation
+        is_line_leader = employee_eval.line_leader == request.user
+        is_supervisor = employee_eval.supervisor == request.user
+        is_manager = employee_eval.manager == request.user
         
-        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
-            supervisor = employee_eval.employee.employment_info.approver
-            if supervisor == request.user:
-                is_supervisor_approver = True
-            elif hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
-                is_manager_approver = True
-        
-        if not (is_supervisor_approver or is_manager_approver):
+        if not (is_line_leader or is_supervisor or is_manager):
             return JsonResponse({
                 'success': False,
                 'error': 'You are not authorized to review this evaluation'
@@ -1243,25 +1255,37 @@ def submit_supervisor_evaluation(request, evaluation_id):
         if form.is_valid():
             employee_eval = form.save(commit=False)
             
-            if is_supervisor_approver:
+            if is_line_leader or is_supervisor:
                 employee_eval.supervisor_completed_at = timezone.now()
                 
-                # Check if user's position level is 3 (manager level)
+                # Get user's position level
+                user_position_level = None
                 if (hasattr(request.user, 'employment_info') and 
                     request.user.employment_info and 
                     hasattr(request.user.employment_info, 'position') and 
-                    request.user.employment_info.position and 
-                    request.user.employment_info.position.level == '3'):
-                    
-                    # If supervisor is level 3, they act as both supervisor and manager
+                    request.user.employment_info.position):
+                    user_position_level = request.user.employment_info.position.level
+                
+                # Handle logic based on position level
+                if user_position_level == '1':
+                    # Level 1: Set supervisor to current user and route to approver as manager
+                    employee_eval.supervisor = request.user.employment_info.approver
+                    employee_eval.status = 'for_review'
+                elif user_position_level == '2':
+                    # Level 2: Set manager to current user and route to approver
+                    employee_eval.manager = request.user.employment_info.approver
+                    employee_eval.status = 'for_approval'
+                elif user_position_level == '3':
+                    # Level 3: Set manager to current user and approve (manager level)
                     employee_eval.manager = request.user
                     employee_eval.manager_completed_at = timezone.now()
                     employee_eval.status = 'approved'
                 else:
-                    # Normal flow - send to manager for review
-                    employee_eval.manager = request.user.employment_info.approver
-                    if employee_eval.status == 'supervisor_review':
-                        employee_eval.status = 'manager_review'
+                    # Default behavior for unknown position levels
+                    employee_eval.supervisor = request.user
+                    if hasattr(request.user, 'employment_info') and request.user.employment_info:
+                        employee_eval.manager = request.user.employment_info.approver
+                    employee_eval.status = 'for_review'
             
             employee_eval.save()
             
@@ -1310,9 +1334,132 @@ def submit_supervisor_evaluation(request, evaluation_id):
                     employee_eval.evaluation_instance.status = 'in_progress'
                 employee_eval.evaluation_instance.save()
             
-            return JsonResponse({
+            return JsonResponse({   
                 'success': True,
                 'message': 'Evaluation assessment submitted successfully!'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Please correct the errors in the form.',
+                'form_errors': form.errors
+            }, status=400)
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def save_revise_evaluation(request, evaluation_id):
+    """Save revised evaluation without changing status"""
+    try:
+        employee_eval = get_object_or_404(
+            EmployeeEvaluation,
+            id=evaluation_id,
+            status__in=['for_evaluation', 'for_review', 'for_approval']
+        )
+        
+        # Check if user is authorized to revise this evaluation
+        is_line_leader = employee_eval.line_leader == request.user
+        is_supervisor = employee_eval.supervisor == request.user
+        is_manager = employee_eval.manager == request.user
+        
+        if not (is_line_leader or is_supervisor or is_manager):
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not authorized to revise this evaluation'
+            }, status=403)
+        
+        form = SupervisorEvaluationForm(request.POST, instance=employee_eval)
+        if form.is_valid():
+            employee_eval = form.save(commit=False)
+            
+            # Get user's position level
+            user_position_level = None
+            if (hasattr(request.user, 'employment_info') and 
+                request.user.employment_info and 
+                hasattr(request.user.employment_info, 'position') and 
+                request.user.employment_info.position):
+                user_position_level = request.user.employment_info.position.level
+            
+            # Update supervisor_completed_at if line leader or supervisor is revising
+            if is_line_leader or is_supervisor:
+                employee_eval.supervisor_completed_at = timezone.now()
+                
+                # Don't set manager for position levels 2 and 3
+                if user_position_level not in ['2', '3']:
+                    # Only set manager for level 1
+                    if user_position_level == '1' and hasattr(request.user, 'employment_info') and request.user.employment_info:
+                        employee_eval.manager = request.user.employment_info.approver
+            
+            # Keep the original status - don't change it
+            employee_eval.save()
+            
+            # Update task ratings
+            for key, value in request.POST.items():
+                if key.startswith('supervisor_task_rating_') and value:
+                    try:
+                        task_id = int(key.replace('supervisor_task_rating_', ''))
+                        rating_value = int(value)
+                        
+                        task_rating = TaskRating.objects.filter(
+                            employee_evaluation=employee_eval,
+                            task_id=task_id
+                        ).first()
+                        
+                        if task_rating:
+                            task_rating.supervisor_rating = rating_value
+                            task_rating.save()
+                            
+                    except (ValueError, TaskRating.DoesNotExist):
+                        continue
+            
+            # Send notifications to line_leader and supervisor about the revision
+            notifications_sent = []
+            
+            # Notify line_leader if exists and is not the current user
+            if employee_eval.line_leader and employee_eval.line_leader != request.user:
+                Notification.objects.create(
+                    title="Evaluation Revised",
+                    sender=request.user,
+                    recipient=employee_eval.line_leader,
+                    message=f'{request.user.firstname} {request.user.lastname} has revised the evaluation for {employee_eval.employee.firstname} {employee_eval.employee.lastname}',
+                    module='evaluation',
+                    notification_type='revision'
+                )
+                notifications_sent.append('Line Leader')
+            
+            # Notify supervisor if exists and is not the current user
+            if employee_eval.supervisor and employee_eval.supervisor != request.user:
+                Notification.objects.create(
+                    title="Evaluation Revised",
+                    sender=request.user,
+                    recipient=employee_eval.supervisor,
+                    message=f'{request.user.firstname} {request.user.lastname} has revised the evaluation for {employee_eval.employee.firstname} {employee_eval.employee.lastname}',
+                    module='evaluation',
+                    notification_type='revision'
+                )
+                notifications_sent.append('Supervisor')
+            
+            # Update evaluation instance status if needed
+            if employee_eval.evaluation_instance:
+                if employee_eval.status == 'approved':
+                    employee_eval.evaluation_instance.status = 'completed'
+                else:
+                    employee_eval.evaluation_instance.status = 'in_progress'
+                employee_eval.evaluation_instance.save()
+            
+            notification_message = 'Evaluation revised successfully!'
+            if notifications_sent:
+                notification_message += f' Notifications sent to: {", ".join(notifications_sent)}'
+            
+            return JsonResponse({
+                'success': True,
+                'message': notification_message
             })
         else:
             return JsonResponse({
@@ -1336,18 +1483,13 @@ def view_supervisor_evaluation(request, evaluation_id):
             id=evaluation_id
         )
         
-        is_supervisor_approver = False
-        is_manager_approver = False
+        # Check if user is authorized to view this evaluation
+        is_line_leader = employee_eval.line_leader == request.user
+        is_supervisor = employee_eval.supervisor == request.user
+        is_manager = employee_eval.manager == request.user
         is_employee = employee_eval.employee == request.user
         
-        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
-            supervisor = employee_eval.employee.employment_info.approver
-            if supervisor == request.user:
-                is_supervisor_approver = True
-            elif hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
-                is_manager_approver = True
-        
-        if not (is_supervisor_approver or is_manager_approver or is_employee):
+        if not (is_line_leader or is_supervisor or is_manager or is_employee):
             return JsonResponse({
                 'success': False,
                 'error': 'You are not authorized to view this evaluation'
@@ -1365,17 +1507,17 @@ def view_supervisor_evaluation(request, evaluation_id):
             })
 
         can_edit = False
-        if employee_eval.status == 'supervisor_review' and is_supervisor_approver:
+        if employee_eval.status == 'for_evaluation' and (is_line_leader or is_supervisor):
             can_edit = True
-        elif employee_eval.status == 'manager_review' and is_manager_approver:
+        elif employee_eval.status == 'for_review' and is_manager:
             can_edit = True
         
         context_data = {
             'employee_eval': employee_eval,
             'task_ratings': task_ratings_data,
             'can_edit': can_edit,
-            'is_supervisor_view': is_supervisor_approver,
-            'is_manager_view': is_manager_approver,
+            'is_supervisor_view': is_line_leader or is_supervisor,
+            'is_manager_view': is_manager,
             'is_employee_view': is_employee
         }
         
@@ -1397,19 +1539,14 @@ def get_manager_evaluation(request, evaluation_id):
     try:
         employee_eval = get_object_or_404(
             EmployeeEvaluation,
-            id=evaluation_id,
-            status='manager_review'
+            Q(id=evaluation_id) & (Q(status='for_review') | Q(status='for_approval'))
         )
         
-        # Check if user is the manager
-        is_manager_approver = False
+        # Check if user is authorized (supervisor or manager assigned to this evaluation)
+        is_supervisor = employee_eval.supervisor == request.user
+        is_manager = employee_eval.manager == request.user
         
-        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
-            supervisor = employee_eval.employee.employment_info.approver
-            if hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
-                is_manager_approver = True
-        
-        if not is_manager_approver:
+        if not (is_supervisor or is_manager):
             return JsonResponse({
                 'success': False,
                 'error': 'You are not authorized to review this evaluation'
@@ -1451,73 +1588,46 @@ def manager_approve_evaluation(request, evaluation_id):
     try:
         employee_eval = get_object_or_404(
             EmployeeEvaluation,
-            id=evaluation_id,
-            status='manager_review'
+            Q(id=evaluation_id) & (Q(status='for_review') | Q(status='for_approval'))
         )
         
-        is_manager_approver = False
+        # Check if user is authorized (supervisor or manager assigned to this evaluation)
+        is_supervisor = employee_eval.supervisor == request.user
+        is_manager = employee_eval.manager == request.user
         
-        if hasattr(employee_eval.employee, 'employment_info') and employee_eval.employee.employment_info:
-            supervisor = employee_eval.employee.employment_info.approver
-            if hasattr(supervisor, 'employment_info') and supervisor.employment_info and supervisor.employment_info.approver == request.user:
-                is_manager_approver = True
-        
-        if not is_manager_approver:
+        if not (is_supervisor or is_manager):
             return JsonResponse({
                 'success': False,
                 'error': 'You are not authorized to approve this evaluation'
             }, status=403)
         
-        action = request.POST.get('action')
-        manager_comments = request.POST.get('manager_comments', '').strip()
-        
-        if action not in ['approve', 'disapprove']:
-            return JsonResponse({
-                'success': False,
-                'error': 'Invalid action specified'
-            }, status=400)
-        
-        # Validate comments for disapproval
-        if action == 'disapprove' and not manager_comments:
-            return JsonResponse({
-                'success': False,
-                'error': 'Comments are required when disapproving an evaluation'
-            }, status=400)
-        
-        # Update evaluation based on action
-        if action == 'approve':
+        if employee_eval.supervisor == request.user:
+            employee_eval.status = 'for_approval'
+            employee_eval.manager = request.user.employment_info.approver
+            employee_eval.supervisor_completed_at = timezone.now()
+        else:
             employee_eval.status = 'approved'
             employee_eval.manager_completed_at = timezone.now()
-            employee_eval.manager_comments = manager_comments
-            message = 'Evaluation approved successfully!'
 
+        message = 'Evaluation approved successfully!'
+
+        if employee_eval.supervisor == request.user:
             Notification.objects.create(
                 title="Evaluation Approved",
                 sender=request.user,
-                recipient= employee_eval.employee,
-                message=f'{request.user.firstname} {request.user.lastname} has approved your performance evaluation',
+                recipient=request.user.employment_info.approver,
+                message=f'{request.user.firstname} {request.user.lastname} has approved {employee_eval.employee.firstname} {employee_eval.employee.lastname} performance evaluation and needed your approval to finalize it.',
                 module='evaluation',
                 notification_type='approved'
             )
-
         else:
-            employee_eval.manager = None
-            employee_eval.manager_completed_at = None
-            employee_eval.manager_comments = manager_comments
-            # Clear supervisor_completed_at so the model's save() logic does not
-            # re-promote the status to manager_review. We want it to remain
-            # supervisor_review so the supervisor can re-evaluate.
-            employee_eval.supervisor_completed_at = None
-            employee_eval.status = "supervisor_review"
-            message = 'Evaluation disapproved and returned to supervisor for re-evaluation.'
-            
             Notification.objects.create(
-                title="Evaluation Disapproved",
+                title="Evaluation Approved",
                 sender=request.user,
-                recipient= employee_eval.supervisor,
-                message=f'{request.user.firstname} {request.user.lastname} has disapproved your evaluation for {employee_eval.employee.firstname} {employee_eval.employee.lastname}. Please review and re-evaluate.',
+                recipient=employee_eval.employee,
+                message=f'{request.user.firstname} {request.user.lastname} has approved your performance evaluation. You may now view the completed evaluation.',
                 module='evaluation',
-                notification_type='disapproved'
+                notification_type='approved'
             )
 
         employee_eval.save()
