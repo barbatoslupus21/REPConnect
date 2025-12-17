@@ -13,5 +13,6 @@ db.sqlite3
 # Environment
 venv/
 .env
-*.exe
+
+# Executables and large files
 *.exe
