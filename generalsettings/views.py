@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from django.db import IntegrityError
 from .models import Department, Line, Position
-from finance.models import LoanType, AllowanceType, OJTRate
+from finance.models import LoanType, AllowanceType, OJTRate, SavingsType
 from leaverequest.models import LeaveType, LeaveReason, SundayException
 from ticketing.models import DeviceType, TicketCategory
 
@@ -302,6 +302,52 @@ def api_allowancetype_detail(request, allowancetype_id):
     elif request.method == 'DELETE':
         try:
             allowancetype.delete()
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+# SavingsType API Views
+@require_http_methods(["GET", "POST"])
+def api_savingstypes(request):
+    if request.method == 'GET':
+        savingstypes = SavingsType.objects.all().order_by('savings_type')
+        data = [{"id": st.id, "savings_type": st.savings_type} for st in savingstypes]
+        return JsonResponse({"savingstypes": data})
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            savingstype = SavingsType.objects.create(
+                savings_type=data['savings_type'],
+                description=data['savings_type']  # description = savings_type
+            )
+            return JsonResponse({
+                "success": True,
+                "savingstype": {"id": savingstype.id, "savings_type": savingstype.savings_type}
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+@require_http_methods(["PUT", "DELETE"])
+def api_savingstype_detail(request, savingstype_id):
+    savingstype = get_object_or_404(SavingsType, id=savingstype_id)
+    
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            savingstype.savings_type = data['savings_type']
+            savingstype.description = data['savings_type']  # description = savings_type
+            savingstype.save()
+            return JsonResponse({
+                "success": True,
+                "savingstype": {"id": savingstype.id, "savings_type": savingstype.savings_type}
+            })
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    elif request.method == 'DELETE':
+        try:
+            savingstype.delete()
             return JsonResponse({"success": True})
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)})

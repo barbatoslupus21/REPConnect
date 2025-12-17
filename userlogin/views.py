@@ -14,6 +14,7 @@ from django.conf import settings
 import json
 import re
 from .models import EmployeeLogin
+from userprofile.models import EmploymentInformation
 
 @login_required(login_url="user-login")
 def homepage(request):
@@ -114,6 +115,38 @@ def user_register(request):
     else:
         context['register_modal'] = True
         return render(request, 'userlogin/frontpage.html', context)
+
+
+@csrf_exempt
+def get_users_with_line(request):
+    """
+    API endpoint to get all users with their full name and line name.
+    Returns JSON with user data including firstname + lastname and their line.
+    """
+    users_data = []
+    
+    # Get all users with their employment information
+    users = EmployeeLogin.objects.filter(active=True).select_related()
+    
+    for user in users:
+        try:
+            employment_info = EmploymentInformation.objects.select_related('line', 'department').get(user=user)
+            line_name = employment_info.line.line_name if employment_info.line else None
+            department = employment_info.department.department_name if employment_info.department else None
+        except EmploymentInformation.DoesNotExist:
+            line_name = None
+            department = None
+        
+        users_data.append({
+            'id': user.id,
+            'full_name': f"{user.firstname or ''} {user.lastname or ''}".strip(),
+            'firstname': user.firstname,
+            'lastname': user.lastname,
+            'line_name': line_name,
+            'department': department,
+        })
+    
+    return JsonResponse({'users': users_data}, safe=False)
 
 # def error_404_view(request, exception):
 #     return render(request, '404.html', status=404)

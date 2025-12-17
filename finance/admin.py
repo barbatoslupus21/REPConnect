@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.http import HttpResponseRedirect
-from .models import Payslip, Loan, Allowance, OJTPayslipData, LoanType, AllowanceType, LoanDeduction, Savings, OJTRate
+from .models import Payslip, Loan, Allowance, OJTPayslipData, LoanType, AllowanceType, LoanDeduction, Savings, OJTRate, SavingsType
 from .forms import LoanForm, LoanTypeForm, LoanDeductionForm, SavingsForm
 
 @admin.register(Payslip)
@@ -33,7 +33,7 @@ class PayslipAdmin(admin.ModelAdmin):
 
 @admin.register(Allowance)
 class AllowanceAdmin(admin.ModelAdmin):
-    list_display = ['employee', 'allowance_type', 'amount', 'deposit_date', 'created_at']
+    list_display = ['employee', 'allowance_type', 'amount', 'deposit_date', 'period_covered', 'created_at']
     list_filter = ['allowance_type', 'deposit_date']
     search_fields = ['employee']
     date_hierarchy = 'deposit_date'
@@ -47,7 +47,7 @@ class AllowanceAdmin(admin.ModelAdmin):
             'fields': ('allowance_type', 'amount')
         }),
         ('Deposit Info', {
-            'fields': ('deposit_date',),
+            'fields': ('deposit_date', 'period_covered'),
         }),
         ('Metadata', {
             'fields': ('created_at',),
@@ -227,11 +227,18 @@ class LoanDeductionAdmin(admin.ModelAdmin):
 admin.site.register(AllowanceType)
 
 
+@admin.register(SavingsType)
+class SavingsTypeAdmin(admin.ModelAdmin):
+    list_display = ['savings_type', 'description', 'icon', 'color', 'created_at']
+    search_fields = ['savings_type', 'description']
+    list_per_page = 25
+
+
 @admin.register(Savings)
 class SavingsAdmin(admin.ModelAdmin):
     form = SavingsForm
-    list_display = ['employee_name', 'amount', 'current_balance', 'deposit_date', 'is_withdrawn', 'withdrawal_date', 'created_at']
-    list_filter = ['is_withdrawn', 'deposit_date', 'withdrawal_date', 'created_at']
+    list_display = ['employee_name', 'savings_type', 'amount', 'current_balance', 'deposit_date', 'is_withdrawn', 'withdrawal_date', 'created_at']
+    list_filter = ['savings_type', 'is_withdrawn', 'deposit_date', 'withdrawal_date', 'created_at']
     search_fields = ['employee__firstname', 'employee__lastname', 'employee__idnumber']
     readonly_fields = ['withdrawal_date', 'created_at', 'updated_at', 'current_balance']
     ordering = ['-created_at']
@@ -242,7 +249,7 @@ class SavingsAdmin(admin.ModelAdmin):
             'fields': ('employee',)
         }),
         ('Savings Details', {
-            'fields': ('amount', 'deposit_date')
+            'fields': ('savings_type', 'amount', 'deposit_date')
         }),
         ('Status', {
             'fields': ('is_withdrawn', 'withdrawal_date'),

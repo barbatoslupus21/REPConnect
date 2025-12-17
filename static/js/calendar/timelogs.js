@@ -8,6 +8,7 @@ class TimeLogsManager {
         this.selectedFiles = [];
         this.searchTerm = '';
         this.selectedDepartments = ['all'];
+        this.validationErrors = [];
         this.init();
     }
 
@@ -39,6 +40,7 @@ class TimeLogsManager {
         document.getElementById('saveTimelogBtn').addEventListener('click', () => this.saveTimelog());
         document.getElementById('addTimelogBtn').addEventListener('click', () => this.addTimelog());
         document.getElementById('confirmDeleteBtn').addEventListener('click', () => this.confirmDelete());
+        document.getElementById('exportErrorBtn').addEventListener('click', () => this.exportErrors());
     }
 
     setupDragAndDrop() {
@@ -85,49 +87,7 @@ class TimeLogsManager {
             return;
         }
 
-        this.displaySelectedFiles();
         document.getElementById('uploadBtn').disabled = false;
-    }
-
-    displaySelectedFiles() {
-        const selectedFilesContainer = document.getElementById('selectedFiles');
-        const fileList = document.getElementById('fileList');
-
-        if (this.selectedFiles.length === 0) {
-            selectedFilesContainer.style.display = 'none';
-            return;
-        }
-
-        selectedFilesContainer.style.display = 'block';
-        fileList.innerHTML = '';
-
-        this.selectedFiles.forEach((file, index) => {
-            const fileItem = document.createElement('div');
-            fileItem.className = 'file-item';
-            fileItem.innerHTML = `
-                <div class="file-info">
-                    <i class="fas fa-file-excel file-icon"></i>
-                    <div class="file-details">
-                        <p class="file-name">${file.name}</p>
-                        <p class="file-size">${this.formatFileSize(file.size)}</p>
-                    </div>
-                </div>
-                <button class="file-remove" onclick="timelogsManager.removeFile(${index})">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            fileList.appendChild(fileItem);
-        });
-    }
-
-    removeFile(index) {
-        this.selectedFiles.splice(index, 1);
-        this.displaySelectedFiles();
-
-        if (this.selectedFiles.length === 0) {
-            document.getElementById('uploadBtn').disabled = true;
-            document.getElementById('file-upload').value = '';
-        }
     }
 
     formatFileSize(bytes) {
@@ -153,8 +113,6 @@ class TimeLogsManager {
         document.querySelector('.file-label span').textContent = 'Drag & drop Excel files here or click to browse';
         document.getElementById('uploadBtn').disabled = true;
         document.getElementById('uploadProgress').style.display = 'none';
-        document.getElementById('selectedFiles').style.display = 'none';
-        document.getElementById('fileList').innerHTML = '';
         this.selectedFiles = [];
     }
 
@@ -190,15 +148,26 @@ class TimeLogsManager {
                     throw new Error(result.message || 'Upload failed');
                 }
 
+                // Check if there are validation errors in the response
+                if (result.errors && result.errors.length > 0) {
+                    this.validationErrors = this.validationErrors.concat(result.errors);
+                }
+
             } catch (error) {
                 this.showNotification(`Error uploading ${file.name}: ${error.message}`, 'error');
                 continue;
             }
         }
 
-        this.showNotification('Files uploaded successfully!', 'success');
-        this.hideImportModal();
-        this.loadEmployees();
+        // Show validation errors modal if there are errors
+        if (this.validationErrors.length > 0) {
+            this.hideImportModal();
+            this.showValidationErrorsModal();
+        } else {
+            this.showNotification('Files uploaded successfully!', 'success');
+            this.hideImportModal();
+            this.loadEmployees();
+        }
         
         // Refresh calendar indicators if calendar manager exists
         if (window.calendarManager && window.calendarManager.refreshTimelogIndicators) {
@@ -689,6 +658,122 @@ class TimeLogsManager {
         } else {
             console.log(`${type.toUpperCase()}: ${message}`);
         }
+    }
+
+    showValidationErrorsModal() {
+        const errorCount = document.getElementById('errorCount');
+        const errorTableBody = document.getElementById('errorTableBody');
+
+        errorCount.textContent = this.validationErrors.length;
+        
+        errorTableBody.innerHTML = this.validationErrors.map(error => `
+            <tr>
+                <td>${error.id_number || 'N/A'}</td>
+                <td>${error.name || 'N/A'}</td>
+                <td>${error.datetime || 'N/A'}</td>
+                <td>${error.entry || 'N/A'}</td>
+                <td>${error.error}</td>
+            </tr>
+        `).join('');
+
+        openModal('validationErrorsModal');
+    }
+
+    async exportErrors() {
+        try {
+            // Dynamically import the XLSX library
+            const XLSX = await this.loadXLSXLibrary();
+
+            // Prepare data for export
+            const data = [
+                ['ID Number', 'Name', 'Date and Time', 'Entry', 'Error'],
+                ...this.validationErrors.map(error => [
+                    error.id_number || 'N/A',
+                    error.name || 'N/A',
+                    error.datetime || 'N/A',
+                    error.entry || 'N/A',
+                    error.error
+                ])
+            ];
+
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Calculate column widths
+            const colWidths = [
+                { wch: 15 }, // ID Number
+                { wch: 25 }, // Name
+                { wch: 20 }, // Date and Time
+                { wch: 15 }, // Entry
+                { wch: 40 }  // Error
+            ];
+            ws['!cols'] = colWidths;
+
+            // Style the header row (first row)
+            const headerRange = XLSX.utils.decode_range(ws['!ref']);
+            for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+                const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (!ws[cellAddress]) continue;
+                
+                ws[cellAddress].s = {
+                    font: { bold: true, color: { rgb: "000000" } },
+                    fill: { fgColor: { rgb: "FFCCCC" } }, // Light red background
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: {
+                        top: { style: "thin", color: { rgb: "000000" } },
+                        bottom: { style: "thin", color: { rgb: "000000" } },
+                        left: { style: "thin", color: { rgb: "000000" } },
+                        right: { style: "thin", color: { rgb: "000000" } }
+                    }
+                };
+            }
+
+            // Add borders to all cells
+            for (let row = headerRange.s.r; row <= headerRange.e.r; row++) {
+                for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                    if (!ws[cellAddress]) continue;
+                    
+                    if (!ws[cellAddress].s) ws[cellAddress].s = {};
+                    ws[cellAddress].s.border = {
+                        top: { style: "thin", color: { rgb: "000000" } },
+                        bottom: { style: "thin", color: { rgb: "000000" } },
+                        left: { style: "thin", color: { rgb: "000000" } },
+                        right: { style: "thin", color: { rgb: "000000" } }
+                    };
+                }
+            }
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Validation Errors');
+
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const filename = `timelog_errors_${timestamp}.xlsx`;
+
+            // Save file
+            XLSX.writeFile(wb, filename);
+
+            this.showNotification('Error report exported successfully!', 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showNotification('Error exporting report', 'error');
+        }
+    }
+
+    async loadXLSXLibrary() {
+        if (window.XLSX) {
+            return window.XLSX;
+        }
+
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+            script.onload = () => resolve(window.XLSX);
+            script.onerror = () => reject(new Error('Failed to load XLSX library'));
+            document.head.appendChild(script);
+        });
     }
 }
 

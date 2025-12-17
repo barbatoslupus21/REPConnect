@@ -676,3 +676,77 @@
     flex-direction: column;
     min-height: 0;
 }
+
+/* Validation Errors Modal Styles */
+.error-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-lg);
+}
+
+.error-summary i {
+    font-size: 24px;
+    color: #ff9800;
+}
+
+.error-summary p {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.error-summary span {
+    font-weight: 600;
+    color: #d32f2f;
+}
+
+.error-table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.error-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+}
+
+.error-table thead {
+    background-color: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.error-table th {
+    padding: var(--space-md);
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.error-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color var(--transition-fast);
+}
+
+.error-table tbody tr:hover {
+    background-color: var(--surface-hover);
+}
+
+.error-table td {
+    padding: var(--space-md);
+    color: var(--text-primary);
+}
+
+.error-table td:last-child {
+    color: #d32f2f;
+    font-weight: 500;
+}

@@ -36,17 +36,6 @@
   /* gap: 8px; */
   /* padding: 8px; */
 }
-.allowance-item {
-  background: var(--surface, #fff);
-  border-bottom: 1px solid var(--border-color);
-  /* border-radius: 10px; */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-  padding: 16px 20px 12px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-}
 .allowance-type {
   font-weight: 600;
   color: var(--text-primary, #1e293b);
@@ -63,6 +52,309 @@
   color: var(--text-muted, #64748b);
   font-size: 12px;
 }
+
+/* ==========================================
+   Modern Finance Cards - Allowances & Savings
+   ========================================== */
+
+.modern-finance-cards {
+  padding: 16px;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+/* Modern Allowance Cards */
+.modern-allowance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modern-allowance-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.modern-allowance-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 4px 0 0 4px;
+}
+
+.modern-allowance-card.balance-card::before {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+}
+
+.modern-allowance-card.deposited-card::before {
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+}
+
+.modern-allowance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary-color, #4f46e5);
+}
+
+.modern-allowance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.modern-allowance-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.modern-allowance-icon.balance {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #d97706;
+}
+
+.modern-allowance-icon.deposited {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #16a34a;
+}
+
+.modern-allowance-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.modern-allowance-badge.balance {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.modern-allowance-badge.deposited {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+}
+
+.modern-allowance-content {
+  padding-left: 8px;
+}
+
+.modern-allowance-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 6px;
+}
+
+.modern-allowance-amount {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-color, #4f46e5) 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+
+.modern-allowance-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+}
+
+.modern-allowance-meta i {
+  font-size: 11px;
+}
+
+/* Modern Savings Cards */
+.modern-savings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modern-savings-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.modern-savings-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 4px 0 0 4px;
+}
+
+.modern-savings-card.active::before {
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+}
+
+.modern-savings-card.withdrawn::before {
+  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+}
+
+.modern-savings-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary-color, #4f46e5);
+}
+
+.modern-savings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.modern-savings-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.modern-savings-icon.active {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #16a34a;
+}
+
+.modern-savings-icon.withdrawn {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  color: #64748b;
+}
+
+.modern-savings-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.modern-savings-badge.active {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+}
+
+.modern-savings-badge.withdrawn {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  color: #475569;
+}
+
+.modern-savings-content {
+  padding-left: 8px;
+}
+
+.modern-savings-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 6px;
+}
+
+.modern-savings-amount {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+
+.modern-savings-amount.withdrawn {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.modern-savings-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+}
+
+.modern-savings-meta i {
+  font-size: 11px;
+}
+
+.modern-savings-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color, #e2e8f0);
+}
+
+.savings-growth-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.savings-growth-indicator i {
+  font-size: 14px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Responsive for modern cards */
+@media (max-width: 768px) {
+  .modern-allowance-card,
+  .modern-savings-card {
+    padding: 14px;
+  }
+  
+  .modern-allowance-amount,
+  .modern-savings-amount {
+    font-size: 20px;
+  }
+  
+  .modern-allowance-icon,
+  .modern-savings-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+}
+
 /* Finance summary flex layout for user-finance.html */
 .finance-flex-row {
     display: flex;
@@ -899,4 +1191,1391 @@
 
 .privacy-toggle-btn i.fa-eye-slash {
     color: var(--text-muted, #6b7280);
+}
+
+/* ==========================================
+   MODERN FINANCE PAGE STYLES V2
+   ========================================== */
+
+/* Page Header */
+.finance-page-header {
+    background: linear-gradient(135deg, var(--primary-color, #4f46e5) 0%, #7c3aed 100%);
+    border-radius: 20px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.finance-page-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+}
+
+.finance-page-header::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: 10%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+}
+
+.finance-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.finance-header-text h1 {
+    color: white;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.finance-header-text h1 i {
+    font-size: 24px;
+}
+
+.finance-header-text p {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 14px;
+    margin: 0;
+}
+
+.tour-btn-modern {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.tour-btn-modern:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+/* Stats Section */
+.finance-stats-section {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.finance-stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card-decoration {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    transform: translate(30%, -30%);
+    opacity: 0.1;
+}
+
+.finance-stat-card.payslips .stat-card-decoration { background: #4f46e5; }
+.finance-stat-card.allowances .stat-card-decoration { background: #f59e0b; }
+.finance-stat-card.savings .stat-card-decoration { background: #22c55e; }
+.finance-stat-card.loans .stat-card-decoration { background: #ef4444; }
+
+.stat-card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.finance-stat-card.payslips .stat-card-icon {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    color: #4f46e5;
+}
+
+.finance-stat-card.allowances .stat-card-icon {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+.finance-stat-card.savings .stat-card-icon {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #16a34a;
+}
+
+.finance-stat-card.loans .stat-card-icon {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.stat-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-card-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+}
+
+.stat-card-value.privacy-blur {
+    color: var(--text-muted, #94a3b8);
+    font-weight: 500;
+}
+
+.stat-card-label {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+}
+
+.stat-privacy-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.stat-privacy-toggle:hover {
+    background: var(--surface-hover, #f1f5f9);
+    color: var(--text-primary, #1e293b);
+}
+
+/* Clickable privacy value */
+.stat-card-value.clickable-privacy {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.stat-card-value.clickable-privacy:hover {
+    opacity: 0.8;
+}
+
+.stat-card-value.clickable-privacy::after {
+    color: var(--text-primary, #1e293b);
+}
+
+/* Main Grid Layout */
+.finance-main-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Top Row - Payslips, Allowances & Savings */
+.finance-top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    min-height: 350px;
+    max-height: 500px;
+}
+
+.finance-top-row > .finance-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 350px;
+    max-height: 500px;
+}
+
+.finance-top-row > .finance-card .finance-card-body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* Dynamic expansion when sections are empty */
+.finance-top-row > .finance-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.finance-top-row > .finance-card.expand-half {
+    grid-column: span 2;
+}
+
+/* Hide empty cards that should be hidden */
+.finance-top-row > .finance-card.empty-card[style*="display: none"] {
+    display: none !important;
+}
+
+/* Bottom Row - Loans */
+.finance-bottom-row {
+    width: 100%;
+}
+
+.finance-bottom-row .loans-card {
+    width: 100%;
+}
+
+.finance-bottom-row .loans-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Old column styles - keeping for backward compatibility but not used */
+.finance-left-column,
+.finance-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Finance Cards */
+.finance-card {
+    background: white;
+    border-radius: 20px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.finance-card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+    flex-shrink: 0;
+}
+
+.card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.card-header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.card-header-icon.payslip {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    color: #4f46e5;
+}
+
+.card-header-icon.loan {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.card-header-icon.allowance {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+.card-header-icon.savings {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #16a34a;
+}
+
+.card-header-text h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}
+
+.card-header-text span {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+}
+
+.finance-card-body {
+    padding: 20px 24px;
+    max-height: 450px;
+    overflow-y: auto;
+}
+
+/* Toggle Switch Modern */
+.toggle-switch-modern {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.toggle-switch-modern input {
+    display: none;
+}
+
+.toggle-slider {
+    width: 44px;
+    height: 24px;
+    background: #e2e8f0;
+    border-radius: 12px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-switch-modern input:checked + .toggle-slider {
+    background: var(--primary-color, #4f46e5);
+}
+
+.toggle-switch-modern input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.toggle-label {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    font-weight: 500;
+}
+
+/* Payslip List */
+.payslip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.payslip-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--surface, #f8fafc);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    transition: all 0.2s ease;
+}
+
+.payslip-item:hover {
+    background: white;
+    border-color: var(--primary-color, #4f46e5);
+    transform: translateX(4px);
+}
+
+.payslip-item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.payslip-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.payslip-icon.ojt {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #2563eb;
+}
+
+.payslip-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.payslip-date {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary, #1e293b);
+}
+
+.payslip-filename {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+}
+
+.payslip-amount {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    font-weight: 500;
+}
+
+.payslip-item-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.payslip-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.payslip-status.sent {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.payslip-status.pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.payslip-total {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary, #1e293b);
+}
+
+.payslip-action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: white;
+    color: var(--primary-color, #4f46e5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.payslip-action-btn:hover {
+    background: var(--primary-color, #4f46e5);
+    color: white;
+    border-color: var(--primary-color, #4f46e5);
+}
+
+/* Empty State Modern */
+.empty-state-modern {
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.empty-state-modern.compact {
+    padding: 32px 20px;
+}
+
+.empty-icon-wrapper {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 32px;
+    color: #94a3b8;
+}
+
+.empty-icon-wrapper.small {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+    margin-bottom: 16px;
+}
+
+.empty-state-modern h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}
+
+.empty-state-modern p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-muted, #64748b);
+}
+
+/* Empty State Centered - for cards that should always show */
+.empty-state-centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 24px;
+    height: 100%;
+    min-height: 200px;
+}
+
+.empty-state-centered .empty-icon-wrapper {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 28px;
+    color: #94a3b8;
+}
+
+.empty-state-centered h4 {
+    margin: 0 0 6px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}
+
+.empty-state-centered p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+}
+
+/* ==========================================
+   Allowance List Styles (like payslips)
+   ========================================== */
+.allowance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.allowance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--surface, #f8fafc);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    transition: all 0.2s ease;
+}
+
+.allowance-item:hover {
+    background: white;
+    border-color: var(--primary-color, #4f46e5);
+    transform: translateX(4px);
+}
+
+.allowance-item-left {
+    display: flex;
+    flex-direction: column;
+}
+
+.allowance-item-top {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.allowance-item-right {
+    display: flex;
+    align-items: center;
+}
+
+.allowance-status {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.allowance-status.balance {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.allowance-status.deposited {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.allowance-meta {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+}
+
+.allowance-item .allowance-amount {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text-primary, #1e293b);
+    margin-bottom: 0;
+}
+
+/* ==========================================
+   Savings List Styles (like payslips)
+   ========================================== */
+.savings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.savings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--surface, #f8fafc);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    transition: all 0.2s ease;
+}
+
+.savings-item:hover {
+    background: white;
+    border-color: var(--primary-color, #4f46e5);
+    transform: translateX(4px);
+}
+
+.savings-item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.savings-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.savings-icon.active {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #16a34a;
+}
+
+.savings-icon.withdrawn {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: #64748b;
+}
+
+.savings-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.savings-type {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary, #1e293b);
+}
+
+.savings-meta {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+}
+
+.savings-item-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.savings-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.savings-status.active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.savings-status.withdrawn {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.savings-amount {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text-primary, #1e293b);
+}
+
+.savings-amount.withdrawn {
+    color: var(--text-muted, #64748b);
+}
+
+/* Loans Grid */
+.loans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.loan-card-modern {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.loan-card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
+
+.loan-card-modern.inactive {
+    opacity: 0.6;
+}
+
+.loan-card-header {
+    padding: 16px;
+    background: linear-gradient(135deg, #fafbfc 0%, #f1f5f9 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.loan-type-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary, #1e293b);
+}
+
+.loan-type-badge i {
+    color: var(--primary-color, #4f46e5);
+}
+
+.loan-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.loan-status.active {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.loan-status.paid {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.loan-card-body {
+    padding: 16px;
+}
+
+.loan-amount-display {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.loan-balance-label {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.loan-balance-value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+}
+
+.loan-progress-modern {
+    margin-bottom: 16px;
+}
+
+.progress-bar-modern {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+}
+
+.loan-details-row {
+    display: flex;
+    gap: 16px;
+}
+
+.loan-detail {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.detail-label {
+    font-size: 11px;
+    color: var(--text-muted, #64748b);
+    text-transform: uppercase;
+}
+
+.detail-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}
+
+.loan-card-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    background: #fafbfc;
+}
+
+.loan-view-btn {
+    width: 100%;
+    padding: 10px 16px;
+    background: white;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    color: var(--primary-color, #4f46e5);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.loan-view-btn:hover {
+    background: var(--primary-color, #4f46e5);
+    color: white;
+    border-color: var(--primary-color, #4f46e5);
+}
+
+/* Allowance Cards V2 */
+.allowance-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.allowance-card-v2 {
+    background: white;
+    border-radius: 14px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.allowance-card-v2:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.allowance-card-stripe {
+    height: 4px;
+}
+
+.allowance-card-v2.balance .allowance-card-stripe {
+    background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+.allowance-card-v2.deposited .allowance-card-stripe {
+    background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+}
+
+.allowance-card-content {
+    padding: 16px;
+}
+
+.allowance-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.allowance-type-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+    padding: 0 !important;
+}
+
+.allowance-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
+.allowance-badge.balance {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.allowance-badge.deposited {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.allowance-amount-v2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+    margin-bottom: 8px;
+}
+
+.allowance-meta-v2 {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.allowance-meta-v2 i {
+    font-size: 11px;
+}
+
+/* Savings Cards V2 */
+.savings-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.savings-card-v2 {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.savings-card-v2:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
+
+.savings-card-v2.withdrawn {
+    opacity: 0.75;
+}
+
+.savings-card-header {
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.savings-icon-wrapper {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.savings-icon-wrapper.active {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #16a34a;
+}
+
+.savings-icon-wrapper.withdrawn {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: #64748b;
+}
+
+.savings-status-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.savings-status-badge.active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.savings-status-badge.withdrawn {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.savings-card-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.savings-type-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}
+
+.savings-amount-v2 {
+    font-size: 26px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.savings-amount-v2.withdrawn {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.savings-meta-v2 {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.savings-card-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    background: #fafbfc;
+}
+
+.savings-growth-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #22c55e;
+    font-weight: 600;
+}
+
+.savings-growth-badge i {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Modal Modern Styles */
+.modern-modal {
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.modern-modal .modal-header {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modern-modal .modal-header h3,
+.modern-modal .modal-header h4 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modern-modal .modal-header h3 i,
+.modern-modal .modal-header h4 i {
+    color: var(--primary-color, #4f46e5);
+}
+
+.modern-modal .modal-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: var(--surface-hover, #f1f5f9);
+    color: var(--text-muted, #64748b);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.modern-modal .modal-close:hover {
+    background: var(--danger-light, #fee2e2);
+    color: var(--danger, #dc2626);
+}
+
+.modern-modal .modal-body {
+    padding: 24px;
+}
+
+.modern-modal .modal-footer {
+    padding: 16px 24px;
+    background: #fafbfc;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-subtitle {
+    font-size: 14px;
+    color: var(--text-muted, #64748b);
+    margin-bottom: 16px;
+}
+
+.email-display-modern {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--surface, #f8fafc);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}
+
+.email-display-modern i {
+    color: var(--primary-color, #4f46e5);
+}
+
+/* Modern Loader */
+.modern-loader {
+    text-align: center;
+    padding: 40px;
+}
+
+.loader-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e2e8f0;
+    border-top-color: var(--primary-color, #4f46e5);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.modern-loader p {
+    font-size: 14px;
+    color: var(--text-muted, #64748b);
+    margin: 0;
+}
+
+/* Responsive Styles */
+@media (max-width: 1200px) {
+    .finance-stats-section {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .finance-top-row {
+        grid-template-columns: 1fr 1fr;
+        min-height: 300px;
+        max-height: 450px;
+    }
+    
+    .finance-top-row > .finance-card.savings-card {
+        grid-column: 1 / -1;
+    }
+    
+    .finance-top-row > .finance-card.expand-half {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 992px) {
+    .finance-top-row {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        max-height: none;
+    }
+    
+    .finance-top-row > .finance-card {
+        min-height: 250px;
+        max-height: 400px;
+    }
+    
+    .finance-top-row > .finance-card.full-width,
+    .finance-top-row > .finance-card.expand-half,
+    .finance-top-row > .finance-card.savings-card {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .finance-page-header {
+        padding: 20px;
+        border-radius: 16px;
+    }
+    
+    .finance-header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    
+    .finance-header-text h1 {
+        font-size: 22px;
+    }
+    
+    .finance-stats-section {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .finance-stat-card {
+        padding: 16px;
+    }
+    
+    .stat-card-value {
+        font-size: 20px;
+    }
+    
+    .finance-card-header {
+        padding: 16px;
+    }
+    
+    .finance-card-body {
+        padding: 16px;
+    }
+    
+    .loans-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .allowance-cards-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .savings-cards-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .finance-top-row > .finance-card {
+        min-height: 200px;
+        max-height: 350px;
+    }
+}
+
+@media (max-width: 480px) {
+    .finance-page-header {
+        padding: 16px;
+    }
+    
+    .payslip-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .payslip-item-right {
+        width: 100%;
+        justify-content: space-between;
+    }
 }

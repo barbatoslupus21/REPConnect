@@ -24,7 +24,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 from io import BytesIO
-from .models import Payslip, Loan, Allowance, OJTPayslipData, AllowanceType, LoanType, LoanDeduction, Savings, OJTRate
+from .models import Payslip, Loan, Allowance, OJTPayslipData, AllowanceType, LoanType, LoanDeduction, Savings, OJTRate, SavingsType
 from .forms import PayslipUploadForm, EmployeeSearchForm, EmailSelectionForm, SavingsUploadForm
 from notification.models import Notification
 from django.template.loader import render_to_string
@@ -250,10 +250,10 @@ def user_finance(request):
         payslips_percent = min(payslips_percent, 100)
         payslips_positive = payslips_this_month >= payslips_last_month
 
-    # Allowances
+    # Allowances - total only counts allowances without deposit_date (balance allowances)
     allowances_this_month = Allowance.objects.filter(employee=user, created_at__gte=first_of_this_month).count()
     allowances_last_month = Allowance.objects.filter(employee=user, created_at__gte=first_of_last_month, created_at__lt=first_of_this_month).count()
-    total_allowances = allowances.aggregate(total=Sum('amount'))['total'] or 0
+    total_allowances = allowances.filter(deposit_date__isnull=True).aggregate(total=Sum('amount'))['total'] or 0
     allowances_percent = 0
     allowances_positive = True
     if allowances_last_month:
@@ -338,6 +338,7 @@ def ojt_payslip_upload(request):
         files = request.FILES.getlist('files')
         cut_off = request.POST.get('cutoff_date', '')
         errors = []
+        all_error_rows = []  # Collect all error rows from all files
         created = 0
         updated = 0
 
@@ -350,12 +351,14 @@ def ojt_payslip_upload(request):
                 continue
                 
             try:
-                success, file_errors, file_created, file_updated = process_ojt_excel(file, cut_off)
+                success, file_errors, file_created, file_updated, error_rows = process_ojt_excel(file, cut_off)
                 if success:
                     created += file_created
                     updated += file_updated
                 else:
                     errors.extend(file_errors)
+                    if error_rows:
+                        all_error_rows.extend(error_rows)
             except Exception as e:
                 errors.append(f'Error processing {file.name}: {str(e)}')
 
@@ -364,7 +367,8 @@ def ojt_payslip_upload(request):
                 'success': False, 
                 'errors': errors, 
                 'created': created,
-                'updated': updated
+                'updated': updated,
+                'error_rows': all_error_rows
             })
         
         # Create notification for successful upload
@@ -388,8 +392,9 @@ def ojt_payslip_upload(request):
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
 def process_ojt_excel(file, cut_off):
-    """Process Excel file and create/update OJT payslip records"""
+
     errors = []
+    error_rows = []  # Store rows with errors for download
     created = 0
     updated = 0
     
@@ -399,7 +404,7 @@ def process_ojt_excel(file, cut_off):
         rows = list(worksheet.values)
         
         if len(rows) < 2:
-            return False, ['Excel file is empty or has no data'], 0, 0
+            return False, ['Excel file is empty or has no data'], 0, 0, []
         
         headers = rows[0]
         data_rows = rows[1:]
@@ -407,20 +412,31 @@ def process_ojt_excel(file, cut_off):
         with transaction.atomic():
             for row_idx, row in enumerate(data_rows, start=2):
                 try:
-                    # Get employee ID from first column
+
                     employee_id = row[0] if row and len(row) > 0 else None
                     if not employee_id:
-                        errors.append(f'Row {row_idx}: Missing employee ID')
+                        remark = 'Missing employee ID'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        error_row = list(row[:6]) if row else ['', '', '', '', '', '']
+                        # Pad to 6 columns if needed
+                        while len(error_row) < 6:
+                            error_row.append('')
+                        error_row.append(remark)  # Add remarks column
+                        error_rows.append(error_row)
                         continue
                     
-                    # Find employee
                     try:
                         employee = EmployeeLogin.objects.get(idnumber=str(employee_id))
                     except EmployeeLogin.DoesNotExist:
-                        errors.append(f'Row {row_idx}: Employee {employee_id} not found')
+                        remark = f'Employee {employee_id} not found'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        error_row = list(row[:6]) if row else ['', '', '', '', '', '']
+                        while len(error_row) < 6:
+                            error_row.append('')
+                        error_row.append(remark)
+                        error_rows.append(error_row)
                         continue
                     
-                    # Create payslip data with safe decimal conversion
                     def safe_decimal(value):
                         if value is None or value == '':
                             return Decimal('0')
@@ -476,22 +492,29 @@ def process_ojt_excel(file, cut_off):
                         created += 1
                         
                 except Exception as e:
-                    errors.append(f'Row {row_idx}: {str(e)}')
+                    remark = str(e)
+                    errors.append(f'Row {row_idx}: {remark}')
+                    error_row = list(row[:6]) if row else ['', '', '', '', '', '']
+                    while len(error_row) < 6:
+                        error_row.append('')
+                    error_row.append(remark)
+                    error_rows.append(error_row)
                     continue
         
         workbook.close()
         
         if errors:
-            return False, errors, created, updated
-        return True, [], created, updated
+            return False, errors, created, updated, error_rows
+        return True, [], created, updated, []
         
     except Exception as e:
-        return False, [f'Error reading Excel file: {str(e)}'], 0, 0
+        return False, [f'Error reading Excel file: {str(e)}'], 0, 0, []
 
 def ojt_payslip_template(request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "OJTPayslipTemplate"
+    
     headers = [
         'ID_NO',
         'Regular_Day',
@@ -518,9 +541,107 @@ def ojt_payslip_template(request):
         'RD_OT_DATE',
         'PERFECT_ATTENDANCE',
     ]
+    
+    # Define styles for header (yellow background, bold text, borders)
+    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    bold_font = Font(bold=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Add headers with yellow background, bold text, and borders
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col_num, value=header)
-        cell.font = Font(bold=True)
+        cell.font = bold_font
+        cell.fill = yellow_fill
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Add sample data row
+    sample_data = [
+        '960921',           # ID_NO
+        '22',               # Regular_Day
+        '5000',             # ALLOWANCE_DAY
+        '110000',           # TOTAL_ALLOWANCE
+        '1500',             # ND_ALLOWANCE
+        '111500',           # GRAND_TOTAL
+        '55750',            # BASIC_SCHOOL_SHARE
+        '55750',            # BASIC_OJT_SHARE
+        '0',                # DEDUCTION
+        '55750',            # NET_OJT_SHARE
+        '0',                # RICE_ALLOWANCE
+        '0',                # OT_ALLOWANCE
+        '0',                # ND_OT_ALLOWANCE
+        '0',                # SPECIAL_HOLIDAY
+        '0',                # LEGAL_HOLIDAY
+        '0',                # SATOFF_ALLOWANCE
+        '0',                # RD_OT
+        '0',                # ADJUSTMENT
+        '0',                # DEDUCTION_2
+        '0',                # OT_PAY_ALLOWANCE
+        '0',                # TOTAL_ALLOW
+        'N/A',              # HOLIDAY_DATE
+        'N/A',              # RD_OT_DATE
+        '0',                # PERFECT_ATTENDANCE
+    ]
+    
+    for col_num, value in enumerate(sample_data, 1):
+        cell = ws.cell(row=2, column=col_num, value=value)
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Adjust column widths for better readability
+    for col_num in range(1, len(headers) + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_num)].width = 18
+    
+    # Add instructions below the table
+    instruction_row = 4
+    instructions = [
+        "INSTRUCTIONS FOR FILLING OUT THE OJT PAYSLIP TEMPLATE:",
+        "",
+        "1. REQUIRED COLUMNS - These columns MUST have values:",
+        "   • ID_NO: Employee ID number (e.g., 960921)",
+        "   • Regular_Day: Number of regular working days (numeric value)",
+        "   • ALLOWANCE_DAY: Daily allowance amount (numeric value)",
+        "",
+        "2. DATE FORMAT:",
+        "   • HOLIDAY_DATE and RD_OT_DATE: Use format YYYY-MM-DD (e.g., 2025-10-21)",
+        "   • If no holiday or rest day overtime, enter 'N/A'",
+        "",
+        "3. NUMERIC COLUMNS:",
+        "   • All monetary values and counts should be numeric (e.g., 5000, 1500)",
+        "   • If a column has no value or is not applicable, enter '0' (zero)",
+        "   • Do NOT leave cells empty - use '0' or 'N/A' as appropriate",
+        "",
+        "4. IMPORTANT NOTES:",
+        "   • Do NOT modify or delete the header row",
+        "   • Start entering data from row 2 onwards (row 2 contains sample data)",
+        "   • Ensure all ID_NO values correspond to valid employee IDs in the system",
+        "   • Save the file in Excel format (.xlsx) before uploading",
+        "",
+        "5. SAMPLE DATA:",
+        "   • Row 2 contains sample data for reference",
+        "   • You may delete the sample row before uploading actual data",
+        "",
+    ]
+    
+    for idx, instruction in enumerate(instructions):
+        cell = ws.cell(row=instruction_row + idx, column=1, value=instruction)
+        cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+        if idx == 0:  # Title row
+            cell.font = Font(bold=True, size=12)
+    
+    # Merge cells for instructions to span across columns
+    for idx in range(len(instructions)):
+        ws.merge_cells(start_row=instruction_row + idx, start_column=1, 
+                       end_row=instruction_row + idx, end_column=len(headers))
+    
+    # Set row height for instructions
+    for idx in range(len(instructions)):
+        ws.row_dimensions[instruction_row + idx].height = 20
 
     output = BytesIO()
     wb.save(output)
@@ -906,7 +1027,6 @@ def loan_principal_upload(request):
 
 @login_required(login_url="user-login")
 def loan_deduction_upload(request):
-    """Upload loan deductions for a specific cutoff"""
     try:
         if not request.user.accounting_admin:
             return JsonResponse({'success': False, 'message': 'Permission denied'})
@@ -972,10 +1092,7 @@ def loan_deduction_upload(request):
         return JsonResponse({'success': False, 'error': f'Unexpected error (outer): {str(e)}'})
 
 def process_loan_principal_excel(file):
-    """
-    Process Excel file for loan principals
-    Expected columns: Id Number, Name, Loan Type, Principal Balance, Monthly Deduction
-    """
+
     errors = []
     created = 0
     updated = 0
@@ -1008,14 +1125,21 @@ def process_loan_principal_excel(file):
                     amount = row[3]
                     monthly_deduction = row[4] if len(row) > 4 else 0
                     if not all([employee_id, loan_type_name, amount]):
-                        errors.append(f'Row {row_idx}: Missing required data')
-                        not_uploaded_rows.append(list(row))
+                        remark = 'Missing required data (Id Number, Loan Type, or Amount)'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        error_row = list(row[:5]) if row else ['', '', '', '', '']
+                        while len(error_row) < 5:
+                            error_row.append('')
+                        error_row.append(remark)
+                        not_uploaded_rows.append(error_row)
                         continue
                     try:
                         employee = EmployeeLogin.objects.get(idnumber=str(employee_id))
                     except EmployeeLogin.DoesNotExist:
-                        errors.append(f'Row {row_idx}: Employee {employee_id} not found')
-                        not_uploaded_rows.append(list(row))
+                        remark = f'Employee {employee_id} not found'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        error_row = [employee_id, employee_name, loan_type_name, amount, monthly_deduction, remark]
+                        not_uploaded_rows.append(error_row)
                         continue
                     loan_type, _ = LoanType.objects.get_or_create(
                         loan_type=str(loan_type_name).strip(),
@@ -1024,12 +1148,16 @@ def process_loan_principal_excel(file):
                     amount_val = parse_decimal(amount)
                     monthly_deduction_val = parse_decimal(monthly_deduction)
                     if amount_val is None:
-                        errors.append(f'Row {row_idx}: Invalid principal amount value ({amount})')
-                        not_uploaded_rows.append(list(row))
+                        remark = f'Invalid principal amount value ({amount})'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        error_row = [employee_id, employee_name, loan_type_name, amount, monthly_deduction, remark]
+                        not_uploaded_rows.append(error_row)
                         continue
                     if monthly_deduction and monthly_deduction_val is None:
-                        errors.append(f'Row {row_idx}: Invalid monthly deduction value ({monthly_deduction})')
-                        not_uploaded_rows.append(list(row))
+                        remark = f'Invalid monthly deduction value ({monthly_deduction})'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        error_row = [employee_id, employee_name, loan_type_name, amount, monthly_deduction, remark]
+                        not_uploaded_rows.append(error_row)
                         continue
                     amount = amount_val
                     monthly_deduction = monthly_deduction_val if monthly_deduction else Decimal('0')
@@ -1040,8 +1168,10 @@ def process_loan_principal_excel(file):
                     ).first()
                     # If loan type is not stackable and there is an active loan with nonzero balance, skip and collect row
                     if existing_loan and not loan_type.is_stackable and existing_loan.current_balance > 0:
-                        errors.append(f'Row {row_idx}: Active non-stackable loan exists for {employee_id} ({loan_type_name})')
-                        not_uploaded_rows.append(list(row))
+                        remark = f'Active non-stackable loan exists for {employee_id} ({loan_type_name})'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        error_row = [employee_id, employee_name, loan_type_name, amount, monthly_deduction, remark]
+                        not_uploaded_rows.append(error_row)
                         continue
                     if existing_loan and loan_type.is_stackable:
                         existing_loan.add_principal(amount)
@@ -1059,8 +1189,13 @@ def process_loan_principal_excel(file):
                         )
                         created += 1
                 except Exception as e:
-                    errors.append(f'Row {row_idx}: {str(e)}')
-                    not_uploaded_rows.append(list(row))
+                    remark = str(e)
+                    errors.append(f'Row {row_idx}: {remark}')
+                    error_row = list(row[:5]) if row else ['', '', '', '', '']
+                    while len(error_row) < 5:
+                        error_row.append('')
+                    error_row.append(remark)
+                    not_uploaded_rows.append(error_row)
                     continue
         workbook.close()
         if errors:
@@ -1070,10 +1205,7 @@ def process_loan_principal_excel(file):
         return False, [f'Error reading Excel file: {str(e)}'], 0, 0, 0, []
 
 def process_loan_deduction_excel(file, cutoff_date):
-    """
-    Process Excel file for loan deductions
-    Expected columns: Employee_ID, Loan_Type, Deduction_Amount
-    """
+
     errors = []
     processed = 0
     added_deductions = []
@@ -1110,60 +1242,67 @@ def process_loan_deduction_excel(file, cutoff_date):
                     loan_type_name = row[2]
                     deduction_amount = row[3]
                     if not all([employee_id, loan_type_name, deduction_amount]):
-                        errors.append(f'Row {row_idx}: Missing required data')
-                        # Always output 4 columns for error file
+                        remark = 'Missing required data (Id Number, Loan Type, or Deduction)'
+                        errors.append(f'Row {row_idx}: {remark}')
+                        # Always output 4 columns + remark for error file
                         added_deductions.append([
                             row[0] if len(row) > 0 else '',
                             row[1] if len(row) > 1 else '',
                             row[2] if len(row) > 2 else '',
-                            row[3] if len(row) > 3 else ''
+                            row[3] if len(row) > 3 else '',
+                            remark
                         ])
                         continue
                     # Find employee
                     try:
                         employee = EmployeeLogin.objects.get(idnumber=str(employee_id))
                     except EmployeeLogin.DoesNotExist:
-                        errors.append(f'Row {row_idx}: Employee {employee_id} not found')
+                        remark = f'Employee {employee_id} not found'
+                        errors.append(f'Row {row_idx}: {remark}')
                         added_deductions.append([
-                            employee_id, name, loan_type_name, deduction_amount
+                            employee_id, name, loan_type_name, deduction_amount, remark
                         ])
                         continue
                     # Find loan type
                     try:
                         loan_type = LoanType.objects.get(loan_type=str(loan_type_name).strip())
                     except LoanType.DoesNotExist:
-                        errors.append(f'Row {row_idx}: Loan type {loan_type_name} not found')
+                        remark = f'Loan type {loan_type_name} not found'
+                        errors.append(f'Row {row_idx}: {remark}')
                         added_deductions.append([
-                            employee_id, name, loan_type_name, deduction_amount
+                            employee_id, name, loan_type_name, deduction_amount, remark
                         ])
                         continue
                     # Convert deduction amount
                     try:
                         deduction_amount = Decimal(str(deduction_amount))
                     except:
-                        errors.append(f'Row {row_idx}: Invalid deduction amount')
+                        remark = 'Invalid deduction amount'
+                        errors.append(f'Row {row_idx}: {remark}')
                         added_deductions.append([
-                            employee_id, name, loan_type_name, deduction_amount
+                            employee_id, name, loan_type_name, deduction_amount, remark
                         ])
                         continue
-                    # Find active loan
+                    # Find oldest active loan (order by created_at ascending)
                     loan = Loan.objects.filter(
                         employee=employee,
                         loan_type=loan_type,
                         is_active=True,
                         current_balance__gt=0
-                    ).first()
+                    ).order_by('created_at').first()
                     if not loan:
-                        errors.append(f'Row {row_idx}: No active loan found for {employee_id} - {loan_type_name}')
+                        remark = f'No active loan found for {employee_id} - {loan_type_name}'
+                        errors.append(f'Row {row_idx}: {remark}')
                         added_deductions.append([
-                            employee_id, name, loan_type_name, deduction_amount
+                            employee_id, name, loan_type_name, deduction_amount, remark
                         ])
                         continue
                     # Check if deduction already exists for this cutoff
                     if LoanDeduction.objects.filter(loan=loan, cut_off=cutoff_date).exists():
-                        errors.append(f'Row {row_idx}: Deduction already exists for {cutoff_date}')
+                        remark = f'Deduction already exists for {cutoff_date}'
+                        errors.append(f'Row {row_idx}: {remark}')
                         added_deductions.append([
-                            employee_id, name, loan_type_name, deduction_amount
+                            employee_id, name, loan_type_name, deduction_amount, remark
                         ])
                         continue
                     # Apply deduction
@@ -1171,18 +1310,21 @@ def process_loan_deduction_excel(file, cutoff_date):
                     if actual_deduction > 0:
                         processed += 1
                     else:
-                        errors.append(f'Row {row_idx}: No deduction applied (loan may be fully paid)')
+                        remark = 'No deduction applied (loan may be fully paid)'
+                        errors.append(f'Row {row_idx}: {remark}')
                         added_deductions.append([
-                            employee_id, name, loan_type_name, deduction_amount
+                            employee_id, name, loan_type_name, deduction_amount, remark
                         ])
                 except Exception as e:
-                    errors.append(f'Row {row_idx}: {str(e)}')
-                    # Defensive: always output 4 columns
+                    remark = str(e)
+                    errors.append(f'Row {row_idx}: {remark}')
+                    # Defensive: always output 4 columns + remark
                     added_deductions.append([
                         row[0] if len(row) > 0 else '',
                         row[1] if len(row) > 1 else '',
                         row[2] if len(row) > 2 else '',
-                        row[3] if len(row) > 3 else ''
+                        row[3] if len(row) > 3 else '',
+                        remark
                     ])
                     continue
         
@@ -1461,12 +1603,13 @@ def allowances_upload(request):
             success_count = 0
             error_count = 0
             error_details = []
+            all_error_rows = []  # Collect all error rows from all files
 
             for file in files:
                 try:
                     if file.name.endswith(('.xlsx', '.xls', '.csv')):
                         # Process allowance file (now only inserts into Allowance model)
-                        success, errors = process_allowance_file(file)
+                        success, errors, error_rows = process_allowance_file(file)
                         if success:
                             success_count += 1
                         else:
@@ -1474,6 +1617,8 @@ def allowances_upload(request):
                             if errors:
                                 for error in errors:
                                     error_details.append({'filename': file.name, 'error': error})
+                            if error_rows:
+                                all_error_rows.extend(error_rows)
                     else:
                         error_count += 1
                         error_details.append({'filename': file.name, 'error': f"Invalid file type: {file.name}"})
@@ -1482,13 +1627,14 @@ def allowances_upload(request):
                     error_details.append({'filename': file.name, 'error': f"Error processing {file.name}: {str(e)}"})
 
             # Always return JSON for POST requests (fixes frontend invalid response format)
-            if error_count > 0:
+            if error_count > 0 or len(all_error_rows) > 0:
                 return JsonResponse({
                     'success': False,
                     'message': f'Failed to upload {error_count} file(s)',
                     'error_count': error_count,
                     'success_count': success_count,
-                    'errors': error_details
+                    'errors': error_details,
+                    'error_rows': all_error_rows
                 }, content_type='application/json')
             else:
                 # Create notification for successful upload
@@ -1531,56 +1677,79 @@ def process_allowance_file(file):
     import pandas as pd
     success = True
     errors = []
+    error_rows = []  # Store rows with errors for download
     try:
         df = pd.read_excel(file) if file.name.endswith(('.xlsx', '.xls')) else pd.read_csv(file)
         for index, row in df.iterrows():
             try:
                 idnumber = str(row.get('Id Number', '')).strip()
+                name = str(row.get('Name', '')).strip()
+                allowance_type_name = str(row.get('Allowance Type', '')).strip()
+                amount_val = row.get('Amount', 0)
+                deposit_date_value = row.get('Deposit Date', '')
+                period_covered_value = row.get('Period Covered', '')
+                
                 if not idnumber:
                     continue
                 try:
                     employee = EmployeeLogin.objects.get(idnumber=idnumber)
                 except EmployeeLogin.DoesNotExist:
-                    errors.append(f"Employee not found for ID: {idnumber}")
+                    remark = f"Employee not found for ID: {idnumber}"
+                    errors.append(remark)
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
                     continue
-                allowance_type_name = str(row.get('Allowance Type', '')).strip()
                 if not allowance_type_name:
-                    errors.append(f"Allowance type is required for employee {idnumber}")
+                    remark = f"Allowance type is required for employee {idnumber}"
+                    errors.append(remark)
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
                     continue
                 try:
                     allowance_type = AllowanceType.objects.get(allowance_type=allowance_type_name)
                 except AllowanceType.DoesNotExist:
-                    errors.append(f"Allowance type '{allowance_type_name}' not found for employee {idnumber}")
+                    remark = f"Allowance type '{allowance_type_name}' not found"
+                    errors.append(f"{remark} for employee {idnumber}")
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
                     continue
                 try:
-                    amount = float(row.get('Amount', 0) or 0)
+                    amount = float(amount_val or 0)
                 except Exception:
-                    errors.append(f"Invalid amount for employee {idnumber}")
+                    remark = f"Invalid amount value"
+                    errors.append(f"{remark} for employee {idnumber}")
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
                     continue
                 
                 # Handle deposit date - keep as null if empty, otherwise parse
-                deposit_date_value = row.get('Deposit Date', '')
                 deposit_date = None
                 
                 if deposit_date_value and str(deposit_date_value).strip() and str(deposit_date_value).strip().lower() not in ['', 'nan', 'none', 'null']:
                     try:
                         deposit_date = pd.to_datetime(deposit_date_value).date()
                     except Exception:
-                        errors.append(f"Invalid deposit date '{deposit_date_value}' for employee {idnumber}")
+                        remark = f"Invalid deposit date '{deposit_date_value}'"
+                        errors.append(f"{remark} for employee {idnumber}")
+                        error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
                         continue
+                
+                # Handle period covered - optional field
+                period_covered = None
+                if period_covered_value and str(period_covered_value).strip() and str(period_covered_value).strip().lower() not in ['', 'nan', 'none', 'null']:
+                    period_covered = str(period_covered_value).strip()
                 
                 Allowance.objects.create(
                     employee=employee,
                     allowance_type=allowance_type,
                     amount=amount,
-                    deposit_date=deposit_date
+                    deposit_date=deposit_date,
+                    period_covered=period_covered
                 )
             except Exception as e:
-                errors.append(f"Error processing row {index + 2}: {str(e)}")
+                remark = str(e)
+                errors.append(f"Error processing row {index + 2}: {remark}")
+                error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
                 success = False
-        return success, errors
+        return success, errors, error_rows
     except Exception as e:
-        return False, [f"Error reading file: {str(e)}"]
+        return False, [f"Error reading file: {str(e)}"], []
 
 @login_required(login_url="user-login")  
 def export_allowance_template(request):
@@ -1592,7 +1761,7 @@ def export_allowance_template(request):
     worksheet = workbook.active
     worksheet.title = "Allowance Import"
 
-    headers = ['Id Number', 'Name', 'Allowance Type', 'Amount', 'Deposit Date']
+    headers = ['Id Number', 'Name', 'Allowance Type', 'Amount', 'Deposit Date', 'Period Covered']
     header_font = Font(bold=True, color='000000')
     header_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
     border = Border(
@@ -1630,10 +1799,11 @@ def export_allowance_template(request):
     worksheet.column_dimensions['C'].width = 25
     worksheet.column_dimensions['D'].width = 18
     worksheet.column_dimensions['E'].width = 18
+    worksheet.column_dimensions['F'].width = 20
 
     # Add sample data row
     sample_row = 2
-    sample_data = ['960001', 'John Doe', '', '2000','2025-07-31']
+    sample_data = ['960001', 'John Doe', '', '2000', '2025-07-31', '']
     for col_num, value in enumerate(sample_data, 1):
         cell = worksheet.cell(row=sample_row, column=col_num, value=value)
         cell.border = border
@@ -1647,13 +1817,15 @@ def export_allowance_template(request):
         "1. Fill in the Id Number (Employee ID)",
         "2. Fill in the Name (Employee Name)",
         "3. Select Allowance Type from dropdown ONLY - do not type manually!",
-        "4. Enter Deposit Date in YYYY-MM-DD format (e.g., 2025-07-31)",
-        "5. Save file and upload through the system",
+        "4. Enter Deposit Date in YYYY-MM-DD format (e.g., 2025-07-31) OR leave empty",
+        "5. If no Deposit Date, enter Period Covered (e.g., 'January 2025', 'Q1 2025')",
+        "6. Save file and upload through the system",
         "",
         "IMPORTANT: You must select allowance type from dropdown menu only!",
         "Typing allowance type manually will cause upload errors.",
         "",
-        "NOTE: Deposit Date must be in YYYY-MM-DD format (e.g., 2025-07-31)."
+        "NOTE: Deposit Date must be in YYYY-MM-DD format (e.g., 2025-07-31).",
+        "NOTE: Use Period Covered for balance allowances without a specific deposit date."
     ]
     for i, instruction in enumerate(instruction_text):
         cell = worksheet.cell(row=instructions_row + i, column=1, value=instruction)
@@ -2628,8 +2800,8 @@ def export_savings_template(request):
         bottom=Side(style='thin')
     )
 
-    # Headers
-    headers = ['Id Number', 'Name', 'Savings']
+    # Headers - added Savings Type column
+    headers = ['Id Number', 'Name', 'Savings', 'Savings Type']
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = header_font
@@ -2637,17 +2809,35 @@ def export_savings_template(request):
         cell.border = border
         cell.alignment = Alignment(horizontal='center')
 
-    # Sample data
+    # Get all savings types for data validation
+    savings_types = list(SavingsType.objects.all().order_by('savings_type').values_list('savings_type', flat=True))
+    
+    # Sample data with savings type
+    first_savings_type = savings_types[0] if savings_types else 'Personal Savings'
     sample_data = [
-        ['EMP001', 'John Doe', '5000.00'],
-        ['EMP002', 'Jane Smith', '3500.00'],
-        ['EMP003', 'Mike Johnson', '7500.00']
+        ['EMP001', 'John Doe', '5000.00', first_savings_type],
+        ['EMP002', 'Jane Smith', '3500.00', first_savings_type],
+        ['EMP003', 'Mike Johnson', '7500.00', first_savings_type]
     ]
 
     for row_num, row_data in enumerate(sample_data, 2):
         for col_num, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=col_num, value=value)
             cell.border = border
+
+    # Add data validation for Savings Type column (column D)
+    if savings_types:
+        savings_type_validation = DataValidation(
+            type="list",
+            formula1='"' + ','.join(savings_types) + '"',
+            allow_blank=True
+        )
+        savings_type_validation.error = "Please select a valid savings type from the list"
+        savings_type_validation.errorTitle = "Invalid Savings Type"
+        savings_type_validation.prompt = "Select a savings type"
+        savings_type_validation.promptTitle = "Savings Type"
+        ws.add_data_validation(savings_type_validation)
+        savings_type_validation.add('D2:D1000')  # Apply to column D from row 2 to 1000
 
     # Auto-width columns
     for col in ws.columns:
@@ -2670,28 +2860,39 @@ def export_savings_template(request):
         "   - Id Number: Employee ID number (must exist in system)",
         "   - Name: Employee full name (for reference only)",
         "   - Savings: Amount to be added to employee's savings",
+        "   - Savings Type: Type of savings (select from dropdown list)",
         "",
         "2. IMPORTANT NOTES:",
         "   - Do not modify the column headers",
         "   - Id Number must match exactly with existing employee records",
         "   - Savings amount should be numeric (no currency symbols)",
-        "   - If employee has existing savings, the amount will be added",
-        "   - If employee has no savings, new savings record will be created",
+        "   - Savings Type must be selected from the dropdown list",
+        "   - If employee has existing savings of the same type, the amount will be added",
+        "   - If employee has no savings of that type, new savings record will be created",
         "",
-        "3. SUPPORTED FILE FORMATS:",
+        "3. AVAILABLE SAVINGS TYPES:",
+    ]
+    
+    # Add each savings type to the instructions
+    for st in savings_types:
+        instructions.append(f"   - {st}")
+    
+    instructions.extend([
+        "",
+        "4. SUPPORTED FILE FORMATS:",
         "   - Excel (.xlsx, .xls)",
         "   - CSV (.csv)",
         "",
-        "4. EXAMPLE:",
-        "   EMP001, John Doe, 5000.00",
-        "   This will add ₱5,000.00 to John Doe's savings account"
-    ]
+        "5. EXAMPLE:",
+        f"   EMP001, John Doe, 5000.00, {first_savings_type}",
+        f"   This will add ₱5,000.00 to John Doe's {first_savings_type} savings account"
+    ])
 
     for row, instruction in enumerate(instructions, 1):
         cell = ws_instructions.cell(row=row, column=1, value=instruction)
         if row == 1:
             cell.font = Font(bold=True, size=14)
-        elif instruction.startswith(("1.", "2.", "3.", "4.")):
+        elif instruction.startswith(("1.", "2.", "3.", "4.", "5.")):
             cell.font = Font(bold=True)
 
     # Auto-width instructions
@@ -2732,12 +2933,14 @@ def savings_upload(request):
                 success_count = 0
                 error_count = 0
                 errors = []
+                error_rows = []  # Store rows with errors for download
                 
                 # Skip header row, start from row 2
                 for row_num in range(2, ws.max_row + 1):
                     id_number = ws.cell(row=row_num, column=1).value  # Column A: Id Number
                     name = ws.cell(row=row_num, column=2).value       # Column B: Name (for reference only)
                     savings_amount = ws.cell(row=row_num, column=3).value  # Column C: Savings
+                    savings_type_name = ws.cell(row=row_num, column=4).value  # Column D: Savings Type
                     
                     # Skip empty rows
                     if not id_number or not savings_amount:
@@ -2748,27 +2951,46 @@ def savings_upload(request):
                         employee = EmployeeLogin.objects.get(idnumber=str(id_number).strip())
                         
                         # Convert amount to Decimal
+                        original_savings_amount = savings_amount
                         savings_amount = Decimal(str(savings_amount))
                         
                         if savings_amount <= 0:
                             error_count += 1
-                            errors.append(f"Row {row_num}: Savings amount must be greater than 0.")
+                            remark = "Savings amount must be greater than 0"
+                            errors.append(f"Row {row_num}: {remark}.")
+                            error_rows.append([id_number, name, original_savings_amount, savings_type_name, remark])
                             continue
                         
-                        # Try to find existing non-withdrawn savings for this employee
+                        # Find savings type if provided
+                        savings_type = None
+                        if savings_type_name:
+                            original_savings_type_name = savings_type_name
+                            savings_type_name = str(savings_type_name).strip()
+                            try:
+                                savings_type = SavingsType.objects.get(savings_type=savings_type_name)
+                            except SavingsType.DoesNotExist:
+                                error_count += 1
+                                remark = f"Savings type '{savings_type_name}' not found"
+                                errors.append(f"Row {row_num}: {remark}.")
+                                error_rows.append([id_number, name, original_savings_amount, original_savings_type_name, remark])
+                                continue
+                        
+                        # Try to find existing non-withdrawn savings for this employee with the same savings type
                         existing_savings = Savings.objects.filter(
                             employee=employee,
+                            savings_type=savings_type,
                             is_withdrawn=False
                         ).first()
                         
                         if existing_savings:
-                            # Add to existing non-withdrawn savings
+                            # Add to existing non-withdrawn savings of the same type
                             existing_savings.amount += savings_amount
                             existing_savings.save()
                         else:
-                            # Create new savings record since no non-withdrawn savings exist
+                            # Create new savings record since no non-withdrawn savings of this type exist
                             Savings.objects.create(
                                 employee=employee,
+                                savings_type=savings_type,
                                 amount=savings_amount,
                                 deposit_date=timezone.now().date(),
                                 is_withdrawn=False
@@ -2778,13 +3000,19 @@ def savings_upload(request):
                         
                     except EmployeeLogin.DoesNotExist:
                         error_count += 1
-                        errors.append(f"Row {row_num}: Employee with ID '{id_number}' not found.")
+                        remark = f"Employee with ID '{id_number}' not found"
+                        errors.append(f"Row {row_num}: {remark}.")
+                        error_rows.append([id_number, name, savings_amount, savings_type_name, remark])
                     except (ValueError, TypeError) as e:
                         error_count += 1
-                        errors.append(f"Row {row_num}: Invalid savings amount '{savings_amount}'. {str(e)}")
+                        remark = f"Invalid savings amount '{savings_amount}': {str(e)}"
+                        errors.append(f"Row {row_num}: {remark}")
+                        error_rows.append([id_number, name, savings_amount, savings_type_name, remark])
                     except Exception as e:
                         error_count += 1
-                        errors.append(f"Row {row_num}: {str(e)}")
+                        remark = str(e)
+                        errors.append(f"Row {row_num}: {remark}")
+                        error_rows.append([id_number, name, savings_amount, savings_type_name, remark])
                 
                 # Prepare response message
                 if success_count > 0 and error_count == 0:
@@ -2808,6 +3036,18 @@ def savings_upload(request):
                         module="finance",
                         for_all=True
                     )
+                
+                # Return response with error_rows if there are errors
+                if error_count > 0:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Processed {success_count + error_count} records. {success_count} successful, {error_count} failed.',
+                        'success_count': success_count,
+                        'error_count': error_count,
+                        'errors': errors,
+                        'error_rows': error_rows,
+                        'redirect_url': '/finance/admin/'
+                    })
                 
                 return JsonResponse({
                     'success': True,

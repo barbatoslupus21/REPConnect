@@ -1,3 +1,545 @@
+/* ========================================
+   Unified Import Modal Styles
+   ======================================== */
+
+/* Modal content override for import modal */
+.import-modal-content {
+    max-width: 900px !important;
+    width: 90%;
+    max-height: 85vh;
+    overflow: hidden;
+}
+
+.import-modal-content .modal-header {
+    padding: var(--space-md) var(--space-lg);
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--surface) 100%);
+}
+
+.import-modal-content .modal-header h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* Modal body layout with sidebar */
+.import-modal-body {
+    display: flex;
+    height: calc(85vh - 70px);
+    max-height: 600px;
+    overflow: hidden;
+}
+
+/* Left sidebar */
+.import-sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    padding: var(--space-md) 0;
+    overflow-y: auto;
+}
+
+.import-tab-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all var(--transition-fast);
+    border-left: 3px solid transparent;
+    margin: 2px 0;
+}
+
+.import-tab-item:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.import-tab-item.active {
+    background: var(--surface);
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.import-tab-item i {
+    width: 20px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+/* Right content area */
+.import-content {
+    flex: 1;
+    padding: 0;
+    overflow-y: auto;
+    background: var(--surface);
+}
+
+/* Tab content visibility */
+.import-tab-content {
+    display: none;
+    animation: fadeInContent 0.3s ease;
+}
+
+.import-tab-content.active {
+    display: block;
+}
+
+@keyframes fadeInContent {
+    from {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ========================================
+   Header Section (Green Background)
+   ======================================== */
+.import-header-section {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    padding: var(--space-lg);
+    border-bottom: 1px solid #a5d6a7;
+}
+
+.import-header-section.has-template {
+    padding: var(--space-md);
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: var(--space-md);
+    gap: var(--space-md);
+    border: 0.5px solid #a5d6a7;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e9 100%);
+}
+
+/* Override for regular payslip tab - remove green background */
+#regular-payslip-tab .import-header-section {
+    background: none;
+    border-bottom: none;
+}
+
+/* Override for regular payslip tab - change title color */
+#regular-payslip-tab .import-content-title {
+    color: var(--text-primary);
+}
+
+/* Override for regular payslip tab - change description color */
+#regular-payslip-tab .import-content-desc {
+    color: var(--text-secondary);
+}
+
+.import-header-info {
+    flex: 1;
+}
+
+.import-content-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #2e7d32;
+    margin: 0 0 var(--space-xs) 0;
+}
+
+.import-content-desc {
+    font-size: 0.875rem;
+    color: #558b2f;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Template Download Link */
+.template-download-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #ffffff;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.template-download-link:hover {
+    background: #2e7d32;
+    color: #ffffff;
+    border-color: #2e7d32;
+}
+
+.template-download-link i {
+    font-size: 0.875rem;
+}
+
+/* ========================================
+   Upload Section
+   ======================================== */
+.import-upload-section {
+    padding: var(--space-lg);
+}
+
+/* Form group adjustments */
+.import-upload-section .form-group {
+    margin-bottom: var(--space-sm);
+}
+
+/* Cutoff date validation error styling */
+.import-upload-section .form-input.input-error {
+    border: 2px solid #dc3545 !important;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15);
+}
+
+.import-upload-section .form-input.input-error:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25);
+}
+
+.import-upload-section .form-label {
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--space-xs);
+    display: block;
+    color: var(--text-secondary);
+}
+
+.import-upload-section .form-input {
+    width: 100%;
+}
+
+/* File Upload Box */
+.file-upload-box {
+    position: relative;
+}
+
+.file-upload-box .file-input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.file-upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl) var(--space-lg);
+    border: 3px dashed #d0d5dd;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+    min-height: 180px;
+}
+
+.file-upload-label:hover {
+    border-color: var(--primary-color);
+}
+
+.file-upload-box:has(.file-input:focus) .file-upload-label {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Upload Icon */
+.upload-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #e8f4fd 0%, #d1e9fc 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-md);
+}
+
+.upload-icon-wrapper i {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+/* Upload Text */
+.upload-text {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+}
+
+.upload-subtext {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-sm) 0;
+}
+
+.browse-link {
+    color: var(--primary-color);
+    font-weight: 500;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.upload-formats {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* ========================================
+   Uploaded Files Section
+   ======================================== */
+.uploaded-files-section {
+    padding-top: var(--space-md);
+}
+
+.uploaded-files-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-md) 0;
+}
+
+.uploaded-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* Individual File Item */
+.uploaded-files-list .file-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    gap: var(--space-md);
+}
+
+.uploaded-files-list .file-item .file-icon-wrapper {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.uploaded-files-list .file-item .file-icon-wrapper i {
+    font-size: 1rem;
+    color: #1976d2;
+}
+
+.uploaded-files-list .file-item .file-icon-wrapper.pdf {
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+}
+
+.uploaded-files-list .file-item .file-icon-wrapper.pdf i {
+    color: #c62828;
+}
+
+.uploaded-files-list .file-item .file-icon-wrapper.excel {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+}
+
+.uploaded-files-list .file-item .file-icon-wrapper.excel i {
+    color: #2e7d32;
+}
+
+.uploaded-files-list .file-item .file-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.uploaded-files-list .file-item .file-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0 0 2px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uploaded-files-list .file-item .file-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.uploaded-files-list .file-item .file-progress {
+    flex: 1;
+    min-width: 0;
+}
+
+.uploaded-files-list .file-item .progress-bar {
+    height: 6px;
+    background: #e0e0e0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.uploaded-files-list .file-item .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), #818cf8);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.uploaded-files-list .file-item .progress-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.uploaded-files-list .file-item .file-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.75rem;
+    color: #4caf50;
+}
+
+.uploaded-files-list .file-item .file-status.completed i {
+    color: #4caf50;
+}
+
+.uploaded-files-list .file-item .file-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.uploaded-files-list .file-item .file-action-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.uploaded-files-list .file-item .file-action-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.uploaded-files-list .file-item .file-action-btn.remove:hover {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* ========================================
+   Import Actions Footer
+   ======================================== */
+.import-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+    padding: 0 var(--space-lg);
+}
+
+/* ========================================
+   Responsive adjustments
+   ======================================== */
+@media (max-width: 768px) {
+    .import-modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .import-modal-body {
+        flex-direction: column;
+        height: auto;
+        max-height: calc(90vh - 70px);
+    }
+    
+    .import-sidebar {
+        width: 100%;
+        min-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: var(--space-sm) 0;
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    
+    .import-tab-item {
+        flex-direction: column;
+        padding: var(--space-sm) var(--space-md);
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        white-space: nowrap;
+        font-size: 0.75rem;
+    }
+    
+    .import-tab-item.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--primary-color);
+    }
+    
+    .import-tab-item i {
+        margin-bottom: 4px;
+    }
+    
+    .import-header-section {
+        padding: var(--space-md);
+    }
+    
+    .import-header-section.has-template {
+        flex-direction: column;
+        gap: var(--space-md);
+    }
+    
+    .template-download-link {
+        align-self: flex-start;
+    }
+    
+    .import-upload-section {
+        padding: var(--space-md);
+    }
+    
+    .import-upload-section .form-input {
+        max-width: 100%;
+    }
+    
+    .file-upload-label {
+        padding: var(--space-lg) var(--space-md);
+        min-height: 150px;
+    }
+    
+    .import-actions {
+        padding: var(--space-md);
+    }
+}
+
+/* ========================================
+   End Unified Import Modal Styles
+   ======================================== */
+
 /* OJT Payslip Modal Styles - Card-based design like courier information */
 .ojt-payslip-container {
     display: flex;
@@ -488,13 +1030,7 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
     transition: all var(--transition-normal);
-}
-
-.payslip-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
 }
 
 .payslip-card .card-header {

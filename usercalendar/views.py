@@ -27,6 +27,174 @@ def format_timelog_datetime(dt):
     return dt.strftime('%m/%d/%Y %I:%M%p').lower()
 import pytz
 
+# Helpers to map between UI entry values and model choices
+def ui_to_model_entry(entry):
+    if not entry:
+        return None
+    e = str(entry).strip().lower()
+    if e in ['timein', 'time in', 'in', 'i', 'time-in', 'time_in', 'tin']:
+        return 'IN'
+    if e in ['timeout', 'time out', 'out', 'o', 'time-out', 'time_out', 'tout']:
+        return 'OUT'
+    return None
+
+def model_to_ui_entry(entry):
+    if not entry:
+        return ''
+    e = str(entry).upper()
+    if e == 'IN':
+        return 'timein'
+    if e == 'OUT':
+        return 'timeout'
+    # fallback to lowercase original
+    return str(entry).lower()
+
+def is_night_shift_timein(time_obj):
+    """Check if a time-in is for night shift (4:00 PM or later in local timezone)"""
+    if not time_obj:
+        return False
+    # Convert to Manila timezone if timezone-aware
+    if timezone.is_aware(time_obj):
+        manila_tz = pytz.timezone('Asia/Manila')
+        local_time = time_obj.astimezone(manila_tz)
+        return local_time.hour >= 16  # 4:00 PM = 16:00
+    return time_obj.hour >= 16  # 4:00 PM = 16:00
+
+def is_early_morning_timeout(time_obj):
+    """Check if a timeout is in early morning (before 8:00 AM in local timezone)"""
+    if not time_obj:
+        return False
+    # Convert to Manila timezone if timezone-aware
+    if timezone.is_aware(time_obj):
+        manila_tz = pytz.timezone('Asia/Manila')
+        local_time = time_obj.astimezone(manila_tz)
+        return local_time.hour < 8  # Before 8:00 AM
+    return time_obj.hour < 8  # Before 8:00 AM
+
+def get_local_date(time_obj):
+    """Get the date in local timezone (Manila)"""
+    if not time_obj:
+        return None
+    if timezone.is_aware(time_obj):
+        manila_tz = pytz.timezone('Asia/Manila')
+        local_time = time_obj.astimezone(manila_tz)
+        return local_time.date()
+    return time_obj.date()
+
+def check_timelog_completeness(user, target_date, all_logs_dict):
+    """
+    Check if timelogs are complete for a given date, accounting for both day and night shifts.
+    
+    Args:
+        user: Employee user object
+        target_date: date object to check
+        all_logs_dict: Dictionary with date strings as keys and lists of log objects as values
+    
+    Returns:
+        'complete', 'incomplete', or 'none'
+    """
+    date_str = target_date.strftime('%Y-%m-%d')
+    next_date = target_date + timedelta(days=1)
+    next_date_str = next_date.strftime('%Y-%m-%d')
+    prev_date = target_date - timedelta(days=1)
+    prev_date_str = prev_date.strftime('%Y-%m-%d')
+    
+    # Get logs for previous date, current date and next date
+    prev_logs = all_logs_dict.get(prev_date_str, [])
+    current_logs = all_logs_dict.get(date_str, [])
+    next_logs = all_logs_dict.get(next_date_str, [])
+    
+    # Extract time-ins and time-outs for current date
+    current_timeins = [log for log in current_logs if log.entry == 'IN']
+    current_timeouts = [log for log in current_logs if log.entry == 'OUT']
+    
+    # Extract time-ins and time-outs for previous date
+    prev_timeins = [log for log in prev_logs if log.entry == 'IN']
+    prev_timeouts = [log for log in prev_logs if log.entry == 'OUT']
+    
+    # Extract time-outs for next date (for current day night shift)
+    next_timeouts = [log for log in next_logs if log.entry == 'OUT']
+    
+    # Check if current day has an early morning timeout (before 8 AM) that belongs to previous night shift
+    early_morning_timeout_claimed = False
+    for timeout in current_timeouts:
+        if is_early_morning_timeout(timeout.time):  # Before 8 AM in local timezone
+            # Check if there's a night shift time-in on previous day
+            for prev_timein in prev_timeins:
+                if is_night_shift_timein(prev_timein.time):
+                    # Check if previous day's night shift doesn't already have a timeout on same day
+                    has_same_day_timeout = False
+                    for prev_timeout in prev_timeouts:
+                        if prev_timeout.time > prev_timein.time:
+                            has_same_day_timeout = True
+                            break
+                    
+                    # Only claim this timeout if previous night shift doesn't have same-day timeout
+                    if not has_same_day_timeout:
+                        early_morning_timeout_claimed = True
+                        break
+            if early_morning_timeout_claimed:
+                break
+    
+    # Filter out early morning timeouts that belong to previous night shift
+    filtered_current_timeouts = current_timeouts
+    if early_morning_timeout_claimed:
+        filtered_current_timeouts = [log for log in current_timeouts if not is_early_morning_timeout(log.time)]
+    
+    # If no logs at all on current date (after filtering), return 'none'
+    if not current_timeins and not filtered_current_timeouts:
+        return 'none'
+    
+    # Check for night shift pattern (time-in at or after 4:00 PM on current date)
+    night_shift_timein = None
+    for timein in current_timeins:
+        if is_night_shift_timein(timein.time):
+            night_shift_timein = timein
+            break
+    
+    if night_shift_timein:
+        # Night shift: Look for timeout on next day (before 8:00 AM in local time) or same day (after time-in)
+        has_timeout = False
+        
+        timein_local_date = get_local_date(night_shift_timein.time)
+        
+        # Check for timeout on current date (same local date, after time-in)
+        for timeout in filtered_current_timeouts:
+            timeout_local_date = get_local_date(timeout.time)
+            # Must be same local date and after time-in
+            if timeout_local_date == timein_local_date and timeout.time > night_shift_timein.time:
+                has_timeout = True
+                break
+        
+        # If no same-day timeout, check next day (early morning in local timezone)
+        if not has_timeout:
+            # Check timeouts in current_logs that are next day in local time
+            for timeout in filtered_current_timeouts:
+                timeout_local_date = get_local_date(timeout.time)
+                if timeout_local_date == timein_local_date + timedelta(days=1) and is_early_morning_timeout(timeout.time):
+                    has_timeout = True
+                    break
+            
+            # Also check next_logs
+            if not has_timeout:
+                for timeout in next_timeouts:
+                    if is_early_morning_timeout(timeout.time):  # Before 8:00 AM in local timezone
+                        has_timeout = True
+                        break
+        
+        return 'complete' if has_timeout else 'incomplete'
+    else:
+        # Day shift: Both time-in and time-out should be on the same date
+        has_timein = len(current_timeins) > 0
+        has_timeout = len(filtered_current_timeouts) > 0
+        
+        if has_timein and has_timeout:
+            return 'complete'
+        elif has_timein or has_timeout:
+            return 'incomplete'
+        else:
+            return 'none'
+
 @login_required
 def calendar_view(request):
     current_date = timezone.localdate()
@@ -78,38 +246,52 @@ def calendar_view(request):
     user = request.user
     timelog_status = {}
     days_in_month = [date(year, month, day) for week in month_days for day in week if day != 0]
-    user_timelogs = Timelogs.objects.filter(employee=user, time__year=year, time__month=month)
+    
+    # Fetch timelogs for previous month, current month and next month (for night shift checking)
+    # Previous month needed to check if early morning timeouts belong to previous day's night shift
+    first_of_month = date(year, month, 1)
+    prev_month_date = first_of_month - timedelta(days=1)
+    next_month_date = first_of_month + timedelta(days=32)
+    next_month_date = next_month_date.replace(day=1)
+    
+    user_timelogs = Timelogs.objects.filter(
+        employee=user,
+        time__gte=date(prev_month_date.year, prev_month_date.month, 1),
+        time__lt=date(next_month_date.year, next_month_date.month, 1) + timedelta(days=31)
+    )
+    
+    # Organize logs by date
     logs_by_date = {}
     for log in user_timelogs:
-        # Only count entries that have valid time values (matching client-side logic)
-        # Check both that time exists and is not empty/whitespace (like client-side)
+        # Only count entries that have valid time values
         if log.time and str(log.time).strip():
             d = log.time.date()
             d_str = d.strftime('%Y-%m-%d')
             if d_str not in logs_by_date:
-                logs_by_date[d_str] = set()
-            logs_by_date[d_str].add(log.entry)
+                logs_by_date[d_str] = []
+            logs_by_date[d_str].append(log)
+    
+    # Check completeness for each day in the month
     for d in days_in_month:
-        d_str = d.strftime('%Y-%m-%d')
-        entries = logs_by_date.get(d_str, set())
-
-        # Only show warning icons for incomplete dates (missing timein OR timeout)
-        # Complete dates and empty dates both show no icon
-        if entries and not ('timein' in entries and 'timeout' in entries):
-            timelog_status[d_str] = 'incomplete'
+        status = check_timelog_completeness(user, d, logs_by_date)
+        if status == 'incomplete':
+            timelog_status[d.strftime('%Y-%m-%d')] = 'incomplete'
         else:
-            timelog_status[d_str] = 'none'
+            timelog_status[d.strftime('%Y-%m-%d')] = 'none'
+    
+    # Build calendar_timelogs for the month only
     calendar_timelogs = {}
-    for log in user_timelogs:
-        # Apply the same filtering logic as logs_by_date
-        if log.time and str(log.time).strip():
-            d_str = log.time.date().strftime('%Y-%m-%d')
-            if d_str not in calendar_timelogs:
-                calendar_timelogs[d_str] = []
-            calendar_timelogs[d_str].append({
-                'entry': log.entry,
-                'time': log.time.isoformat(),
-            })
+    for d_str, logs in logs_by_date.items():
+        # Only include logs from the current month
+        log_date = datetime.strptime(d_str, '%Y-%m-%d').date()
+        if log_date.year == year and log_date.month == month:
+            calendar_timelogs[d_str] = []
+            for log in logs:
+                if log.time and str(log.time).strip():
+                    calendar_timelogs[d_str].append({
+                        'entry': model_to_ui_entry(log.entry),
+                        'time': log.time.isoformat(),
+                    })
 
     today_date = timezone.localdate()
     context = {
@@ -316,17 +498,129 @@ def get_timelogs_api(request):
     except ValueError:
         return JsonResponse({'error': 'Invalid date'}, status=400)
     
-    logs = Timelogs.objects.filter(employee=user, time__date=date_obj).order_by('time')
-    # Apply the same filtering logic as the main calendar view
-    data = [
-        {
-            'entry': log.entry,
-            'time': log.time.isoformat() if log.time else None,
-        }
-        for log in logs
-        if log.time and str(log.time).strip()  # Only include logs with valid time values
-    ]
-    return JsonResponse({'timelogs': data})
+    # Get logs for previous date, current date and next date (for night shift checking)
+    prev_date = date_obj - timedelta(days=1)
+    next_date = date_obj + timedelta(days=1)
+    
+    prev_logs = Timelogs.objects.filter(employee=user, time__date=prev_date).order_by('time')
+    current_logs = Timelogs.objects.filter(employee=user, time__date=date_obj).order_by('time')
+    next_logs = Timelogs.objects.filter(employee=user, time__date=next_date).order_by('time')
+    
+    # Build timelogs for current date
+    data = []
+    claimed_by_previous_night_shift = None
+    
+    # First, check if PREVIOUS date has a night shift that should claim current date's early morning timeout
+    prev_night_shift_timein = None
+    for log in prev_logs:
+        if log.time and str(log.time).strip() and log.entry == 'IN':
+            if is_night_shift_timein(log.time):
+                prev_night_shift_timein = log
+                break
+    
+    # If previous date has night shift, check if it should claim current date's early morning timeout
+    if prev_night_shift_timein:
+        # Check if previous date already has a timeout (on same day as the night shift time-in)
+        prev_has_same_day_timeout = False
+        for log in prev_logs:
+            if log.entry == 'OUT' and log.time > prev_night_shift_timein.time:
+                prev_has_same_day_timeout = True
+                break
+        
+        # If previous night shift doesn't have same-day timeout, check current date's early morning timeout
+        if not prev_has_same_day_timeout:
+            for log in current_logs:
+                if log.time and str(log.time).strip() and log.entry == 'OUT':
+                    if is_early_morning_timeout(log.time):  # Before 8 AM in local timezone
+                        # This timeout belongs to previous date's night shift
+                        claimed_by_previous_night_shift = log.time.isoformat()
+                        break
+    
+    # Add current date logs (excluding those claimed by previous night shift)
+    for log in current_logs:
+        if log.time and str(log.time).strip():
+            # Skip if this timeout was claimed by previous night shift
+            if claimed_by_previous_night_shift and log.time.isoformat() == claimed_by_previous_night_shift:
+                continue
+            data.append({
+                'entry': model_to_ui_entry(log.entry),
+                'time': log.time.isoformat(),
+            })
+    
+    # Now check if CURRENT date has night shift that needs NEXT day's timeout
+    current_night_shift_timein = None
+    for log in current_logs:
+        if log.time and str(log.time).strip() and log.entry == 'IN':
+            if is_night_shift_timein(log.time):
+                current_night_shift_timein = log
+                break
+    
+    # If current date has night shift time-in, check for next day timeout (before 8 AM)
+    if current_night_shift_timein:
+        # Check if there's already a timeout on current date (after time-in)
+        has_same_day_timeout = False
+        for log in current_logs:
+            if log.entry == 'OUT' and log.time > current_night_shift_timein.time:
+                has_same_day_timeout = True
+                break
+        
+        # If no same-day timeout, look for next day early morning timeout
+        if not has_same_day_timeout:
+            for log in next_logs:
+                if log.time and str(log.time).strip() and log.entry == 'OUT':
+                    if is_early_morning_timeout(log.time):  # Before 8 AM in local timezone
+                        # Add this next-day timeout to current date's display
+                        data.append({
+                            'entry': model_to_ui_entry(log.entry),
+                            'time': log.time.isoformat(),
+                        })
+                        break
+    
+    # Build previous and next day data for reference
+    prev_day_data = []
+    next_day_data = []
+    
+    # Check if previous day has night shift that needs current day's early timeout
+    prev_night_shift_needs_timeout = False
+    if prev_night_shift_timein:
+        prev_has_timeout = False
+        for log in prev_logs:
+            if log.entry == 'OUT' and log.time > prev_night_shift_timein.time:
+                prev_has_timeout = True
+                break
+        if not prev_has_timeout:
+            prev_night_shift_needs_timeout = True
+    
+    # Build prev_day_data - include the claimed timeout from current date
+    for log in prev_logs:
+        if log.time and str(log.time).strip():
+            prev_day_data.append({
+                'entry': model_to_ui_entry(log.entry),
+                'time': log.time.isoformat(),
+            })
+    
+    # If previous night shift claimed current day's early timeout, add it to prev_day_data
+    if prev_night_shift_needs_timeout and claimed_by_previous_night_shift:
+        for log in current_logs:
+            if log.time.isoformat() == claimed_by_previous_night_shift:
+                prev_day_data.append({
+                    'entry': model_to_ui_entry(log.entry),
+                    'time': log.time.isoformat(),
+                })
+                break
+    
+    for log in next_logs:
+        if log.time and str(log.time).strip():
+            next_day_data.append({
+                'entry': model_to_ui_entry(log.entry),
+                'time': log.time.isoformat(),
+            })
+    
+    return JsonResponse({
+        'prev_day_timelogs': prev_day_data,
+        'timelogs': data,
+        'next_day_timelogs': next_day_data
+    })
 
 # TIME LOGS
 
@@ -334,7 +628,7 @@ def hr_admin_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required'}, status=401)
-        if not (request.user.is_superuser):
+        if not (request.user.hr_admin):
             return JsonResponse({'error': 'HR admin access required'}, status=403)
         return view_func(request, *args, **kwargs)
     return wrapper
@@ -415,7 +709,7 @@ def get_employees_with_timelogs(request):
                         'time': log.time.isoformat(),
                         'date': log.time.strftime('%Y-%m-%d'),
                         'time_only': log.time.strftime('%H:%M'),
-                        'entry': log.entry,
+                        'entry': model_to_ui_entry(log.entry),
                         'created_at': log.created_at.isoformat() if log.created_at else None,
                     }
                     for log in timelogs
@@ -482,84 +776,122 @@ def import_timelogs(request):
         
         for index, row in df.iterrows():
             try:
-                # Get employee by ID number
-                id_number = str(row['ID Number']).strip()
-                employee = EmployeeLogin.objects.filter(idnumber=id_number).first()
-                
-                if not employee:
-                    errors.append(f"Row {index + 2}: Employee with ID {id_number} not found")
+                # Read fields with safe checks
+                id_number = ''
+                name_val = ''
+                datetime_raw = row.get('Date and Time') if 'Date and Time' in df.columns else ''
+                entry_raw = row.get('Entry') if 'Entry' in df.columns else ''
+
+                if not pd.isna(row.get('ID Number')):
+                    id_number = str(row.get('ID Number')).strip()
+                if 'Name' in df.columns and not pd.isna(row.get('Name')):
+                    name_val = str(row.get('Name')).strip()
+
+                # Validate employee
+                if not id_number:
+                    errors.append({
+                        'id_number': id_number,
+                        'name': name_val,
+                        'datetime': str(datetime_raw) if not pd.isna(datetime_raw) else '',
+                        'entry': str(entry_raw) if not pd.isna(entry_raw) else '',
+                        'error': 'Missing ID Number'
+                    })
                     error_count += 1
                     continue
-                
+
+                employee = EmployeeLogin.objects.filter(idnumber=id_number).first()
+                if not employee:
+                    errors.append({
+                        'id_number': id_number,
+                        'name': name_val,
+                        'datetime': str(datetime_raw) if not pd.isna(datetime_raw) else '',
+                        'entry': str(entry_raw) if not pd.isna(entry_raw) else '',
+                        'error': f'Employee with ID {id_number} not found'
+                    })
+                    error_count += 1
+                    continue
+
                 # Parse datetime
-                datetime_str = str(row['Date and Time']).strip()
+                datetime_str = str(datetime_raw).strip() if not pd.isna(datetime_raw) else ''
                 try:
-                    if pd.isna(row['Date and Time']):
-                        raise ValueError("Empty datetime")
-                    
-                    # Handle different datetime formats
-                    if isinstance(row['Date and Time'], pd.Timestamp):
-                        log_datetime = row['Date and Time'].to_pydatetime()
-                        # Make timezone aware if not already
+                    if pd.isna(datetime_raw) or datetime_str == '':
+                        raise ValueError('Empty datetime')
+
+                    if isinstance(datetime_raw, pd.Timestamp):
+                        log_datetime = datetime_raw.to_pydatetime()
                         if log_datetime.tzinfo is None:
                             log_datetime = timezone.make_aware(log_datetime, timezone.get_current_timezone())
                     else:
-                        # Try different datetime formats including 12-hour format with am/pm
                         datetime_formats = [
-                            '%m/%d/%Y %I:%M%p',        # 08/15/2025 9:00am
-                            '%m/%d/%Y %I:%M %p',       # 08/15/2025 9:00 am
-                            '%Y-%m-%d %H:%M:%S',       # 2024-01-15 09:00:00 (legacy)
-                            '%Y-%m-%d %H:%M',          # 2024-01-15 09:00 (legacy)
-                            '%m/%d/%Y %H:%M:%S',       # 08/15/2025 09:00:00
-                            '%m/%d/%Y %H:%M',          # 08/15/2025 09:00
+                            '%m/%d/%Y %I:%M:%S%p',    # 08/15/2025 5:30:00pm
+                            '%m/%d/%Y %I:%M:%S %p',   # 08/15/2025 5:30:00 pm
+                            '%m/%d/%Y %I:%M%p',       # 08/15/2025 5:30pm
+                            '%m/%d/%Y %I:%M %p',      # 08/15/2025 5:30 pm
+                            '%Y-%m-%d %H:%M:%S',
+                            '%Y-%m-%d %H:%M',
+                            '%m/%d/%Y %H:%M:%S',
+                            '%m/%d/%Y %H:%M',
                         ]
-                        
-                        # Clean up the datetime string
-                        datetime_str_clean = datetime_str.replace(' ', ' ').strip()
-                        
+                        datetime_str_clean = datetime_str.strip()
                         for fmt in datetime_formats:
                             try:
                                 log_datetime = datetime.strptime(datetime_str_clean, fmt)
-                                # Make timezone aware
                                 log_datetime = timezone.make_aware(log_datetime, timezone.get_current_timezone())
                                 break
                             except ValueError:
                                 continue
                         else:
-                            raise ValueError(f"Unable to parse datetime: {datetime_str}")
-                    
+                            raise ValueError(f'Unable to parse datetime: {datetime_str}')
                 except (ValueError, AttributeError) as e:
-                    errors.append(f"Row {index + 2}: Invalid datetime format: {datetime_str}")
+                    errors.append({
+                        'id_number': id_number,
+                        'name': name_val,
+                        'datetime': datetime_str,
+                        'entry': str(entry_raw) if not pd.isna(entry_raw) else '',
+                        'error': f'Invalid datetime format: {datetime_str}'
+                    })
                     error_count += 1
                     continue
-                
-                # Validate entry type
-                entry = str(row['Entry']).strip().lower()
-                if entry not in ['timein', 'timeout', 'time in', 'time out']:
-                    errors.append(f"Row {index + 2}: Invalid entry type: {row['Entry']}")
+
+                # Normalize entry type to model choices (IN/OUT)
+                entry_val = str(entry_raw).strip() if not pd.isna(entry_raw) else ''
+                entry_lower = entry_val.lower()
+                if entry_lower in ['timein', 'time in', 'in', 'i', 'time-in', 'time_in', 'tin']:
+                    entry_norm = 'IN'
+                elif entry_lower in ['timeout', 'time out', 'out', 'o', 'time-out', 'time_out', 'tout']:
+                    entry_norm = 'OUT'
+                else:
+                    errors.append({
+                        'id_number': id_number,
+                        'name': name_val,
+                        'datetime': datetime_str,
+                        'entry': entry_val,
+                        'error': f'Invalid entry type: {entry_val}'
+                    })
                     error_count += 1
                     continue
-                
-                # Normalize entry type
-                entry = 'timein' if entry in ['timein', 'time in'] else 'timeout'
-                
+
                 # Create or update time log
                 timelog, created = Timelogs.objects.get_or_create(
                     employee=employee,
                     time=log_datetime,
-                    defaults={'entry': entry}
+                    defaults={'entry': entry_norm}
                 )
-                
                 if not created:
-                    # Update existing entry if different
-                    if timelog.entry != entry:
-                        timelog.entry = entry
+                    if timelog.entry != entry_norm:
+                        timelog.entry = entry_norm
                         timelog.save()
-                
+
                 success_count += 1
-                
+
             except Exception as e:
-                errors.append(f"Row {index + 2}: {str(e)}")
+                errors.append({
+                    'id_number': id_number if 'id_number' in locals() else '',
+                    'name': name_val if 'name_val' in locals() else '',
+                    'datetime': datetime_str if 'datetime_str' in locals() else '',
+                    'entry': entry_val if 'entry_val' in locals() else '',
+                    'error': str(e)
+                })
                 error_count += 1
         
         response_data = {
@@ -570,9 +902,11 @@ def import_timelogs(request):
         }
         
         if errors:
-            response_data['errors'] = errors[:10]  # Limit to first 10 errors
-            if len(errors) > 10:
-                response_data['errors'].append(f"... and {len(errors) - 10} more errors")
+            # Limit the number of error rows returned to avoid huge payloads
+            limit = 100
+            response_data['errors'] = errors[:limit]
+            if len(errors) > limit:
+                response_data['more_errors'] = len(errors) - limit
         
         return JsonResponse(response_data)
         
@@ -617,10 +951,10 @@ def export_template(request):
         
         # Add sample data
         sample_data = [
-            ['001', 'John Doe', '08/15/2025 9:00am', 'timein'],
-            ['001', 'John Doe', '08/15/2025 5:00pm', 'timeout'],
-            ['002', 'Jane Smith', '08/15/2025 8:30am', 'timein'],
-            ['002', 'Jane Smith', '08/15/2025 5:30pm', 'timeout'],
+            ['001', 'John Doe', '08/15/2025 9:00:00am', 'IN'],
+            ['001', 'John Doe', '08/15/2025 5:00:00pm', 'OUT'],
+            ['002', 'Jane Smith', '08/15/2025 8:30:00am', 'IN'],
+            ['002', 'Jane Smith', '08/15/2025 5:30:00pm', 'OUT'],
         ]
 
         for row, data in enumerate(sample_data, 2):
@@ -699,9 +1033,10 @@ def add_timelog(request):
                 'message': 'Invalid date or time format'
             }, status=400)
         
-        # Validate entry type
+        # Validate entry type and convert to model value
         entry = data.get('entry')
-        if entry not in ['timein', 'timeout']:
+        model_entry = ui_to_model_entry(entry)
+        if model_entry is None:
             return JsonResponse({
                 'success': False,
                 'message': 'Invalid entry type'
@@ -723,7 +1058,7 @@ def add_timelog(request):
         timelog = Timelogs.objects.create(
             employee=employee,
             time=log_datetime,
-            entry=entry
+            entry=model_entry
         )
         
         return JsonResponse({
@@ -732,7 +1067,7 @@ def add_timelog(request):
             'timelog': {
                 'id': timelog.id,
                 'time': timelog.time.isoformat(),
-                'entry': timelog.entry
+                'entry': model_to_ui_entry(timelog.entry)
             }
         })
         
@@ -761,7 +1096,7 @@ def get_timelog(request, timelog_id):
             'employee_id': timelog.employee.id,
             'date': timelog.time.strftime('%Y-%m-%d'),
             'time': timelog.time.strftime('%H:%M'),
-            'entry': timelog.entry,
+            'entry': model_to_ui_entry(timelog.entry),
             'created_at': timelog.created_at.isoformat() if timelog.created_at else None
         })
         
@@ -780,17 +1115,17 @@ def update_timelog(request, timelog_id):
     try:
         timelog = get_object_or_404(Timelogs, id=timelog_id)
         data = json.loads(request.body)
-        
+
         # Parse datetime
         date_str = data.get('date')
         time_str = data.get('time')
-        
+
         if not date_str or not time_str:
             return JsonResponse({
                 'success': False,
                 'message': 'Date and time are required'
             }, status=400)
-        
+
         try:
             datetime_str = f"{date_str} {time_str}"
             log_datetime = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M')
@@ -800,37 +1135,38 @@ def update_timelog(request, timelog_id):
                 'success': False,
                 'message': 'Invalid date or time format'
             }, status=400)
-        
-        # Validate entry type
+
+        # Validate entry type and convert to model value
         entry = data.get('entry')
-        if entry not in ['timein', 'timeout']:
+        model_entry = ui_to_model_entry(entry)
+        if model_entry is None:
             return JsonResponse({
                 'success': False,
                 'message': 'Invalid entry type'
             }, status=400)
-        
+
         # Check for duplicate entries (excluding current entry)
         existing = Timelogs.objects.filter(
             employee=timelog.employee,
             time=log_datetime
         ).exclude(id=timelog.id).exists()
-        
+
         if existing:
             return JsonResponse({
                 'success': False,
                 'message': 'A time log entry already exists for this date and time'
             }, status=400)
-        
+
         # Update time log
         timelog.time = log_datetime
-        timelog.entry = entry
+        timelog.entry = model_entry
         timelog.save()
-        
+
         return JsonResponse({
             'success': True,
             'message': 'Time log updated successfully'
         })
-        
+
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,

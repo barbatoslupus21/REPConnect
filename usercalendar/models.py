@@ -34,8 +34,8 @@ class Holiday(models.Model):
 
 class Timelogs(models.Model):
     ENTRY_CHOICES = [
-        ('timein', 'Time In'),
-        ('timeout', 'Time Out'),
+        ('IN', 'Time In'),
+        ('OUT', 'Time Out'),
     ]
     employee = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE)
     time = models.DateTimeField()

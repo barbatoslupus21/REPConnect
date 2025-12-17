@@ -113,6 +113,8 @@ class Allowance(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     # Make deposit_date optional so imported allowances can have null dates
     deposit_date = models.DateField(blank=True, null=True)
+    # Period covered for allowances without deposit date (e.g., "January 2025", "Q1 2025")
+    period_covered = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -182,8 +184,27 @@ class OJTRate(models.Model):
     def __str__(self):
         return f"OJT Rate - {self.site}"
 
+
+class SavingsType(models.Model):
+    savings_type = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
+    icon = models.CharField(max_length=50, default='fa-piggy-bank', help_text='FontAwesome icon class')
+    color = models.CharField(max_length=20, default='green', help_text='Color theme: green, blue, purple, orange')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['savings_type']
+        verbose_name = "Savings Type"
+        verbose_name_plural = "Savings Types"
+
+    def __str__(self):
+        return self.savings_type
+
+
 class Savings(models.Model):
     employee = models.ForeignKey(EmployeeLogin, on_delete=models.CASCADE, related_name='savings')
+    savings_type = models.ForeignKey(SavingsType, on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_records')
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_withdrawn = models.BooleanField(default=False)
     withdrawal_date = models.DateTimeField(null=True, blank=True)

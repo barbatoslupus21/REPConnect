@@ -77,10 +77,17 @@ class CalendarManager {
             if (dateYear === this.currentYear && dateMonth === this.currentMonth) {
                 return storedDate;
             }
-            // If not in current view, still use it but calendar will show the right month/year
-            return storedDate;
         }
-        return this.today;
+        
+        // Check if today is in the current month being viewed
+        const todayDate = new Date(this.today);
+        const todayInCurrentMonth = todayDate.getFullYear() === this.currentYear && 
+                                   (todayDate.getMonth() + 1) === this.currentMonth;
+        
+        // Return today if it's in the current month, otherwise return the 1st of the month
+        return todayInCurrentMonth 
+            ? this.today 
+            : `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}-01`;
     }
 
     isValidDate(dateString) {
@@ -396,13 +403,104 @@ class CalendarManager {
                 const resp = await fetch(`/calendar/api/timelogs/?date=${date}`);
                 if (resp.ok) {
                     const data = await resp.json();
+                    const prevDayLogs = data.prev_day_timelogs || [];
                     const logs = data.timelogs || [];
-                    const hasTimeIn = logs.some(log => log.entry === 'timein' && log.time && log.time.trim() !== '');
-                    const hasTimeOut = logs.some(log => log.entry === 'timeout' && log.time && log.time.trim() !== '');
-                    let status = 'none';
-                    if ((hasTimeIn || hasTimeOut) && !(hasTimeIn && hasTimeOut)) {
-                        status = 'incomplete';
+                    const nextDayLogs = data.next_day_timelogs || [];
+                    
+                    // Helper function to check if time is night shift (>= 4:00 PM)
+                    const isNightShiftTime = (isoTime) => {
+                        if (!isoTime) return false;
+                        const timeObj = new Date(isoTime);
+                        return timeObj.getHours() >= 16; // 4:00 PM or later
+                    };
+                    
+                    // Find time-ins and time-outs
+                    const prevDayTimeIns = prevDayLogs.filter(log => log.entry === 'timein' && log.time && log.time.trim() !== '');
+                    const prevDayTimeOuts = prevDayLogs.filter(log => log.entry === 'timeout' && log.time && log.time.trim() !== '');
+                    const currentTimeIns = logs.filter(log => log.entry === 'timein' && log.time && log.time.trim() !== '');
+                    const currentTimeOuts = logs.filter(log => log.entry === 'timeout' && log.time && log.time.trim() !== '');
+                    const nextDayTimeOuts = nextDayLogs.filter(log => log.entry === 'timeout' && log.time && log.time.trim() !== '');
+                    
+                    // Check if current day has early morning timeout that belongs to previous night shift
+                    let earlyMorningTimeoutClaimed = false;
+                    for (const timeout of currentTimeOuts) {
+                        const timeoutDate = new Date(timeout.time);
+                        if (timeoutDate.getHours() < 8) { // Before 8 AM
+                            // Check if there's a night shift time-in on previous day
+                            for (const prevTimeIn of prevDayTimeIns) {
+                                if (isNightShiftTime(prevTimeIn.time)) {
+                                    // Check if previous day's night shift doesn't already have same-day timeout
+                                    let hasSameDayTimeout = false;
+                                    const prevTimeInDate = new Date(prevTimeIn.time);
+                                    for (const prevTimeOut of prevDayTimeOuts) {
+                                        const prevTimeOutDate = new Date(prevTimeOut.time);
+                                        if (prevTimeOutDate > prevTimeInDate) {
+                                            hasSameDayTimeout = true;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Only claim this timeout if previous night shift doesn't have same-day timeout
+                                    if (!hasSameDayTimeout) {
+                                        earlyMorningTimeoutClaimed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (earlyMorningTimeoutClaimed) break;
+                        }
                     }
+                    
+                    // Filter out early morning timeouts that belong to previous night shift
+                    let filteredCurrentTimeOuts = currentTimeOuts;
+                    if (earlyMorningTimeoutClaimed) {
+                        filteredCurrentTimeOuts = currentTimeOuts.filter(log => {
+                            const timeoutDate = new Date(log.time);
+                            return timeoutDate.getHours() >= 8;
+                        });
+                    }
+                    
+                    // Check if there's a night shift time-in (>= 4:00 PM)
+                    const nightShiftTimeIn = currentTimeIns.find(log => isNightShiftTime(log.time));
+                    
+                    let status = 'none';
+                    
+                    if (nightShiftTimeIn) {
+                        // Night shift: Check for timeout on current day (after time-in) or next day (before 8:00 AM)
+                        let hasTimeout = false;
+                        
+                        // Check current day timeouts (after the night shift time-in)
+                        const nightShiftTimeInDate = new Date(nightShiftTimeIn.time);
+                        for (const timeout of filteredCurrentTimeOuts) {
+                            const timeoutDate = new Date(timeout.time);
+                            if (timeoutDate > nightShiftTimeInDate) {
+                                hasTimeout = true;
+                                break;
+                            }
+                        }
+                        
+                        // If no timeout on current day, check next day (before 8:00 AM)
+                        if (!hasTimeout) {
+                            for (const timeout of nextDayTimeOuts) {
+                                const timeoutDate = new Date(timeout.time);
+                                if (timeoutDate.getHours() < 8) { // Before 8:00 AM
+                                    hasTimeout = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        status = hasTimeout ? 'none' : 'incomplete';
+                    } else {
+                        // Day shift: Both time-in and time-out should be on same day (after filtering)
+                        const hasTimeIn = currentTimeIns.length > 0;
+                        const hasTimeOut = filteredCurrentTimeOuts.length > 0;
+                        
+                        if ((hasTimeIn || hasTimeOut) && !(hasTimeIn && hasTimeOut)) {
+                            status = 'incomplete';
+                        }
+                    }
+                    
                     window.CALENDAR_TIMELOG_STATUS[date] = status;
                     return { date, logs, status };
                 }
@@ -970,12 +1068,14 @@ class CalendarManager {
                 this.currentYear = year;
                 this.currentMonth = month;
                 if (newHolidays) window.CALENDAR_HOLIDAYS = this.holidays = newHolidays;
-                if (newTimelogStatus) window.CALENDAR_TIMELOG_STATUS = newTimelogStatus;
+                // Clear timelog status - it will be refreshed with accurate data shortly
+                window.CALENDAR_TIMELOG_STATUS = {};
                 if (newToday) window.CALENDAR_DEFAULT_TODAY = this.today = newToday;
                 this.setupCalendarDayEvents();
                 this.renderHolidays();
                 this.markToday();
-                this.renderTimelogIndicators();
+                // Don't render old indicators - they'll be refreshed with fresh data
+                // this.renderTimelogIndicators();
                 this.updateCalendarHeader();
                 if (grid) {
                     grid.style.transition = 'none';
@@ -995,6 +1095,27 @@ class CalendarManager {
                     title.style.opacity = '1';
                     title.style.transform = 'translateX(0)';
                 }
+                
+                // Select an appropriate date in the new month and refresh timelog indicators
+                setTimeout(async () => {
+                    // Check if today is in the current month
+                    const todayDate = new Date(this.today);
+                    const todayInCurrentMonth = todayDate.getFullYear() === year && 
+                                               (todayDate.getMonth() + 1) === month;
+                    
+                    // Select today if it's in the current month, otherwise select the 1st
+                    const dateToSelect = todayInCurrentMonth 
+                        ? this.today 
+                        : `${year}-${String(month).padStart(2, '0')}-01`;
+                    
+                    await this.selectDate(dateToSelect);
+                    
+                    // Re-setup tabs to ensure event listeners are attached
+                    this.setupTabs();
+                    
+                    // Refresh timelog indicators to get accurate status for the new month
+                    await this.refreshTimelogIndicators();
+                }, 50);
             })
             .catch(() => { window.location.href = url.toString(); })
             .finally(() => { this.isNavigating = false; });

@@ -328,6 +328,7 @@
                                     <th>Allowance Type</th>
                                     <th>Amount</th>
                                     <th>Deposited Date</th>
+                                    <th>Period Covered</th>
                                     <th>Uploaded at</th>
                                     <th data-tour="allowance-actions">Action</th>
                                 </tr>
@@ -338,6 +339,7 @@
                                     <td>{{ allowance.allowance_type.allowance_type }}</td>
                                     <td>₱{{ allowance.amount|floatformat:2 }}</td>
                                     <td>{% if allowance.deposit_date %}{{ allowance.deposit_date|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                                    <td>{% if allowance.period_covered %}{{ allowance.period_covered }}{% else %}-{% endif %}</td>
                                     <td>{{ allowance.created_at|date:"M d, Y H:i" }}</td>
                                     <td>
                                         <button class="btn btn-sm btn-icon delete-allowance-btn" title="Delete Allowance" data-allowance-id="{{ allowance.id }}">
@@ -351,6 +353,7 @@
                                 <tr>
                                     <th>Total Allowances:</th>
                                     <th>₱{{ total_allowances|floatformat:2 }}</th>
+                                    <th></th>
                                     <th></th>
                                     <th></th>
                                     <th></th>

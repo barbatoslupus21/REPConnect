@@ -6,4 +6,5 @@ urlpatterns = [
     path('login', views.userlogin, name='user-login'),
     path('logout', views.userlogout, name='user-logout'),
     path('register/', views.user_register, name='user-register'),
+    path('api/users-with-line/', views.get_users_with_line, name='api-users-with-line'),
 ]

@@ -115,12 +115,13 @@ class EmailSelectionForm(forms.Form):
 class AllowanceForm(forms.ModelForm):
     class Meta:
         model = Allowance
-        fields = ['employee', 'allowance_type', 'amount', 'deposit_date']
+        fields = ['employee', 'allowance_type', 'amount', 'deposit_date', 'period_covered']
         widgets = {
             'employee': forms.Select(attrs={'class': 'form-input'}),
             'allowance_type': forms.Select(attrs={'class': 'form-input'}),
             'amount': forms.NumberInput(attrs={'class': 'form-input', 'step': '0.01'}),
             'deposit_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-input'}),
+            'period_covered': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g., January 2025, Q1 2025'}),
         }
 
 class LoanForm(forms.ModelForm):

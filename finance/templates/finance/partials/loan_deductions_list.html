@@ -11,7 +11,7 @@
             <tbody>
                 {% for deduction in deductions %}
                 <tr>
-                    <td>{{ deduction.created_at|date:'M d, Y' }}</td>
+                    <td>{{ deduction.cut_off }}</td>
                     <td style="color:red;">- ₱ {{ deduction.amount|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}

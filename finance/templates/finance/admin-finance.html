@@ -157,74 +157,14 @@
                 </form>
             </div>
             <div class="table-actions-right" style="position:relative;">
-                <button class="btn btn-action" id="export-finance-btn">
-                    <i class="fas fa-download"></i>
-                    Export
-                </button>
-
-                <button class="btn btn-action" id="importBtn">
+                <button class="btn btn-primary" id="importBtn">
                     <i class="fas fa-file-import"></i>
-                    Import
+                    Upload
                 </button>
-                <!-- Main Import Popover -->
-                <div id="importPopover" class="import-popover">
-                    <div class="import-popover-content">
-                        <div class="import-option" data-type="payslips">
-                            <i class="fas fa-share"></i>
-                            <span>Payslips</span>
-                            <i class="fas fa-chevron-right"></i>
-                        </div>
-                        <div class="import-option" data-type="loans">
-                            <i class="fas fa-credit-card"></i>
-                            <span>Loans</span>
-                            <i class="fas fa-chevron-right"></i>
-                        </div>
-                        <div class="import-option" data-type="allowances">
-                            <i class="fas fa-money-bill-wave"></i>
-                            <span>Allowances</span>
-                            <i class="fas fa-chevron-right"></i>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Secondary Import Options Popover (appears to the left) -->
-                <div id="importOptionsPopover" class="import-options-popover">
-                    <div class="import-options-content">
-                        <!-- Payslips Options -->
-                        <div class="import-options-group" data-group="payslips">
-                            <div class="import-option-item">
-                                <button type="button" class="btn btn-outline import-btn-option" data-import="payslips_regular">Regular/Probationary</button>
-                            </div>
-                            <div class="import-option-item">
-                                <button type="button" class="btn btn-outline import-btn-option" data-import="payslips_ojt">On Job Training</button>
-                            </div>
-                        </div>
-
-                        <!-- Loans Options -->
-                        <div class="import-options-group" data-group="loans" style="display: none;">
-                            <div class="import-option-item">
-                                <button type="button" class="btn btn-outline import-btn-option" data-import="loans_principal">Principal Balance</button>
-                            </div>
-                            <div class="import-option-item">
-                                <button type="button" class="btn btn-outline import-btn-option" data-import="loans_deduction">Deduction</button>
-                            </div>
-                        </div>
-
-                        <!-- Allowances Options -->
-                        <div class="import-options-group" data-group="allowances" style="display: none;">
-                            <div class="import-option-item">
-                                <button type="button" class="btn btn-outline import-btn-option" data-import="allowances">Allowances</button>
-                            </div>
-                            <div class="import-option-item">
-                                <button type="button" class="btn btn-outline import-btn-option" data-import="savings">Savings</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <button class="tour-btn" onclick="startProductTour()">
-                    <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
-                    <span class="tour-tooltip">Page Tour</span>
+                <button class="btn btn-primary" id="export-finance-btn">
+                    <i class="fas fa-download"></i>
+                    Download Report
                 </button>
             </div>                                
         </div>
@@ -312,315 +252,347 @@
     </div>
 </div>
 
-<!-- Regular/Probationary Import Modal -->
-<div id="regularProbationaryImportModal" class="modal modal-md">
+<!-- Unified Import Modal -->
+<div id="unifiedImportModal" class="modal modal-lg">
     <div class="modal-overlay"></div>
-    <div class="modal-content">
+    <div class="modal-content import-modal-content">
         <div class="modal-header">
-            <h4>Import Regular/Probationary Payslips</h4>
-            <button class="modal-close" id="closeRegularProbationaryImportModalBtn">
+            <h4>Import Data</h4>
+            <button class="modal-close" id="closeUnifiedImportModalBtn">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="modal-body">
-            <div class="import-actions-header">
-                <p class="import-description">Upload payslip files for Regular/Probationary employees. Only PDF files are allowed.</p>
-            </div>
-            <div class="form-group">
-                <label for="regular-cutoff-date" class="form-label">Cutoff Date</label>
-                <input type="date" id="regular-cutoff-date" name="cutoff_date" class="form-input">
-                <span class="field-error" id="regular-cutoff-date-error"><span class="error-text"></span></span>
-            </div>
-            <div class="file-upload-area" id="regular-upload-area">
-                <div class="file-upload">
-                    <input type="file" id="regular-files" name="files" multiple class="file-input" accept=".pdf">
-                    <label for="regular-files" class="file-label">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span>Drag & drop PDF files here or click to browse</span>
-                        <small>Supported format: .pdf (Max size: 10MB)</small>
-                    </label>
+        <div class="import-modal-body">
+            <!-- Left Sidebar Tabs -->
+            <div class="import-sidebar">
+                <div class="import-tab-item active" data-tab="regular-payslip">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Regular Payslip</span>
                 </div>
-                <div class="selected-files" id="selectedRegularFiles" style="display: none;">
-                    <h4>Selected Files:</h4>
-                    <div class="file-list" id="regular-file-list"></div>
+                <div class="import-tab-item" data-tab="ojt-payslip">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>OJT Payslip</span>
                 </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <form id="regular-upload-form" action="/finance/payslips/upload/" method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary" id="regular-upload-btn">
-                    <i class="fas fa-upload"></i>
-                    Upload Files
-                </button>
-            </form>
-            <button class="btn btn-outline" id="cancelRegularImportBtn">
-                Cancel
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- OJT Import Modal -->
-<div id="ojtImportModal" class="modal modal-md">
-    <div class="modal-overlay"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4>Import OJT Payslips</h4>
-            <button class="modal-close" id="closeOjtImportModalBtn">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div class="import-actions-header">
-                <p class="import-description">Upload payslip files for OJT employees. Only Excel or CSV files are allowed.</p>
-                <a class="btn btn-sm btn-outline" id="ojtTemplateBtn" href="{% url 'ojt_payslip_template' %}" download>
-                    <i class="fas fa-download"></i>
-                    Download Template
-                </a>
-            </div>
-            <div class="form-group">
-                <label for="ojt-cutoff-date" class="form-label">Cutoff Date</label>
-                <input type="date" id="ojt-cutoff-date" name="cutoff_date" class="form-input">
-                <span class="field-error" id="ojt-cutoff-date-error"><span class="error-text"></span></span>
-            </div>
-            <div class="file-upload-area" id="ojt-upload-area">
-                <div class="file-upload">
-                    <input type="file" id="ojt-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
-                    <label for="ojt-files" class="file-label">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span>Drag & drop Excel/CSV files here or click to browse</span>
-                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
-                    </label>
+                <div class="import-tab-item" data-tab="principal-balance">
+                    <i class="fas fa-money-check-alt"></i>
+                    <span>Principal Balance</span>
                 </div>
-                <div class="selected-files" id="selectedOjtFiles" style="display: none;">
-                    <h4>Selected Files:</h4>
-                    <div class="file-list" id="ojt-file-list"></div>
+                <div class="import-tab-item" data-tab="deductions">
+                    <i class="fas fa-minus-circle"></i>
+                    <span>Deductions</span>
+                </div>
+                <div class="import-tab-item" data-tab="allowances">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Allowances</span>
+                </div>
+                <div class="import-tab-item" data-tab="savings">
+                    <i class="fas fa-piggy-bank"></i>
+                    <span>Savings</span>
                 </div>
             </div>
-        </div>
-        <div class="modal-footer">
-            <form id="ojt-upload-form" action="/finance/payslips/ojt/upload/" method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary" id="ojt-upload-btn">
-                    <i class="fas fa-upload"></i>
-                    Upload Files
-                </button>
-            </form>
-            <button class="btn btn-outline" id="cancelOjtImportBtn">
-                Cancel
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Principal Balance Import Modal -->
-<div id="principalBalanceImportModal" class="modal modal-md">
-    <div class="modal-overlay"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4>Import Principal Balance</h4>
-            <button class="modal-close" id="closePrincipalBalanceImportModalBtn">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div class="import-actions-header">
-                <p class="import-description">Upload principal balance files. Only Excel or CSV files are allowed.</p>
-                <a class="btn btn-sm btn-outline" href="{% url 'export_loan_principal_template' %}" download>
-                    <i class="fas fa-download"></i>
-                    Download Template
-                </a>
-            </div>
-            <div class="file-upload-area" id="principal-balance-upload-area">
-                <div class="file-upload">
-                    <input type="file" id="principal-balance-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
-                    <label for="principal-balance-files" class="file-label">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span>Drag & drop Excel/CSV files here or click to browse</span>
-                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
-                    </label>
-                </div>
-                <div class="selected-files" id="selectedPrincipalBalanceFiles" style="display: none;">
-                    <h4>Selected Files:</h4>
-                    <div class="file-list" id="principal-balance-file-list"></div>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <form id="principal-balance-upload-form" action="{% url "loan_principal_upload" %}" method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary" id="principal-balance-upload-btn">
-                    <i class="fas fa-upload"></i>
-                    Upload Files
-                </button>
-            </form>
-            <button class="btn btn-outline" id="cancelPrincipalBalanceImportBtn">
-                Cancel
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Deduction Import Modal -->
-<div id="deductionImportModal" class="modal modal-md">
-    <div class="modal-overlay"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4>Import Deduction</h4>
-            <button class="modal-close" id="closeDeductionImportModalBtn">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div class="import-actions-header">
-                <p class="import-description">Upload deduction files. Only Excel or CSV files are allowed.</p>
-                <a class="btn btn-sm btn-outline" href="{% url 'export_loan_deduction_template' %}" download>
-                    <i class="fas fa-download"></i>
-                    Download Template
-                </a>
-            </div>
-            <div class="form-group">
-                <label for="deduction-cutoff-date" class="form-label">Cutoff Date</label>
-                <input type="date" id="deduction-cutoff-date" name="cutoff_date" class="form-input">
-                <span class="field-error" id="deduction-cutoff-date-error"><span class="error-text"></span></span>
-            </div>
-            <div class="file-upload-area" id="deduction-upload-area">
-                <div class="file-upload">
-                    <input type="file" id="deduction-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
-                    <label for="deduction-files" class="file-label">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span>Drag & drop Excel/CSV files here or click to browse</span>
-                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
-                    </label>
-                </div>
-                <div class="selected-files" id="selectedDeductionFiles" style="display: none;">
-                    <h4>Selected Files:</h4>
-                    <div class="file-list" id="deduction-file-list"></div>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <form id="deduction-upload-form" action="{% url "loan_deduction_upload" %}" method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary" id="deduction-upload-btn">
-                    <i class="fas fa-upload"></i>
-                    Upload Files
-                </button>
-            </form>
-            <button class="btn btn-outline" id="cancelDeductionImportBtn">
-                Cancel
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Allowances Import Modal -->
-<div id="allowancesImportModal" class="modal modal-md">
-    <div class="modal-overlay"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4>Import Allowances</h4>
-            <button class="modal-close" id="closeAllowancesImportModalBtn">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div class="import-actions-header">
-                <p class="import-description">Upload allowance files (XLSX, XLS, CSV). You can upload multiple files at once.</p>
-                <a class="btn btn-sm btn-outline" href="{% url 'export_allowance_template' %}" download>
-                    <i class="fas fa-download"></i>
-                    Download Template
-                </a>
-            </div>
-
-            <div class="file-upload-area" id="allowances-upload-area">
-                <div class="file-upload">
-                    <input type="file" id="allowances-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
-                    <label for="allowances-files" class="file-label">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span>Drag & drop allowance files here or click to browse</span>
-                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
-                    </label>
-                </div>
-                <div class="selected-files" id="selectedAllowanceFiles" style="display: none;">
-                    <h4>Selected Files:</h4>
-                    <div class="file-list" id="allowances-file-list"></div>
-                </div>
-
-                <div class="upload-progress" id="allowanceUploadProgress" style="display: none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="allowanceProgressFill"></div>
+            
+            <!-- Right Content Area -->
+            <div class="import-content">
+                <!-- Regular Payslip Tab -->
+                <div class="import-tab-content active" id="regular-payslip-tab">
+                    <!-- Header Section -->
+                    <div class="import-header-section">
+                        <div class="import-header-info">
+                            <h3 class="import-content-title">Regular Payslip</h3>
+                            <p class="import-content-desc">Upload payslip files for Regular/Probationary employees. Only PDF files are allowed.</p>
+                        </div>
                     </div>
-                    <span class="progress-text" id="allowanceProgressText">0%</span>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <form id="allowances-upload-form" action="/finance/allowances/upload/" method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary" id="allowances-upload-btn">
-                    <i class="fas fa-upload"></i>
-                    Upload Files
-                </button>
-            </form>
-            <button class="btn btn-outline" id="cancelAllowanceImportBtn">
-                Cancel
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Savings Import Modal -->
-<div id="savingsImportModal" class="modal modal-md">
-    <div class="modal-overlay"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4>Import Savings</h4>
-            <button class="modal-close" id="closeSavingsImportModalBtn">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div class="import-actions-header">
-                <p class="import-description">Upload savings files (XLSX, XLS, CSV). You can upload multiple files at once.</p>
-                <a class="btn btn-sm btn-outline" href="{% url 'export_savings_template' %}" download>
-                    <i class="fas fa-download"></i>
-                    Download Template
-                </a>
-            </div>
-            <div class="file-upload-area" id="savings-upload-area">
-                <div class="file-upload">
-                    <input type="file" id="savings-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
-                    <label for="savings-files" class="file-label">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span>Drag & drop savings files here or click to browse</span>
-                        <small>Supported formats: .xlsx, .xls, .csv (Max size: 10MB)</small>
-                    </label>
-                </div>
-                <div class="selected-files" id="selectedSavingsFiles" style="display: none;">
-                    <h4>Selected Files:</h4>
-                    <div class="file-list" id="savings-file-list"></div>
-                </div>
-                <div class="upload-progress" id="savingsUploadProgress" style="display: none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="savingsProgressFill"></div>
+                    
+                    <!-- Upload Section -->
+                    <div class="import-upload-section">
+                        <div class="form-group">
+                            <label for="regular-cutoff-date" class="form-label">Cutoff Date</label>
+                            <input type="date" id="regular-cutoff-date" name="cutoff_date" class="form-input">
+                        </div>
+                        
+                        <div class="file-upload-area" id="regular-upload-area">
+                            <div class="file-upload-box">
+                                <input type="file" id="regular-files" name="files" multiple class="file-input" accept=".pdf">
+                                <label for="regular-files" class="file-upload-label">
+                                    <div class="upload-icon-wrapper">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <p class="upload-text">Drag and drop your files here</p>
+                                    <p class="upload-subtext">Or <span class="browse-link">browse</span> to choose a file</p>
+                                    <small class="upload-formats">PDF format, up to 10MB</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="uploaded-files-section" id="selectedRegularFiles" style="display: none;">
+                            <h4 class="uploaded-files-title">Uploaded Files:</h4>
+                            <div class="uploaded-files-list" id="regular-file-list"></div>
+                        </div>
                     </div>
-                    <span class="progress-text" id="savingsProgressText">0%</span>
+                    
+                    <div class="import-actions">
+                        <button type="button" class="btn btn-outline" onclick="closeUnifiedImportModal()">Cancel</button>
+                        <form id="regular-upload-form" action="/finance/payslips/upload/" method="post" enctype="multipart/form-data" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary" id="regular-upload-btn">
+                                <i class="fas fa-upload"></i>
+                                Upload Files
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- OJT Payslip Tab -->
+                <div class="import-tab-content" id="ojt-payslip-tab">
+
+                    <!-- Upload Section -->
+                    <div class="import-upload-section">
+                        <div class="import-header-section has-template">
+                            <div class="import-header-info">
+                                <h3 class="import-content-title">OJT Payslip</h3>
+                                <p class="import-content-desc">Upload payslip files for OJT employees. Only Excel or CSV files are allowed.</p>
+                            </div>
+                            <a class="template-download-link" id="ojtTemplateBtn" href="{% url 'ojt_payslip_template' %}" download>
+                                <i class="fas fa-download"></i>
+                                Download Template
+                            </a>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ojt-cutoff-date" class="form-label">Cutoff Date</label>
+                            <input type="date" id="ojt-cutoff-date" name="cutoff_date" class="form-input">
+                        </div>
+                        
+                        <div class="file-upload-area" id="ojt-upload-area">
+                            <div class="file-upload-box">
+                                <input type="file" id="ojt-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                                <label for="ojt-files" class="file-upload-label">
+                                    <div class="upload-icon-wrapper">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <p class="upload-text">Drag and drop your files here</p>
+                                    <p class="upload-subtext">Or <span class="browse-link">browse</span> to choose a file</p>
+                                    <small class="upload-formats">XLSX, XLS, CSV formats, up to 10MB</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="uploaded-files-section" id="selectedOjtFiles" style="display: none;">
+                            <h4 class="uploaded-files-title">Uploaded Files:</h4>
+                            <div class="uploaded-files-list" id="ojt-file-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="import-actions">
+                        <button type="button" class="btn btn-outline" onclick="closeUnifiedImportModal()">Cancel</button>
+                        <form id="ojt-upload-form" action="/finance/payslips/ojt/upload/" method="post" enctype="multipart/form-data" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary" id="ojt-upload-btn">
+                                <i class="fas fa-upload"></i>
+                                Upload Files
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Principal Balance Tab -->
+                <div class="import-tab-content" id="principal-balance-tab">
+                    
+                    <!-- Upload Section -->
+                    <div class="import-upload-section">
+                        <!-- Header Section with Template Download -->
+                        <div class="import-header-section has-template">
+                            <div class="import-header-info">
+                                <h3 class="import-content-title">Principal Balance</h3>
+                                <p class="import-content-desc">Upload principal balance files. Only Excel or CSV files are allowed.</p>
+                            </div>
+                            <a class="template-download-link" href="{% url 'export_loan_principal_template' %}" download>
+                                <i class="fas fa-download"></i>
+                                Download Template
+                            </a>
+                        </div>
+
+                        <div class="file-upload-area" id="principal-balance-upload-area">
+                            <div class="file-upload-box">
+                                <input type="file" id="principal-balance-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                                <label for="principal-balance-files" class="file-upload-label">
+                                    <div class="upload-icon-wrapper">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <p class="upload-text">Drag and drop your files here</p>
+                                    <p class="upload-subtext">Or <span class="browse-link">browse</span> to choose a file</p>
+                                    <small class="upload-formats">XLSX, XLS, CSV formats, up to 10MB</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="uploaded-files-section" id="selectedPrincipalBalanceFiles" style="display: none;">
+                            <h4 class="uploaded-files-title">Uploaded Files:</h4>
+                            <div class="uploaded-files-list" id="principal-balance-file-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="import-actions">
+                        <button type="button" class="btn btn-outline" onclick="closeUnifiedImportModal()">Cancel</button>
+                        <form id="principal-balance-upload-form" action="{% url "loan_principal_upload" %}" method="post" enctype="multipart/form-data" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary" id="principal-balance-upload-btn">
+                                <i class="fas fa-upload"></i>
+                                Upload Files
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Deductions Tab -->
+                <div class="import-tab-content" id="deductions-tab">
+                    <!-- Upload Section -->
+                    <div class="import-upload-section">
+                        <!-- Header Section with Template Download -->
+                        <div class="import-header-section has-template">
+                            <div class="import-header-info">
+                                <h3 class="import-content-title">Deductions</h3>
+                                <p class="import-content-desc">Upload deduction files. Only Excel or CSV files are allowed.</p>
+                            </div>
+                            <a class="template-download-link" href="{% url 'export_loan_deduction_template' %}" download>
+                                <i class="fas fa-download"></i>
+                                Download Template
+                            </a>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="deduction-cutoff-date" class="form-label">Cutoff Date</label>
+                            <input type="date" id="deduction-cutoff-date" name="cutoff_date" class="form-input">
+                        </div>
+                        
+                        <div class="file-upload-area" id="deduction-upload-area">
+                            <div class="file-upload-box">
+                                <input type="file" id="deduction-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                                <label for="deduction-files" class="file-upload-label">
+                                    <div class="upload-icon-wrapper">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <p class="upload-text">Drag and drop your files here</p>
+                                    <p class="upload-subtext">Or <span class="browse-link">browse</span> to choose a file</p>
+                                    <small class="upload-formats">XLSX, XLS, CSV formats, up to 10MB</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="uploaded-files-section" id="selectedDeductionFiles" style="display: none;">
+                            <h4 class="uploaded-files-title">Uploaded Files:</h4>
+                            <div class="uploaded-files-list" id="deduction-file-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="import-actions">
+                        <button type="button" class="btn btn-outline" onclick="closeUnifiedImportModal()">Cancel</button>
+                        <form id="deduction-upload-form" action="{% url "loan_deduction_upload" %}" method="post" enctype="multipart/form-data" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary" id="deduction-upload-btn">
+                                <i class="fas fa-upload"></i>
+                                Upload Files
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Allowances Tab -->
+                <div class="import-tab-content" id="allowances-tab">
+                    <!-- Upload Section -->
+                    <div class="import-upload-section">
+                        <!-- Header Section with Template Download -->
+                        <div class="import-header-section has-template">
+                            <div class="import-header-info">
+                                <h3 class="import-content-title">Allowances</h3>
+                                <p class="import-content-desc">Upload allowance files. You can upload multiple files at once.</p>
+                            </div>
+                            <a class="template-download-link" href="{% url 'export_allowance_template' %}" download>
+                                <i class="fas fa-download"></i>
+                                Download Template
+                            </a>
+                        </div>
+
+                        <div class="file-upload-area" id="allowances-upload-area">
+                            <div class="file-upload-box">
+                                <input type="file" id="allowances-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                                <label for="allowances-files" class="file-upload-label">
+                                    <div class="upload-icon-wrapper">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <p class="upload-text">Drag and drop your files here</p>
+                                    <p class="upload-subtext">Or <span class="browse-link">browse</span> to choose a file</p>
+                                    <small class="upload-formats">XLSX, XLS, CSV formats, up to 10MB</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="uploaded-files-section" id="selectedAllowanceFiles" style="display: none;">
+                            <h4 class="uploaded-files-title">Uploaded Files:</h4>
+                            <div class="uploaded-files-list" id="allowances-file-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="import-actions">
+                        <button type="button" class="btn btn-outline" onclick="closeUnifiedImportModal()">Cancel</button>
+                        <form id="allowances-upload-form" action="/finance/allowances/upload/" method="post" enctype="multipart/form-data" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary" id="allowances-upload-btn">
+                                <i class="fas fa-upload"></i>
+                                Upload Files
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Savings Tab -->
+                <div class="import-tab-content" id="savings-tab">                    
+                    <!-- Upload Section -->
+                    <div class="import-upload-section">
+                        <!-- Header Section with Template Download -->
+                        <div class="import-header-section has-template">
+                            <div class="import-header-info">
+                                <h3 class="import-content-title">Savings</h3>
+                                <p class="import-content-desc">Upload savings files. You can upload multiple files at once.</p>
+                            </div>
+                            <a class="template-download-link" href="{% url 'export_savings_template' %}" download>
+                                <i class="fas fa-download"></i>
+                                Download Template
+                            </a>
+                        </div>
+
+                        <div class="file-upload-area" id="savings-upload-area">
+                            <div class="file-upload-box">
+                                <input type="file" id="savings-files" name="files" multiple class="file-input" accept=".xlsx,.xls,.csv">
+                                <label for="savings-files" class="file-upload-label">
+                                    <div class="upload-icon-wrapper">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <p class="upload-text">Drag and drop your files here</p>
+                                    <p class="upload-subtext">Or <span class="browse-link">browse</span> to choose a file</p>
+                                    <small class="upload-formats">XLSX, XLS, CSV formats, up to 10MB</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="uploaded-files-section" id="selectedSavingsFiles" style="display: none;">
+                            <h4 class="uploaded-files-title">Uploaded Files:</h4>
+                            <div class="uploaded-files-list" id="savings-file-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="import-actions">
+                        <button type="button" class="btn btn-outline" onclick="closeUnifiedImportModal()">Cancel</button>
+                        <form id="savings-upload-form" action="{% url 'savings_upload' %}" method="post" enctype="multipart/form-data" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary" id="savings-upload-btn">
+                                <i class="fas fa-upload"></i>
+                                Upload Files
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="modal-footer">
-            <form id="savings-upload-form" action="{% url 'savings_upload' %}" method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary" id="savings-upload-btn">
-                    <i class="fas fa-upload"></i>
-                    Upload Files
-                </button>
-            </form>
-            <button class="btn btn-outline" id="cancelSavingsImportBtn">
-                Cancel
-            </button>
         </div>
     </div>
 </div>

@@ -142,49 +142,49 @@ class EmployeeFinanceModule {
     
     initializeLoanToggle() {
         const toggle = document.getElementById('showActiveLoansOnly');
-        const loanTable = document.getElementById('loanTableContainer');
+        const loanContainer = document.querySelector('.loans-grid');
         
-        console.log('Initializing loan toggle...', { toggle, loanTable });
+        console.log('Initializing loan toggle...', { toggle, loanContainer });
         
-        if (toggle && loanTable) {
-            const activeRows = loanTable.querySelectorAll('tbody tr.active-loan');
-            const inactiveRows = loanTable.querySelectorAll('tbody tr.inactive-loan');
+        if (toggle && loanContainer) {
+            const activeCards = loanContainer.querySelectorAll('.loan-card-modern:not(.inactive)');
+            const inactiveCards = loanContainer.querySelectorAll('.loan-card-modern.inactive');
             
-            console.log('Found rows:', { activeRows: activeRows.length, inactiveRows: inactiveRows.length });
+            console.log('Found cards:', { activeCards: activeCards.length, inactiveCards: inactiveCards.length });
             
             const filterLoans = () => {
                 const showActiveOnly = toggle.checked;
                 console.log('Filtering loans. Show active only:', showActiveOnly);
                 if (showActiveOnly) {
                     // Show only active loans (hide inactive with effect)
-                    activeRows.forEach(row => {
-                        row.style.display = '';
-                        console.log('Showing active row:', row);
+                    activeCards.forEach(card => {
+                        card.style.display = '';
+                        console.log('Showing active card:', card);
                     });
-                    inactiveRows.forEach(row => {
+                    inactiveCards.forEach(card => {
                         // Add fade-in effect before hiding
-                        row.classList.add('fade-in-effect');
+                        card.classList.add('fade-in-effect');
                         setTimeout(() => {
-                            row.classList.remove('fade-in-effect');
-                            row.style.display = 'none';
+                            card.classList.remove('fade-in-effect');
+                            card.style.display = 'none';
                         }, 700);
-                        console.log('Hiding inactive row with effect:', row);
+                        console.log('Hiding inactive card with effect:', card);
                     });
                 } else {
                     // Show both active and inactive loans, animate inactive
-                    activeRows.forEach(row => {
-                        row.style.display = '';
-                        console.log('Showing active row:', row);
+                    activeCards.forEach(card => {
+                        card.style.display = '';
+                        console.log('Showing active card:', card);
                     });
-                    inactiveRows.forEach(row => {
-                        row.style.display = '';
+                    inactiveCards.forEach(card => {
+                        card.style.display = '';
                         // Add fade-in effect
-                        row.classList.add('fade-in-effect');
+                        card.classList.add('fade-in-effect');
                         // Remove the effect class after animation
                         setTimeout(() => {
-                            row.classList.remove('fade-in-effect');
+                            card.classList.remove('fade-in-effect');
                         }, 700);
-                        console.log('Showing inactive row with effect:', row);
+                        console.log('Showing inactive card with effect:', card);
                     });
                 }
                 // Animate progress bars after filtering
@@ -194,7 +194,7 @@ class EmployeeFinanceModule {
             toggle.addEventListener('change', filterLoans);
             filterLoans(); // Initial filter on page load
         } else {
-            console.error('Toggle or loan table not found!', { toggle, loanTable });
+            console.error('Toggle or loan container not found!', { toggle, loanContainer });
         }
         
         // Initial progress bar animation on page load

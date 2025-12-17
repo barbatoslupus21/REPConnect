@@ -1196,13 +1196,15 @@ function setupTabSwitching() {
 // Finance Settings
 function setupFinanceSettings() {
     setupLoanTypeSettings();
-    setupAllowanceTypeSettings(); 
+    setupAllowanceTypeSettings();
+    setupSavingsTypeSettings();
     setupOJTRateSettings();
 }
 
 function initializeFinanceSettings() {
     loadExistingLoanTypes();
     loadExistingAllowanceTypes();
+    loadExistingSavingsTypes();
     loadExistingOJTRates();
 }
 
@@ -1574,6 +1576,176 @@ function deleteAllowanceType(button) {
         })
         .catch(error => {
             showToast('Error deleting allowance type', 'error');
+        });
+    });
+}
+
+// SavingsType Settings
+function setupSavingsTypeSettings() {
+    const addBtn = document.getElementById('addSavingsTypeBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            addSavingsTypeField();
+        });
+    }
+}
+
+function addSavingsTypeField(savingsTypeData = null) {
+    const fieldsContainer = document.getElementById('savingsTypeFields');
+    if (!fieldsContainer) return;
+    
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'invite-field';
+    
+    const savingsTypeId = savingsTypeData ? savingsTypeData.id : '';
+    const savingsType = savingsTypeData ? savingsTypeData.savings_type : '';
+    
+    fieldDiv.innerHTML = `
+        <div class="input-with-icon">
+            <i class="fas fa-piggy-bank"></i>
+            <input type="text" 
+                   placeholder="Enter savings type..." 
+                   value="${savingsType}"
+                   data-id="${savingsTypeId}"
+                   data-original="${savingsType}"
+                   oninput="handleFieldChange(this)">
+        </div>
+        <div class="field-actions">
+            <button type="button" class="btn-update" onclick="updateSavingsType(this)" title="Update">
+                <i class="fas fa-check"></i>
+            </button>
+            <button type="button" class="btn-delete" onclick="deleteSavingsType(this)" title="Delete">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    fieldsContainer.appendChild(fieldDiv);
+    
+    if (!savingsTypeData) {
+        fieldDiv.querySelector('input').focus();
+    }
+}
+
+function loadExistingSavingsTypes() {
+    fetch('/general-settings/api/savingstypes/')
+        .then(response => response.json())
+        .then(data => {
+            const fieldsContainer = document.getElementById('savingsTypeFields');
+            if (!fieldsContainer) return;
+            
+            fieldsContainer.innerHTML = '';
+            
+            const savingsTypes = data.savingstypes || [];
+            const minFields = 3;
+            
+            savingsTypes.forEach(savingsType => {
+                addSavingsTypeField(savingsType);
+            });
+            
+            while (fieldsContainer.children.length < minFields) {
+                addSavingsTypeField();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading savings types:', error);
+        });
+}
+
+function updateSavingsType(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const input = fieldDiv.querySelector('input');
+    const savingsTypeId = input.dataset.id;
+    const savingsType = input.value.trim();
+    
+    if (!savingsType) {
+        showToast('Please enter a savings type', 'error');
+        return;
+    }
+    
+    const data = { savings_type: savingsType };
+    
+    if (savingsTypeId) {
+        // Update existing
+        fetch(`/general-settings/api/savingstypes/${savingsTypeId}/`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Savings type updated successfully', 'success');
+                input.dataset.original = savingsType;
+                resetFieldState(fieldDiv);
+            } else {
+                showToast(result.error || 'Failed to update savings type', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error updating savings type', 'error');
+        });
+    } else {
+        // Create new
+        fetch('/general-settings/api/savingstypes/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Savings type created successfully', 'success');
+                input.dataset.id = result.savingstype.id;
+                input.dataset.original = savingsType;
+                resetFieldState(fieldDiv);
+            } else {
+                showToast(result.error || 'Failed to create savings type', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error creating savings type', 'error');
+        });
+    }
+}
+
+function deleteSavingsType(button) {
+    const fieldDiv = button.closest('.invite-field');
+    const input = fieldDiv.querySelector('input');
+    const savingsTypeId = input.dataset.id;
+    const savingsType = input.value.trim();
+    
+    if (!savingsTypeId) {
+        fieldDiv.remove();
+        ensureMinimumFields('savingsTypeFields', 3, addSavingsTypeField);
+        return;
+    }
+    
+    openDeleteModal(savingsType, 'savingstype', () => {
+        fetch(`/general-settings/api/savingstypes/${savingsTypeId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('Savings type deleted successfully', 'success');
+                fieldDiv.remove();
+                ensureMinimumFields('savingsTypeFields', 3, addSavingsTypeField);
+            } else {
+                showToast(result.error || 'Failed to delete savings type', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error deleting savings type', 'error');
         });
     });
 }

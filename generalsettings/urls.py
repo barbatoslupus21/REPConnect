@@ -25,6 +25,9 @@ urlpatterns = [
     path('api/allowancetypes/', views.api_allowancetypes, name='api_allowancetypes'),
     path('api/allowancetypes/<int:allowancetype_id>/', views.api_allowancetype_detail, name='api_allowancetype_detail'),
     
+    path('api/savingstypes/', views.api_savingstypes, name='api_savingstypes'),
+    path('api/savingstypes/<int:savingstype_id>/', views.api_savingstype_detail, name='api_savingstype_detail'),
+    
     path('api/ojtrates/', views.api_ojtrates, name='api_ojtrates'),
     path('api/ojtrates/<int:ojtrate_id>/', views.api_ojtrate_detail, name='api_ojtrate_detail'),
     path('api/ojtrates/<int:ojtrate_id>/rates/', views.api_ojtrate_rates, name='api_ojtrate_rates'),

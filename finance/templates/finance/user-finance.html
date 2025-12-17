@@ -10,398 +10,380 @@
 
 {% block content %}
 <div class="page-content" id="page-content">
+    <!-- Modern Header -->
     <header class="page-header">
         <div class="page-header-content">
-            <h2>My Financial Summary</h2>
-            <p>View your latest payslips and allowances in one place</p>
+            <h2>My Finance</h2>
+            <p>Track your payslips, allowances, savings, and loans</p>
         </div>
-        <button class="tour-btn" onclick="startUserFinanceTour()">
-            <span class="tour-icon"><i class="fa-regular fa-circle-question"></i></span>
-            <span class="tour-tooltip">Page Tour</span>
-        </button>
     </header>
 
     {% if request.user.employment_info.employment_type != 'OJT' %}
-    <div class="dashboard-stats-container">
-        <div class="dashboard-stats" data-tour="dashboard-stats" data-intro="<b>Dashboard Statistics</b><br>View your financial overview including total payslips, allowances, savings, and loans for this month." data-step="1">
-            <div class="modern-stats-grid">
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon blue">
-                            <i class="fas fa-file-invoice"></i>
+    <!-- Modern Stats Cards -->
+    <div class="finance-stats-section" data-tour="dashboard-stats" data-intro="<b>Dashboard Statistics</b><br>View your financial overview at a glance." data-step="1">
+        <div class="finance-stat-card payslips">
+            <div class="stat-card-icon">
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-value">{{ total_payslips }}</span>
+                <span class="stat-card-label">Payslips</span>
+            </div>
+            <div class="stat-card-decoration"></div>
+        </div>
+        
+        <div class="finance-stat-card allowances">
+            <div class="stat-card-icon">
+                <i class="fas fa-gift"></i>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-value privacy-blur clickable-privacy" data-value="₱{{ total_allowances|floatformat:2 }}" onclick="toggleValuePrivacy(this)">
+                    ₱ ****
+                </span>
+                <span class="stat-card-label">Allowances Balance</span>
+            </div>
+            <div class="stat-card-decoration"></div>
+        </div>
+        
+        <div class="finance-stat-card savings">
+            <div class="stat-card-icon">
+                <i class="fas fa-piggy-bank"></i>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-value privacy-blur clickable-privacy" data-value="₱{{ total_savings|floatformat:2 }}" onclick="toggleValuePrivacy(this)">
+                    ₱ ****
+                </span>
+                <span class="stat-card-label">Total Savings</span>
+            </div>
+            <div class="stat-card-decoration"></div>
+        </div>
+        
+        <div class="finance-stat-card loans">
+            <div class="stat-card-icon">
+                <i class="fas fa-hand-holding-usd"></i>
+            </div>
+            <div class="stat-card-content">
+                <span class="stat-card-value privacy-blur clickable-privacy" data-value="₱{{ total_loans|floatformat:2 }}" onclick="toggleValuePrivacy(this)">
+                    ₱ ****
+                </span>
+                <span class="stat-card-label">Active Loans</span>
+            </div>
+            <div class="stat-card-decoration"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Content Grid -->
+    <div class="finance-main-grid">
+        <!-- Top Row - Payslips, Allowances & Savings -->
+        <div class="finance-top-row">
+            <!-- Payslips Section -->
+            <div class="finance-card payslip-card" data-tour="payslips-section" data-intro="<b>Payslips</b><br>Access and manage all your payslips here." data-step="2">
+                <div class="finance-card-header">
+                    <div class="card-header-left">
+                        <div class="card-header-icon payslip">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div class="card-header-text">
+                            <h3>Payslips</h3>
+                            <span>Your salary statements</span>
                         </div>
                     </div>
-                    <div class="modern-stat-label">Available Payslip</div>
-                    <div class="modern-stat-value">{{ total_payslips }}</div>
-                    <div class="modern-stat-change">
-                        <span class="modern-stat-change-text">This Month</span>
-                    </div>
                 </div>
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon orange">
+                <div class="finance-card-body">
+                    {% if request.user.employment_info.employment_type != 'OJT' %}
+                        {% if payslips %}
+                            <div class="payslip-list">
+                                {% for payslip in payslips %}
+                                <div class="payslip-item">
+                                    <div class="payslip-item-left">
+                                        <div class="payslip-icon">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </div>
+                                        <div class="payslip-info">
+                                            <span class="payslip-date">{{ payslip.cutoff_date|date:"F j, Y" }}</span>
+                                            <span class="payslip-filename">{{ payslip.file_path.name|truncatechars:30 }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="payslip-item-right">
+                                        {% if payslip.is_send_to_mail %}
+                                            <span class="payslip-status sent">
+                                                <i class="fas fa-check-circle"></i> Sent
+                                            </span>
+                                        {% else %}
+                                            <span class="payslip-status pending">
+                                                <i class="fas fa-clock"></i> Pending
+                                            </span>
+                                        {% endif %}
+                                        <button type="button" class="payslip-action-btn send-payslip-email-btn"
+                                            data-payslip-id="{{ payslip.id }}"
+                                            data-employee-id="{{ payslip.employee.id }}"
+                                            data-cutoff-date="{{ payslip.cutoff_date }}"
+                                            data-user-email="{{ request.user.email }}"
+                                            data-work-email="{{ request.user.personal_info.work_email }}"
+                                            title="Send to Email">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state-modern">
+                                <div class="empty-icon-wrapper">
+                                    <i class="fas fa-file-invoice"></i>
+                                </div>
+                                <h4>No Payslips Yet</h4>
+                                <p>Your payslips will appear here once uploaded</p>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <!-- OJT Payslips -->
+                        {% if ojtpayslips %}
+                            <div class="payslip-list">
+                                {% for payslip in ojtpayslips %}
+                                <div class="payslip-item ojt">
+                                    <div class="payslip-item-left">
+                                        <div class="payslip-icon ojt">
+                                            <i class="fas fa-user-graduate"></i>
+                                        </div>
+                                        <div class="payslip-info">
+                                            <span class="payslip-date">{{ payslip.cut_off }}</span>
+                                            <span class="payslip-amount">Net Share: ₱{{ payslip.net_ojt_share|floatformat:2 }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="payslip-item-right">
+                                        <span class="payslip-total">₱{{ payslip.total_allowance|floatformat:2 }}</span>
+                                        <button type="button" class="payslip-action-btn view-ojtpayslip-btn"
+                                            data-payslip-id="{{ payslip.id }}"
+                                            data-employee-id="{{ payslip.employee.id }}"
+                                            data-cutoff-date="{{ payslip.cut_off }}"
+                                            title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button type="button" class="payslip-action-btn send-ojtpayslip-email-btn"
+                                            data-payslip-id="{{ payslip.id }}"
+                                            data-employee-id="{{ payslip.employee.id }}"
+                                            data-cutoff-date="{{ payslip.cut_off }}"
+                                            data-user-email="{{ request.user.email }}"
+                                            title="Send to Email">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state-modern">
+                                <div class="empty-icon-wrapper">
+                                    <i class="fas fa-file-invoice"></i>
+                                </div>
+                                <h4>No Payslips Yet</h4>
+                                <p>Your OJT payslips will appear here</p>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Allowances Section -->
+            {% if request.user.employment_info.employment_type != 'OJT' %}
+            <div class="finance-card allowance-card" data-tour="allowances-section" data-intro="<b>Allowances</b><br>View your allowances and benefits." data-step="4">
+                <div class="finance-card-header">
+                    <div class="card-header-left">
+                        <div class="card-header-icon allowance">
                             <i class="fas fa-gift"></i>
                         </div>
-                        
-                    </div>
-                    <div class="modern-stat-label">Total Allowances</div>
-                    <div class="modern-stat-value">
-                        <span class="privacy-value hidden" id="allowances-value" data-value="₱ {{ total_allowances|floatformat:2 }}">₱ - - - -</span>
-                        <button class="privacy-toggle-btn" onclick="togglePrivacy('allowances')" title="Toggle visibility">
-                            <i class="fas fa-eye-slash" id="allowances-eye-icon"></i>
-                        </button>
-                    </div>
-                    <div class="modern-stat-change">
-                        <span class="modern-stat-change-text">This Month</span>
+                        <div class="card-header-text">
+                            <h3>Allowances</h3>
+                            <span>Benefits & Compensation</span>
+                        </div>
                     </div>
                 </div>
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon green">
+                <div class="finance-card-body">
+                    {% if allowances %}
+                        <div class="savings-list">
+                            {% for allowance in allowances %}
+                            <div class="savings-item {% if not allowance.deposit_date %}active{% else %}withdrawn{% endif %}">
+                                <div class="savings-item-left">
+                                    <div class="savings-info">
+                                        <span class="savings-type">{{ allowance.allowance_type }}</span>
+                                        <span class="savings-meta">
+                                            {% if allowance.deposit_date %}
+                                                Deposited {{ allowance.deposit_date|date:"M j, Y" }}
+                                            {% elif allowance.period_covered %}
+                                                {{ allowance.period_covered }}
+                                            {% else %}
+                                                Current Balance
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="savings-item-right">
+                                    <span class="savings-status {% if not allowance.deposit_date %}active{% else %}withdrawn{% endif %}">
+                                        {% if allowance.deposit_date %}
+                                            <i class="fas fa-arrow-up"></i> Deposited
+                                        {% else %}
+                                            <i class="fas fa-check-circle"></i> Active
+                                        {% endif %}
+                                    </span>
+                                    <span class="savings-amount {% if allowance.deposit_date %}withdrawn{% endif %}">₱{{ allowance.amount|floatformat:2 }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                    {% else %}
+                        <div class="empty-state-centered">
+                            <div class="empty-icon-wrapper">
+                                <i class="fas fa-gift"></i>
+                            </div>
+                            <h4>No Allowances</h4>
+                            <p>Your allowances will appear here</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Savings Section -->
+            {% if request.user.employment_info.employment_type != 'OJT' %}
+            <div class="finance-card savings-card" data-tour="savings-section" data-intro="<b>Savings</b><br>Track your savings and growth." data-step="5">
+                <div class="finance-card-header">
+                    <div class="card-header-left">
+                        <div class="card-header-icon savings">
                             <i class="fas fa-piggy-bank"></i>
                         </div>
-                        
-                    </div>
-                    <div class="modern-stat-label">Total Savings</div>
-                    <div class="modern-stat-value">
-                        <span class="privacy-value hidden" id="savings-value" data-value="₱ {{ total_savings|floatformat:2 }}">₱ - - - -</span>
-                        <button class="privacy-toggle-btn" onclick="togglePrivacy('savings')" title="Toggle visibility">
-                            <i class="fas fa-eye-slash" id="savings-eye-icon"></i>
-                        </button>
-                    </div>
-                    <div class="modern-stat-change">
-                        <span class="modern-stat-change-text">This Month</span>
+                        <div class="card-header-text">
+                            <h3>Savings</h3>
+                            <span>Your financial growth</span>
+                        </div>
                     </div>
                 </div>
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon red">
-                            <i class="fas fa-money-check-alt"></i>
-                        </div>
-                        
-                    </div>
-                    <div class="modern-stat-label">Total Loans</div>
-                    <div class="modern-stat-value">
-                        <span class="privacy-value hidden" id="loans-value" data-value="₱ {{ total_loans|floatformat:2 }}">₱ - - - -</span>
-                        <button class="privacy-toggle-btn" onclick="togglePrivacy('loans')" title="Toggle visibility">
-                            <i class="fas fa-eye-slash" id="loans-eye-icon"></i>
-                        </button>
-                    </div>
-                    <div class="modern-stat-change">
-                        <span class="modern-stat-change-text">This Month</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    {% if request.user.employment_info.employment_type != 'OJT' and loans %}
-    <div class="user-finance-summary">
-        <!-- Loan Summary Card -->
-        <div style="width: 100%;">
-                <div class="finance-summary-header">
-                        <div class="loans-summary-header-left">
-                            <div class="loans-summary-title-row">
-                                <h2 class="loans-summary-title">Loan Summary</h2>
-                                <span class="loans-summary-date">as of {{ now|date:'M d, Y' }}</span>
-                            </div>
-                        </div>
-                        <div class="loans-summary-header-right" data-tour="loans-toggle" data-intro="<b>Table View Toggle</b><br>Switch between active and all loans to customize your view and focus on what matters most to you." data-step="3">
-                            <div class="loans-toggle-row">
-                                <span class="toggle-label">Show Only Active Loans</span>
-                                <label class="loans-toggle-switch">
-                                    <input type="checkbox" id="showActiveLoansOnly" checked data-tour="loans-toggle" data-intro="<b>Table View Toggle</b><br>Switch between active and all loans to customize your view and focus on what matters most to you." data-step="3">
-                                    <span class="loans-toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                </div>
-                <div class="user-section-content">
-                    {% if loans %}
-                        <div class="user-finance-table" id="loanTableContainer" style="display: flex; flex-direction: column;">
-                            <table class="data-table loan-responsive-table" data-tour="loans-table" data-intro="<b>Loan Summary Table</b><br>View all your active and inactive loans with details like principal balance, monthly payments, and current balance." data-step="2">
-                                <thead>
-                                    <tr>
-                                        <th>Loan</th>
-                                        <th>Principal Balance</th>
-                                        <th class="loan-hide-mobile">Cut-Off Payment</th>
-                                        <th class="loan-hide-mobile">Payment Progress</th>
-                                        <th style="text-align: center !important;">Balance</th>
-                                        <th class="loan-hide-mobile" style="text-align: center !important;" >Status</th>
-                                        <th style="text-align: center !important;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                        {% for loan in loans %}
-                                        <tr data-active="{{ loan.is_active|yesno:'true,false' }}" data-balance="{{ loan.current_balance|floatformat:2 }}" class="loan-row{% if loan.current_balance|floatformat:2 == '0.00' %} inactive-loan{% else %} active-loan{% endif %}" style="{% if loan.current_balance|floatformat:2 == '0.00' %}display:none;{% endif %}">
-                                            <td>
-                                                <div>
-                                                    <span class="loan-type-name">{{ loan.loan_type.loan_type }}</span><br>
-                                                    <small class="loan-date-started"> Started at {{ loan.created_at|date:"M d, Y" }}</small>
-                                                </div>
-                                            </td>
-                                            <td>₱ {{ loan.principal_amount|floatformat:2 }}</td>
-                                            <td class="loan-hide-mobile">₱ {{ loan.monthly_deduction|floatformat:2 }}</td>
-                                            <td class="loan-hide-mobile" style="text-align: center !important;">
-                                                <div class="loan-progress-bar-container">
-                                                    <div class="loan-progress-bar-bg">
-                                                        <div class="loan-progress-bar-fill" data-width="{{ loan.percent_paid|floatformat:0 }}" style="width:0%">
-                                                            <span class="loan-progress-percentage">{{ loan.percent_paid|floatformat:0 }}%</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="loan-progress-bar-info">
-                                                        ₱{{ loan.paid|floatformat:2 }} of ₱{{ loan.principal_amount|floatformat:2 }}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td style="text-align: center !important;"><strong style="color: var(--primary-color);">₱{{ loan.current_balance|floatformat:2 }}</strong></td>
-                                            <td class="loan-hide-mobile" style="text-align: center !important;">
-                                                {% if loan.current_balance|floatformat:2 == '0.00' %}
-                                                    <span class="status-badge status-attention">
-                                                        <i class="fas fa-check-circle"></i> Inactive
-                                                    </span>
-                                                {% else %}                                                    
-                                                    <span class="status-badge status-connected">
-                                                        <i class="fas fa-check-circle"></i> Active
-                                                    </span>
-                                                {% endif %}
-                                            </td>
-                                            <td style="text-align: center !important;">
-                                                <button class="btn btn-sm btn-icon view-loan-btn" title="View Loan" data-loan-id="{{ loan.id }}" data-tour="view-loan-btn" data-intro="<b>View Loan Details</b><br>Click to view detailed information about this specific loan including payment history and terms." data-step="4">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
-                            <div class="empty-title">No Loans Found</div>
-                            <div class="empty-desc">No loans have been uploaded for this employee yet.</div>
-                        </div>
-                    {% endif %}
-                </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <div class="user-finance-summary finance-flex-row">
-        <!-- Payslips Card (Flexible) -->
-        <div class="finance-flex-payslip">
-            <div class="finance-summary-header">
-                <div class="loans-summary-header-left">
-                    <div class="loans-summary-title-row">
-                        <h2 class="loans-summary-title">Payslips</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="user-section-content">
-                {% if  request.user.employment_info.employment_type != 'OJT' %}
-                    {% if payslips %}
-                        <div class="user-finance-table" id="payslipsTableContainer" style="display: flex; flex-direction: column;">
-                            <table class="data-table" data-tour="payslips-table" data-intro="<b>Payslips Table</b><br>Access all your payslips with cutoff dates, file information, and download/email options." data-step="6">
-                                <thead>
-                                    <tr>
-                                        <th>Payroll Date</th>
-                                        <th class="payslip-hide-mobile">File Name</th>
-                                        <th class="center-align" style="text-align: center !important;">Status</th>
-                                        <th style="text-align: center !important;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for payslip in payslips %}
-                                        <tr>
-                                            <td>{{ payslip.cutoff_date|date:"F j, Y" }}</td>
-                                            <td class="payslip-hide-mobile">
-                                                <span class="file-name">{{ payslip.file_path.name }}</span>
-                                            </td>
-                                            <td class="center-align"  style="text-align: center !important;">
-                                                {% if payslip.is_send_to_mail %}
-                                                    <span class="status-badge status-connected">
-                                                        <i class="fas fa-check-circle"></i> Sent to mail
-                                                    </span>
-                                                {% else %}
-                                                    <span class="status-badge status-importing">
-                                                        <i class="fas fa-spinner fa-spin"></i> Not yet sent
-                                                    </span>
-                                                {% endif %}
-                                            </td>
-                                            <td style="text-align: center !important;">
-                                                <button type="button" class="btn btn-icon send-payslip-email-btn"
-                                                    data-payslip-id="{{ payslip.id }}"
-                                                    data-employee-id="{{ payslip.employee.id }}"
-                                                    data-cutoff-date="{{ payslip.cutoff_date }}"
-                                                    data-user-email="{{ request.user.email }}"
-                                                    data-work-email="{{ request.user.personal_info.work_email }}"
-                                                    title="Send Payslip to Email"
-                                                    data-tour="email-payslip-btn" data-intro="<b>Email Payslip</b><br>Send your payslip directly to your email address for easy access and record keeping." data-step="7">
-                                                    <i class="fas fa-envelope"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    {% empty %}
-                                        <tr>
-                                            <td colspan="4" style="text-align: center;" class="table-no-data">
-                                                <div class="empty-icon"><i class="fas fa-search"></i></div>
-                                                <div class="table-no-data-title">No payslip found</div>
-                                                <div class="table-no-data-desc">Try adjusting your search or filters.</div>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
-                            <div class="empty-title">No Payslips Found</div>
-                            <div class="empty-desc">No payslips have been uploaded for this employee yet.</div>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    {% if ojtpayslips %}
-                        <div class="user-finance-table" id="payslipsTableContainer" style="display: flex; flex-direction: column;">
-                            <table class="data-table" data-tour="payslips-table" data-intro="<b>Payslips Table</b><br>Access all your payslips with cutoff dates, file information, and download/email options." data-step="6">
-                                <thead>
-                                    <tr>
-                                        <th>Payroll Date</th>
-                                        <th class="payslip-hide-mobile">Regular Day</th>
-                                        <th>Net OJT Share</th>
-                                        <th>OT Pay Allowance</th>
-                                        <th>Total Allowance</th>
-                                        <th style="text-align: center !important;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for payslip in ojtpayslips %}
-                                        <tr>
-                                            <td>{{ payslip.cut_off }}</td>
-                                            <td class="payslip-hide-mobile">
-                                                {{ payslip.regular_day }}
-                                            </td>
-                                            <td>₱ {{ payslip.net_ojt_share|floatformat:2 }}</td>
-                                            <td>₱ {{ payslip.ot_pay_allowance|floatformat:2 }}</td>
-                                            <td>₱ {{ payslip.total_allowance|floatformat:2 }}</td>
-                                            <td style="text-align: center !important;">
-                                                <button type="button" class="btn btn-sm btn-icon view-ojtpayslip-btn"
-                                                    data-payslip-id="{{ payslip.id }}"
-                                                    data-employee-id="{{ payslip.employee.id }}"
-                                                    data-cutoff-date="{{ payslip.cut_off }}"
-                                                    title="View OJT Payslip Details">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-icon send-ojtpayslip-email-btn"
-                                                    data-payslip-id="{{ payslip.id }}"
-                                                    data-employee-id="{{ payslip.employee.id }}"
-                                                    data-cutoff-date="{{ payslip.cut_off }}"
-                                                    data-user-email="{{ request.user.email }}"
-                                                    data-work-email="{{ request.user.personal_info.work_email }}"
-                                                    title="Send OJT Payslip to Email">
-                                                    <i class="fas fa-envelope"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    {% empty %}
-                                        <tr>
-                                            <td colspan="6" style="text-align: center;" class="table-no-data">
-                                                <div class="empty-icon"><i class="fas fa-search"></i></div>
-                                                <div class="table-no-data-title">No payslip found</div>
-                                                <div class="table-no-data-desc">Try adjusting your search or filters.</div>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-file-invoice"></i></div>
-                            <div class="empty-title">No Payslips Found</div>
-                            <div class="empty-desc">No payslips have been uploaded for this employee yet.</div>
-                        </div>
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Allowances Card (Fixed, Card/List Design) -->
-        {% if request.user.employment_info.employment_type != 'OJT' and allowances %}
-        <div class="finance-flex-fixed" data-tour="allowances-section" data-intro="<b>Allowances Section</b><br>View all your allowances with deposit dates and amounts. This section shows your financial benefits and additional compensation." data-step="9">
-            <div class="finance-summary-header">
-                <div class="loans-summary-header-left">
-                    <div class="loans-summary-title-row">
-                        <h2 class="loans-summary-title">Allowances</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="user-section-content">
-                <div class="user-finance-table">
-                    <div class="allowance-list">
-                        {% for allowance in allowances %}
-                            <div class="allowance-item">
-                                <div class="allowance-info-left">
-                                    <div class="allowance-type">{{ allowance.allowance_type }}</div>
-                                    <div class="allowance-date"><i class="fas fa-wallet allowance-date-icon"></i> {% if allowance.deposit_date %}Deposited {{ allowance.deposit_date|date:"M j, Y" }}{% else %}Balance{% endif %}</div>
-                                </div>
-                                <div class="allowance-amount-right">
-                                    <span class="allowance-amount">₱ {{ allowance.amount }}</span>
-                                </div>
-                            </div>
-                        {% empty %}
-                            <div class="empty-state">
-                                <div class="empty-icon"><i class="fas fa-search"></i></div>
-                                <div class="empty-title">No allowance found</div>
-                                <div class="empty-desc">Try adjusting your search or filters.</div>
-                            </div>
-                        {% endfor %}
-                    </div>
-            </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Savings Card (Fixed) -->
-        {% if request.user.employment_info.employment_type != 'OJT' and savings %}
-        <div class="finance-flex-fixed" data-tour="savings-section" data-intro="<b>Savings Section</b><br>Track your personal savings account with current balance and activity status. This shows your financial growth and savings plan progress." data-step="10">
-            <div class="finance-summary-header">
-                <div class="loans-summary-header-left">
-                    <div class="loans-summary-title-row">
-                        <h2 class="loans-summary-title">Savings</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="user-section-content">
-                <div class="user-finance-table">
-                    <div class="allowance-list">
-                        {% for saving in savings %}
-                            <div class="allowance-item">
-                                <div class="allowance-info-left">
-                                    <div class="allowance-type">Personal Savings
-                                        {% if not saving.is_withdrawn %}
-                                            <i class="fas fa-check-circle savings-active-icon" style="margin-left:8px;"></i>
-                                        {% endif %}
+                <div class="finance-card-body">
+                    {% if savings %}
+                        <div class="savings-list">
+                            {% for saving in savings %}
+                            <div class="savings-item {% if saving.is_withdrawn %}withdrawn{% else %}active{% endif %}">
+                                <div class="savings-item-left">
+                                    <div class="savings-info">
+                                        <span class="savings-type">
+                                            {% if saving.savings_type %}{{ saving.savings_type.savings_type }}{% else %}Personal Savings{% endif %}
+                                        </span>
+                                        <span class="savings-meta">
+                                            {% if saving.is_withdrawn %}
+                                                Withdrawn {{ saving.withdrawal_date|date:"M j, Y" }}
+                                            {% else %}
+                                                Started {{ saving.created_at|date:"M j, Y" }}
+                                            {% endif %}
+                                        </span>
                                     </div>
-                                    <div class="allowance-date"><i class="fas fa-wallet allowance-date-icon"></i> {% if saving.is_withdrawn %} Withdrawn {{ saving.withdrawal_date|date:"M j, Y" }}{% else %} Started {{ saving.created_at|date:"M j, Y" }}{% endif %} </div>
                                 </div>
-                                <div class="allowance-amount-right">
-                                    <span class="allowance-amount">₱ {{ saving.amount|floatformat:2 }}</span>
+                                <div class="savings-item-right">
+                                    <span class="savings-status {% if saving.is_withdrawn %}withdrawn{% else %}active{% endif %}">
+                                        {% if saving.is_withdrawn %}
+                                            <i class="fas fa-arrow-up"></i> Withdrawn
+                                        {% else %}
+                                            <i class="fas fa-check-circle"></i> Active
+                                        {% endif %}
+                                    </span>
+                                    <span class="savings-amount {% if saving.is_withdrawn %}withdrawn{% endif %}">₱{{ saving.amount|floatformat:2 }}</span>
                                 </div>
                             </div>
-                        {% empty %}
-                            <div class="empty-state">
-                                <div class="empty-icon"><i class="fas fa-search"></i></div>
-                                <div class="empty-title">No allowance found</div>
-                                <div class="empty-desc">Try adjusting your search or filters.</div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state-centered">
+                            <div class="empty-icon-wrapper">
+                                <i class="fas fa-piggy-bank"></i>
                             </div>
+                            <h4>No Savings</h4>
+                            <p>Start saving to see your progress</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Bottom Row - Loans Section -->
+        {% if request.user.employment_info.employment_type != 'OJT' and loans %}
+        <div class="finance-bottom-row">
+            <div class="finance-card loans-card" data-tour="loans-section" data-intro="<b>Loans</b><br>Track your loan balances and payment progress." data-step="3">
+                <div class="finance-card-header">
+                    <div class="card-header-left">
+                        <div class="card-header-icon loan">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                        <div class="card-header-text">
+                            <h3>Loans</h3>
+                            <span>as of {{ now|date:'M d, Y' }}</span>
+                        </div>
+                    </div>
+                    <div class="card-header-right">
+                        <label class="toggle-switch-modern">
+                            <input type="checkbox" id="showActiveLoansOnly" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Active Only</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="finance-card-body loans-body">
+                    <div class="loans-grid">
+                        {% for loan in loans %}
+                        <div class="loan-card-modern {% if loan.current_balance|floatformat:2 == '0.00' %}inactive{% endif %}" 
+                             data-active="{{ loan.is_active|yesno:'true,false' }}"
+                             data-balance="{{ loan.current_balance|floatformat:2 }}"
+                             style="{% if loan.current_balance|floatformat:2 == '0.00' %}display:none;{% endif %}">
+                            <div class="loan-card-header">
+                                <div class="loan-type-badge">
+                                    <i class="fas fa-university"></i>
+                                    {{ loan.loan_type.loan_type }}
+                                </div>
+                                <span class="loan-status {% if loan.current_balance|floatformat:2 == '0.00' %}paid{% else %}active{% endif %}">
+                                    {% if loan.current_balance|floatformat:2 == '0.00' %}
+                                        <i class="fas fa-check"></i> Paid
+                                    {% else %}
+                                        <i class="fas fa-sync-alt"></i> Active
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="loan-card-body">
+                                <div class="loan-amount-display">
+                                    <span class="loan-balance-label">Balance</span>
+                                    <span class="loan-balance-value">₱{{ loan.current_balance|floatformat:2 }}</span>
+                                </div>
+                                <div class="loan-progress-modern">
+                                    <div class="progress-bar-modern">
+                                        <div class="progress-fill" style="width: {{ loan.percent_paid|floatformat:0 }}%"></div>
+                                    </div>
+                                    <div class="progress-info">
+                                        <span>{{ loan.percent_paid|floatformat:0 }}% paid</span>
+                                        <span>₱{{ loan.paid|floatformat:2 }} / ₱{{ loan.principal_amount|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                <div class="loan-details-row">
+                                    <div class="loan-detail">
+                                        <span class="detail-label">Monthly</span>
+                                        <span class="detail-value">₱{{ loan.monthly_deduction|floatformat:2 }}</span>
+                                    </div>
+                                    <div class="loan-detail">
+                                        <span class="detail-label">Started</span>
+                                        <span class="detail-value">{{ loan.created_at|date:"M Y" }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="loan-card-footer">
+                                <button class="loan-view-btn view-loan-btn" data-loan-id="{{ loan.id }}" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                    View History
+                                </button>
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
+                </div>
             </div>
-        </div>
-            
         </div>
         {% endif %}
     </div>
@@ -410,9 +392,9 @@
 <!-- Email Selection Modal -->
 <div id="emailSelectionModal" class="modal modal-sm">
     <div class="modal-overlay"></div>
-    <div class="modal-content" data-tour="email-modal" data-intro="<b>Email Selection Modal</b><br>Choose which email address to send your payslip to - your personal email or work email." data-step="8">
+    <div class="modal-content modern-modal">
         <div class="modal-header">
-            <h3>Select Email Address</h3>
+            <h3><i class="fas fa-envelope"></i> Send Payslip</h3>
             <button class="modal-close">
                 <i class="fas fa-times"></i>
             </button>
@@ -421,71 +403,51 @@
             <div class="email-selection-form">
                 <form id="email-selection-form">
                     {% csrf_token %}
-                    <div class="form-group">
-                        <label class="form-label">Choose where to send your payslip:</label>
-                        <div class="email-selection-options" id="email-options">
-                            {% if request.user.email %}
-                            <div class="email-option-card">
-                                <input type="radio" name="selected_email" value="{{ request.user.email }}" id="account-email" checked>
-                                <label for="account-email" class="email-option-label">
-                                    <div class="email-option-avatar">
-                                        <i class="fas fa-user"></i>
-                                    </div>
-                                    <div class="email-option-info">
-                                        <div class="email-option-name">{{ request.user.email }}</div>
-                                        <div class="email-option-username">Personal Email Address</div>
-                                    </div>
-                                    <div class="email-option-check">
-                                        <i class="fas fa-check-circle"></i>
-                                    </div>
-                                </label>
-                            </div>
-                            {% endif %}
-                            {% if request.user.personal_info.work_email and request.user.personal_info.work_email != request.user.email %}
-                            <div class="email-option-card">
-                                <input type="radio" name="selected_email" value="{{ request.user.personal_info.work_email }}" id="work-email">
-                                <label for="work-email" class="email-option-label">
-                                    <div class="email-option-avatar">
-                                        <i class="fas fa-briefcase"></i>
-                                    </div>
-                                    <div class="email-option-info">
-                                        <div class="email-option-name">{{ request.user.personal_info.work_email }}</div>
-                                        <div class="email-option-username">Work Email Address</div>
-                                    </div>
-                                    <div class="email-option-check">
-                                        <i class="fas fa-check-circle"></i>
-                                    </div>
-                                </label>
-                            </div>
-                            {% endif %}
+                    <p class="modal-subtitle">Choose where to send your payslip:</p>
+                    <div class="email-selection-options" id="email-options">
+                        {% if request.user.email %}
+                        <div class="email-option-card">
+                            <input type="radio" name="selected_email" value="{{ request.user.email }}" id="account-email" checked>
+                            <label for="account-email" class="email-option-label">
+                                <div class="email-option-avatar">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="email-option-info">
+                                    <div class="email-option-name">{{ request.user.email }}</div>
+                                    <div class="email-option-username">Personal Email</div>
+                                </div>
+                                <div class="email-option-check">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </label>
                         </div>
-                    </div>
-                    
-                    <div class="payslip-info" id="payslip-info" style="display: none;">
-                        <h4>Payslip Details</h4>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="label">Employee:</span>
-                                <span class="value" id="payslip-employee-name">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">Period:</span>
-                                <span class="value" id="payslip-period">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">Type:</span>
-                                <span class="value" id="payslip-type">-</span>
-                            </div>
+                        {% endif %}
+                        {% if request.user.personal_info.work_email and request.user.personal_info.work_email != request.user.email %}
+                        <div class="email-option-card">
+                            <input type="radio" name="selected_email" value="{{ request.user.personal_info.work_email }}" id="work-email">
+                            <label for="work-email" class="email-option-label">
+                                <div class="email-option-avatar work">
+                                    <i class="fas fa-briefcase"></i>
+                                </div>
+                                <div class="email-option-info">
+                                    <div class="email-option-name">{{ request.user.personal_info.work_email }}</div>
+                                    <div class="email-option-username">Work Email</div>
+                                </div>
+                                <div class="email-option-check">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </label>
                         </div>
+                        {% endif %}
                     </div>
                 </form>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-outline">Cancel</button>
+            <button class="btn btn-outline modal-close">Cancel</button>
             <button class="btn btn-primary" id="confirm-email-send">
-                <i class="fas fa-envelope"></i>
-                Send Payslip
+                <i class="fas fa-paper-plane"></i>
+                Send
             </button>
         </div>
     </div>
@@ -494,32 +456,27 @@
 <!-- OJT Email Confirmation Modal -->
 <div id="ojtEmailConfirmationModal" class="modal modal-md">
     <div class="modal-overlay"></div>
-    <div class="modal-content">
+    <div class="modal-content modern-modal">
         <div class="modal-header">
-            <h4>Send OJT Payslip</h4>
+            <h4><i class="fas fa-envelope"></i> Send OJT Payslip</h4>
             <button class="modal-close">
                 <i class="fas fa-times"></i>
             </button>
         </div>
         <div class="modal-body">
-            <div class="ojt-email-confirmation-form">
-                <div class="confirmation-message">
-                    <p>Send your OJT payslip to your email address?</p>
-                    
-                    <div class="email-info">
-                        <div class="email-display">
-                            <i class="fas fa-at"></i>
-                            <span id="ojt-confirmation-email">{{ request.user.email }}</span>
-                        </div>
-                    </div>
+            <div class="confirmation-message">
+                <p>Send your OJT payslip to:</p>
+                <div class="email-display-modern">
+                    <i class="fas fa-at"></i>
+                    <span id="ojt-confirmation-email">{{ request.user.email }}</span>
                 </div>
             </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline modal-close">Cancel</button>
             <button class="btn btn-primary" id="confirm-ojt-email-send">
-                <i class="fas fa-envelope"></i>
-                Send Payslip
+                <i class="fas fa-paper-plane"></i>
+                Send
             </button>
         </div>
     </div>
@@ -527,16 +484,18 @@
 
 <!-- Email Loader -->
 <div class="loader-container" id="emailLoader" style="display: none;">
-  <div class="payslip-email-loader"></div>
-  <p>Sending Payslip.....</p>
+    <div class="modern-loader">
+        <div class="loader-spinner"></div>
+        <p>Sending Payslip...</p>
+    </div>
 </div>
 
 <!-- OJT Payslip Details Modal -->
 <div id="ojtPayslipDetailsModal" class="modal modal-lg">
     <div class="modal-overlay"></div>
-    <div class="modal-content">
+    <div class="modal-content modern-modal">
         <div class="modal-header">
-            <h3>OJT Payslip Details</h3>
+            <h3><i class="fas fa-file-alt"></i> OJT Payslip Details</h3>
             <button class="modal-close">
                 <i class="fas fa-times"></i>
             </button>
@@ -556,22 +515,22 @@
                 
                 <div class="payslip-content">
                     <div class="employee-info-grid">
-                            <div>
-                                <div class="info-label">ID Number:</div>
-                                <div class="info-value" id="ojt-id-number">-</div>
-                            </div>
-                            <div>
-                                <div class="info-label">Cut-Off:</div>
-                                <div class="info-value" id="ojt-cutoff">-</div>
-                            </div>
-                            <div>
-                                <div class="info-label">Name:</div>
-                                <div class="info-value" id="ojt-name">-</div>
-                            </div>
-                            <div>
-                                <div class="info-label">Line:</div>
-                                <div class="info-value" id="ojt-line">-</div>
-                            </div>
+                        <div>
+                            <div class="info-label">ID Number:</div>
+                            <div class="info-value" id="ojt-id-number">-</div>
+                        </div>
+                        <div>
+                            <div class="info-label">Cut-Off:</div>
+                            <div class="info-value" id="ojt-cutoff">-</div>
+                        </div>
+                        <div>
+                            <div class="info-label">Name:</div>
+                            <div class="info-value" id="ojt-name">-</div>
+                        </div>
+                        <div>
+                            <div class="info-label">Line:</div>
+                            <div class="info-value" id="ojt-line">-</div>
+                        </div>
                     </div>
 
                     <div class="payslip-sections">
@@ -685,22 +644,56 @@
 <!-- Loan Deductions Modal -->
 <div id="loanDeductionsModal" class="modal modal-md">
     <div class="modal-overlay"></div>
-    <div class="modal-content" data-tour="deduction-modal" data-intro="<b>Loan Deductions Modal</b><br>This modal shows detailed information about loan deductions including payment schedules and amounts." data-step="5">
+    <div class="modal-content modern-modal">
         <div class="modal-header">
-            <h3>Loan Deductions</h3>
+            <h3><i class="fas fa-history"></i> Loan History</h3>
             <button class="modal-close"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body" id="loanDeductionsBody">
-            <div class="loader" style="text-align:center; padding:2em;">Loading...</div>
+            <div class="loader" style="text-align:center; padding:2em;">
+                <div class="loader-spinner"></div>
+                <p>Loading...</p>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Toast Notification Container -->
+<!-- Toast Container -->
 <div id="toast-container" class="toast-container"></div>
 
 {% endblock content %}
 
 {% block extra_js %}
-    <script src="{% static 'js/finance/user-finance.js' %}"></script>
+<script>
+// Privacy toggle for stat card values - click to show/hide
+function toggleValuePrivacy(el) {
+    if (el.classList.contains('privacy-blur')) {
+        el.textContent = el.dataset.value;
+        el.classList.remove('privacy-blur');
+    } else {
+        el.textContent = '₱ ****';
+        el.classList.add('privacy-blur');
+    }
+}
+
+// Active loans toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('showActiveLoansOnly');
+    if (toggle) {
+        toggle.addEventListener('change', function() {
+            const loanCards = document.querySelectorAll('.loan-card-modern');
+            loanCards.forEach(card => {
+                const balance = parseFloat(card.dataset.balance);
+                if (this.checked) {
+                    card.style.display = balance > 0 ? '' : 'none';
+                } else {
+                    card.style.display = '';
+                }
+            });
+        });
+    }
+
+});
+</script>
+<script src="{% static 'js/finance/user-finance.js' %}"></script>
 {% endblock %}

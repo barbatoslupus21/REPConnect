@@ -46,52 +46,126 @@ function closeModalProperly(modalId) {
     return false;
 }
 
+// Global function to close the unified import modal
+function closeUnifiedImportModal() {
+    const unifiedModal = document.getElementById('unifiedImportModal');
+    if (unifiedModal) {
+        unifiedModal.classList.remove('show');
+        setTimeout(() => {
+            unifiedModal.style.display = 'none';
+            document.body.style.overflow = '';
+        }, 250);
+    }
+}
 
-// Modal mapping for import options
-const importModalMap = {
-    'payslips_regular': 'regularProbationaryImportModal',
-    'payslips_ojt': 'ojtImportModal',
-    'loans_principal': 'principalBalanceImportModal',
-    'loans_deduction': 'deductionImportModal',
-    'allowances': 'allowancesImportModal',
-    'savings': 'savingsImportModal'
-};
-
-// Setup event listeners for import option buttons to open the correct modal
-function setupImportOptionButtons() {
-    document.querySelectorAll('.import-btn-option').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const importType = btn.getAttribute('data-import');
-            console.log('Import button clicked:', importType);
-            const modalId = importModalMap[importType];
-            console.log('Mapped modal ID:', modalId);
-            if (modalId) {
-                const modal = document.getElementById(modalId);
-                console.log('Found modal element:', modal);
-                if (modal) {
-                    modal.style.display = 'flex';
-                    modal.style.opacity = '1';
-                    modal.style.visibility = 'visible';
-                    modal.classList.add('show');
-                    document.body.style.overflow = 'hidden';
-                    console.log('Modal should be visible now');
-                } else {
-                    console.error('Modal element not found:', modalId);
-                }
-            } else {
-                console.error('No modal mapped for import type:', importType);
+// Setup unified import modal tabs and functionality
+function setupUnifiedImportModal() {
+    const importBtn = document.getElementById('importBtn');
+    const unifiedModal = document.getElementById('unifiedImportModal');
+    const closeBtn = document.getElementById('closeUnifiedImportModalBtn');
+    const overlay = unifiedModal ? unifiedModal.querySelector('.modal-overlay') : null;
+    const tabItems = document.querySelectorAll('.import-tab-item');
+    const tabContents = document.querySelectorAll('.import-tab-content');
+    
+    // Open modal when import button is clicked
+    if (importBtn && unifiedModal) {
+        importBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            unifiedModal.style.display = 'flex';
+            // Trigger reflow for animation
+            unifiedModal.offsetHeight;
+            unifiedModal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        });
+    }
+    
+    // Close modal function
+    function closeUnifiedModal() {
+        if (unifiedModal) {
+            unifiedModal.classList.remove('show');
+            setTimeout(() => {
+                unifiedModal.style.display = 'none';
+                document.body.style.overflow = '';
+            }, 250);
+        }
+    }
+    
+    // Close button click
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeUnifiedModal);
+    }
+    
+    // Overlay click to close
+    if (overlay) {
+        overlay.addEventListener('click', closeUnifiedModal);
+    }
+    
+    // Tab switching
+    tabItems.forEach(tabItem => {
+        tabItem.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            
+            // Remove active from all tabs
+            tabItems.forEach(item => item.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Add active to clicked tab
+            this.classList.add('active');
+            
+            // Show corresponding content
+            const targetContent = document.getElementById(tabId + '-tab');
+            if (targetContent) {
+                targetContent.classList.add('active');
             }
-            // Hide the popover after selection
-            const popover = document.getElementById('importOptionsPopover');
-            if (popover) popover.style.display = 'none';
         });
     });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && unifiedModal && unifiedModal.classList.contains('show')) {
+            closeUnifiedModal();
+        }
+    });
+    
+    // Setup file input change handlers for all import tabs
+    const fileInputMappings = [
+        { inputId: 'regular-files', listId: 'regular-file-list', containerId: 'selectedRegularFiles' },
+        { inputId: 'ojt-files', listId: 'ojt-file-list', containerId: 'selectedOjtFiles' },
+        { inputId: 'principal-balance-files', listId: 'principal-balance-file-list', containerId: 'selectedPrincipalBalanceFiles' },
+        { inputId: 'deduction-files', listId: 'deduction-file-list', containerId: 'selectedDeductionFiles' },
+        { inputId: 'allowances-files', listId: 'allowances-file-list', containerId: 'selectedAllowanceFiles' },
+        { inputId: 'savings-files', listId: 'savings-file-list', containerId: 'selectedSavingsFiles' }
+    ];
+    
+    fileInputMappings.forEach(({ inputId, listId, containerId }) => {
+        const fileInput = document.getElementById(inputId);
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                updateSelectedFilesDisplay(this, listId, containerId);
+            });
+        }
+    });
+    
+    // Add event listeners to clear red border when cutoff date is selected
+    const deductionCutoffInput = document.getElementById('deduction-cutoff-date');
+    if (deductionCutoffInput) {
+        deductionCutoffInput.addEventListener('change', function() {
+            this.classList.remove('input-error');
+        });
+    }
+    
+    const ojtCutoffInput = document.getElementById('ojt-cutoff-date');
+    if (ojtCutoffInput) {
+        ojtCutoffInput.addEventListener('change', function() {
+            this.classList.remove('input-error');
+        });
+    }
 }
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Setup import modal triggers for all import option buttons
-    setupImportOptionButtons();
+    // Setup unified import modal
+    setupUnifiedImportModal();
 
     // --- Page Tour for Admin Finance ---
     function startAdminFinanceTour() {
@@ -193,7 +267,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Expose for manual triggering if needed
     window.startAdminFinanceTour = startAdminFinanceTour;
-    setupImportOptionButtons();
 
     // Export Finance Report Modal logic
     const exportBtn = document.getElementById('export-finance-btn');
@@ -269,49 +342,6 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.error('Export button or modal not found!');
     }
-
-    // Ensure importOptionsPopover always shows when import option is selected
-    document.querySelectorAll('#importPopover .import-option').forEach(opt => {
-        opt.addEventListener('mouseenter', function() {
-            const type = opt.getAttribute('data-type');
-            // Show the correct group in the popover
-            document.querySelectorAll('#importOptionsPopover .import-options-group').forEach(group => {
-                group.style.display = group.getAttribute('data-group') === type ? '' : 'none';
-            });
-            // Position and show the popover
-            const popover = document.getElementById('importOptionsPopover');
-            if (popover) {
-                popover.style.display = 'block';
-            }
-        });
-        opt.addEventListener('click', function() {
-            const type = opt.getAttribute('data-type');
-            document.querySelectorAll('#importOptionsPopover .import-options-group').forEach(group => {
-                group.style.display = group.getAttribute('data-group') === type ? '' : 'none';
-            });
-            const popover = document.getElementById('importOptionsPopover');
-            if (popover) {
-                popover.style.display = 'block';
-            }
-        });
-    });
-
-    // Hide importOptionsPopover when clicking outside
-    document.addEventListener('mousedown', function(e) {
-        const popover = document.getElementById('importOptionsPopover');
-        const importPopover = document.getElementById('importPopover');
-        if (popover && !popover.contains(e.target) && importPopover && !importPopover.contains(e.target)) {
-            popover.style.display = 'none';
-        }
-    });
-
-    // Hide importOptionsPopover when a modal is closed
-    document.querySelectorAll('.modal-close, .btn.btn-outline').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const popover = document.getElementById('importOptionsPopover');
-            if (popover) popover.style.display = 'none';
-        });
-    });
 
     // When a modal is closed, restore body scroll
     document.querySelectorAll('.modal-close, .btn.btn-outline').forEach(btn => {
@@ -431,7 +461,6 @@ class AdminFinanceModule {
         this.setupModalHandlers();
         this.setupTemplateDownloads();
         this.setupFilterPopover();
-        this.setupImportPopover();
         this.setupGlobalFunctions();
     }
 
@@ -491,10 +520,27 @@ class AdminFinanceModule {
     }
 
     setupFileUploadHandlers() {
-        this.setupUploadArea('payslip-upload-area', 'payslip-files', 'payslip-file-list', 'selectedPayslipFiles', 'payslip-upload-btn');
-        this.setupUploadArea('loans-upload-area', 'loans-files', 'loans-file-list', 'selectedLoanFiles', 'loans-upload-btn');
+        // Setup upload areas for unified import modal
+        this.setupUploadArea('regular-upload-area', 'regular-files', 'regular-file-list', 'selectedRegularFiles', 'regular-upload-btn');
+        this.setupUploadArea('ojt-upload-area', 'ojt-files', 'ojt-file-list', 'selectedOjtFiles', 'ojt-upload-btn');
+        this.setupUploadArea('principal-balance-upload-area', 'principal-balance-files', 'principal-balance-file-list', 'selectedPrincipalBalanceFiles', 'principal-balance-upload-btn');
+        this.setupUploadArea('deduction-upload-area', 'deduction-files', 'deduction-file-list', 'selectedDeductionFiles', 'deduction-upload-btn');
         this.setupUploadArea('allowances-upload-area', 'allowances-files', 'allowances-file-list', 'selectedAllowanceFiles', 'allowances-upload-btn');
         this.setupUploadArea('savings-upload-area', 'savings-files', 'savings-file-list', 'selectedSavingsFiles', 'savings-upload-btn');
+    }
+
+    // Helper function to get files from either native input or custom _selectedFiles
+    getFilesFromInput(fileInput) {
+        if (!fileInput) return [];
+        // First check _selectedFiles (used for drag & drop)
+        if (fileInput._selectedFiles && fileInput._selectedFiles.length > 0) {
+            return fileInput._selectedFiles;
+        }
+        // Fallback to native files property
+        if (fileInput.files && fileInput.files.length > 0) {
+            return Array.from(fileInput.files);
+        }
+        return [];
     }
 
     setupFormHandlers() {
@@ -504,8 +550,9 @@ class AdminFinanceModule {
             principalBalanceUploadForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const fileInput = document.getElementById('principal-balance-files');
+                const files = this.getFilesFromInput(fileInput);
                 let valid = true;
-                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                if (files.length === 0) {
                     this.showToast('Please select an Excel (.xlsx) file to upload.', 'error');
                     valid = false;
                 }
@@ -513,14 +560,8 @@ class AdminFinanceModule {
                     return false;
                 }
 
-                // Close modal immediately when upload starts
-                const modal = document.getElementById('principalBalanceImportModal');
-                if (modal) {
-                    modal.classList.add('closing');
-                    modal.classList.remove('show');
-                    modal.style.display = 'none';
-                    document.body.style.overflow = '';
-                }
+                // Close unified import modal immediately when upload starts
+                closeUnifiedImportModal();
 
                 // Create progress toast with spinner
                 const toastId = 'principal-balance-upload-progress-toast';
@@ -528,9 +569,9 @@ class AdminFinanceModule {
 
                 // Prepare AJAX request
                 const formData = new FormData();
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    formData.append('files', fileInput.files[i]);
-                }
+                files.forEach(file => {
+                    formData.append('files', file);
+                });
                 const csrfToken = principalBalanceUploadForm.querySelector('[name=csrfmiddlewaretoken]').value;
 
                 const xhr = new XMLHttpRequest();
@@ -569,11 +610,13 @@ class AdminFinanceModule {
                                         principalBalanceUploadForm.reset();
                                     }, 650); // 650ms total delay: 300ms for progress toast close + 350ms buffer
                                 } else {
-                                    this.updateProgressToastError(toastId, 'Upload failed. Some active loans can\'t be added', data);
-                                    // Auto-download successfully added loans as Excel (CSV)
+                                    // Show error toast notification
+                                    this.updateProgressToastError(toastId, 'Upload failed. Some records have errors.', data);
+                                    
+                                    // Auto-download error rows with red font styling
                                     setTimeout(() => {
-                                        if (data.added_loans && Array.isArray(data.added_loans) && data.added_loans.length > 0) {
-                                            this.downloadErrorRowsExcel(data.added_loans);
+                                        if (data.not_uploaded_rows && Array.isArray(data.not_uploaded_rows) && data.not_uploaded_rows.length > 0) {
+                                            this.downloadPrincipalBalanceErrorsExcel(data.not_uploaded_rows);
                                         }
                                     }, 500);
                                 }
@@ -601,20 +644,35 @@ class AdminFinanceModule {
                 e.preventDefault();
                 const cutoffDateInput = document.getElementById('deduction-cutoff-date');
                 const fileInput = document.getElementById('deduction-files');
+                const files = this.getFilesFromInput(fileInput);
                 let valid = true;
 
                 // Clear previous errors
-                document.getElementById('deduction-cutoff-date-error').style.display = 'none';
+                const errorElement = document.getElementById('deduction-cutoff-date-error');
+                if (errorElement) errorElement.style.display = 'none';
+                
+                // Remove previous red border error styling
+                if (cutoffDateInput) {
+                    cutoffDateInput.classList.remove('input-error');
+                }
 
                 // Validate cutoff date
                 if (!cutoffDateInput || !cutoffDateInput.value.trim()) {
-                    document.getElementById('deduction-cutoff-date-error').style.display = 'block';
-                    document.getElementById('deduction-cutoff-date-error').querySelector('.error-text').textContent = 'Cutoff date is required.';
+                    if (errorElement) {
+                        errorElement.style.display = 'block';
+                        const errorText = errorElement.querySelector('.error-text');
+                        if (errorText) errorText.textContent = 'Cutoff date is required.';
+                    }
+                    // Add red border to cutoff date input
+                    if (cutoffDateInput) {
+                        cutoffDateInput.classList.add('input-error');
+                        cutoffDateInput.focus();
+                    }
                     valid = false;
                 }
 
                 // Validate file selection
-                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                if (files.length === 0) {
                     this.showToast('Please select Excel (.xlsx, .xls) or CSV files to upload.', 'error');
                     valid = false;
                 }
@@ -623,14 +681,8 @@ class AdminFinanceModule {
                     return false;
                 }
 
-                // Close modal immediately when upload starts
-                const modal = document.getElementById('deductionImportModal');
-                if (modal) {
-                    modal.classList.add('closing');
-                    modal.classList.remove('show');
-                    modal.style.display = 'none';
-                    document.body.style.overflow = '';
-                }
+                // Close unified import modal immediately when upload starts
+                closeUnifiedImportModal();
 
                 // Create progress toast with spinner
                 const toastId = 'deduction-upload-progress-toast';
@@ -638,9 +690,9 @@ class AdminFinanceModule {
 
                 // Prepare AJAX request
                 const formData = new FormData();
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    formData.append('files', fileInput.files[i]);
-                }
+                files.forEach(file => {
+                    formData.append('files', file);
+                });
                 formData.append('cutoff_date', cutoffDateInput.value);
                 const csrfToken = deductionUploadForm.querySelector('[name=csrfmiddlewaretoken]').value;
 
@@ -680,11 +732,13 @@ class AdminFinanceModule {
                                         deductionUploadForm.reset();
                                     }, 650); // 650ms total delay: 300ms for progress toast close + 350ms buffer
                                 } else {
-                                    this.updateProgressToastError(toastId, 'Upload failed. Some deductions can\'t be added', data);
-                                    // Auto-download successfully added deductions as Excel (CSV)
+                                    // Show error toast notification
+                                    this.updateProgressToastError(toastId, 'Upload failed. Some records have errors.', data);
+                                    
+                                    // Auto-download error rows with red font styling
                                     setTimeout(() => {
                                         if (data.added_deductions && Array.isArray(data.added_deductions) && data.added_deductions.length > 0) {
-                                            this.downloadErrorRowsExcel(data.added_deductions, 'deduction');
+                                            this.downloadDeductionErrorsExcel(data.added_deductions);
                                         }
                                     }, 500);
                                 }
@@ -729,14 +783,15 @@ class AdminFinanceModule {
             savingsUploadForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const fileInput = document.getElementById('savings-files');
+                const files = this.getFilesFromInput(fileInput);
                 
-                if (!fileInput.files.length) {
+                if (files.length === 0) {
                     window.portalUI.showNotification('Please select a file to upload', 'warning');
                     return;
                 }
 
                 const formData = new FormData(savingsUploadForm);
-                formData.set('file', fileInput.files[0]); // Use single file
+                formData.set('file', files[0]); // Use single file
 
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', savingsUploadForm.action, true);
@@ -754,7 +809,15 @@ class AdminFinanceModule {
                                     }, 1000);
                                 }
                             } else {
-                                window.portalUI.showNotification(response.message, 'error');
+                                // Show error toast notification
+                                window.portalUI.showNotification(response.message || 'Upload failed. Some records have errors.', 'error');
+                                
+                                // Auto-download error rows if available
+                                if (response.error_rows && Array.isArray(response.error_rows) && response.error_rows.length > 0) {
+                                    setTimeout(() => {
+                                        this.downloadSavingsErrorsExcel(response.error_rows);
+                                    }, 500);
+                                }
                             }
                         } catch (e) {
                             window.portalUI.showNotification('Upload completed successfully', 'success');
@@ -766,31 +829,18 @@ class AdminFinanceModule {
                         window.portalUI.showNotification('Upload failed. Please try again.', 'error');
                     }
                     
-                    // Close modal using the proper function
-                    const modal = document.getElementById('savingsImportModal');
-                    if (modal) {
-                        modal.classList.add('closing');
-                        modal.classList.remove('show');
-                        modal.style.display = 'none';
-                        document.body.style.overflow = '';
-                        // Reset form
-                        savingsUploadForm.reset();
-                        const fileInput = document.getElementById('savings-files');
-                        if (fileInput) fileInput.value = '';
-                    }
+                    // Close unified import modal and reset form
+                    closeUnifiedImportModal();
+                    savingsUploadForm.reset();
+                    const fileInput = document.getElementById('savings-files');
+                    if (fileInput) fileInput.value = '';
                 };
 
                 xhr.onerror = () => {
                     window.portalUI.showNotification('Upload failed. Please check your connection.', 'error');
                     
-                    // Close modal on error as well
-                    const modal = document.getElementById('savingsImportModal');
-                    if (modal) {
-                        modal.classList.add('closing');
-                        modal.classList.remove('show');
-                        modal.style.display = 'none';
-                        document.body.style.overflow = '';
-                    }
+                    // Close unified import modal on error as well
+                    closeUnifiedImportModal();
                 };
 
                 xhr.send(formData);
@@ -804,12 +854,24 @@ class AdminFinanceModule {
                 e.preventDefault();
                 const cutoffDateInput = document.getElementById('ojt-cutoff-date');
                 const fileInput = document.getElementById('ojt-files');
+                const files = this.getFilesFromInput(fileInput);
                 let valid = true;
+                
+                // Remove previous red border error styling
+                if (cutoffDateInput) {
+                    cutoffDateInput.classList.remove('input-error');
+                }
+                
                 if (!cutoffDateInput || !cutoffDateInput.value) {
                     this.showToast('Please select a cutoff date.', 'error');
+                    // Add red border to cutoff date input
+                    if (cutoffDateInput) {
+                        cutoffDateInput.classList.add('input-error');
+                        cutoffDateInput.focus();
+                    }
                     valid = false;
                 }
-                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                if (files.length === 0) {
                     this.showToast('Please select at least one Excel/CSV file to upload.', 'error');
                     valid = false;
                 }
@@ -820,9 +882,9 @@ class AdminFinanceModule {
                 // Prepare AJAX request
                 const formData = new FormData();
                 formData.append('cutoff_date', cutoffDateInput.value);
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    formData.append('files', fileInput.files[i]);
-                }
+                files.forEach(file => {
+                    formData.append('files', file);
+                });
                 const csrfToken = ojtUploadForm.querySelector('[name=csrfmiddlewaretoken]').value;
 
                 fetch(ojtUploadForm.action, {
@@ -835,22 +897,44 @@ class AdminFinanceModule {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        this.showToast('Payslips uploaded successfully!', 'success');
+                        let message = `Successfully uploaded OJT payslips! Created: ${data.created || 0}, Updated: ${data.updated || 0}`;
+                        this.showToast(message, 'success');
                         ojtUploadForm.reset();
-                        // Close modal if present
-                        const modal = document.getElementById('ojtImportModal');
-                        if (modal) {
-                            modal.classList.add('closing');
-                            modal.classList.remove('show');
-                            modal.style.display = 'none';
-                            document.body.style.overflow = '';
-                        }
+                        // Clear file list display
+                        const fileList = document.getElementById('ojt-file-list');
+                        const selectedFiles = document.getElementById('selectedOjtFiles');
+                        if (fileList) fileList.innerHTML = '';
+                        if (selectedFiles) selectedFiles.style.display = 'none';
+                        // Close unified import modal
+                        closeUnifiedImportModal();
+                        // Reload page after 2 seconds to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
                     } else {
-                        this.showToast("Upload failed. Some active loans can't be added.", 'warning');
+                        // Show error toast notification
+                        let errorMsg = 'Upload failed. Some records have errors.';
+                        if (data.errors && data.errors.length > 0) {
+                            errorMsg = `Upload failed. ${data.errors.length} record(s) have errors.`;
+                        } else if (data.message) {
+                            errorMsg = data.message;
+                        }
+                        this.showToast(errorMsg, 'error');
+                        
+                        // Auto-download error rows if available
+                        if (data.error_rows && Array.isArray(data.error_rows) && data.error_rows.length > 0) {
+                            setTimeout(() => {
+                                this.downloadOJTPayslipErrorsExcel(data.error_rows);
+                            }, 500);
+                        }
+                        
+                        // Close unified import modal
+                        closeUnifiedImportModal();
                     }
                 })
                 .catch(error => {
-                    this.showToast('Upload failed. Please try again later.', 'warning');
+                    console.error('OJT Upload Error:', error);
+                    this.showToast('Upload failed. Please try again later.', 'error');
                 });
             });
         }
@@ -940,30 +1024,6 @@ class AdminFinanceModule {
         }
     }
 
-    setupImportPopover() {
-        const importBtn = document.getElementById('importBtn');
-        const importPopover = document.getElementById('importPopover');
-        
-        if (importBtn && importPopover) {
-            importBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                importPopover.classList.toggle('show');
-            });
-            
-            document.addEventListener('click', (e) => {
-                if (!importPopover.contains(e.target) && e.target !== importBtn) {
-                    importPopover.classList.remove('show');
-                }
-            });
-            
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    importPopover.classList.remove('show');
-                }
-            });
-        }
-    }
-
     setupGlobalFunctions() {
         window.applyFilter = (event) => {
             event.preventDefault();
@@ -1001,13 +1061,6 @@ class AdminFinanceModule {
             const filterPopover = document.getElementById('filterPopover');
             if (filterPopover) {
                 filterPopover.classList.remove('show');
-            }
-        };
-
-        window.closeImportPopover = () => {
-            const importPopover = document.getElementById('importPopover');
-            if (importPopover) {
-                importPopover.classList.remove('show');
             }
         };
 
@@ -1269,7 +1322,10 @@ class AdminFinanceModule {
                 return;
         }
 
-        if (!form || !fileInput || !fileInput._selectedFiles || fileInput._selectedFiles.length === 0) {
+        // Get files from either _selectedFiles or native files property
+        const files = this.getFilesFromInput(fileInput);
+        
+        if (!form || files.length === 0) {
             window.portalUI.showNotification('Please select files to upload', 'warning');
             return;
         }
@@ -1277,7 +1333,7 @@ class AdminFinanceModule {
         // Prepare form data for upload
         const formData = new FormData(form);
         formData.delete('files');
-        fileInput._selectedFiles.forEach(file => {
+        files.forEach(file => {
             formData.append('files', file);
         });
 
@@ -1316,15 +1372,17 @@ class AdminFinanceModule {
                                 this.resetForm(type);
                             }, 350); // 350ms delay to ensure DOM update and no overlap
                         } else {
-                            // Always show the persistent error toast for any failed loan upload
+                            // Show error toast notification
                             this.updateProgressToastError(
                                 toastId,
-                                'Upload failed. Some active loans can\'t be added',
+                                'Upload failed. Some records have errors.',
                                 data
                             );
-                            // Auto-download successfully added loans as Excel (CSV)
+                            // Auto-download error rows with red font styling based on type
                             setTimeout(() => {
-                                if (data.added_loans && Array.isArray(data.added_loans) && data.added_loans.length > 0) {
+                                if (type === 'allowances' && data.error_rows && Array.isArray(data.error_rows) && data.error_rows.length > 0) {
+                                    this.downloadAllowanceErrorsExcel(data.error_rows);
+                                } else if (data.added_loans && Array.isArray(data.added_loans) && data.added_loans.length > 0) {
                                     this.downloadErrorRowsExcel(data.added_loans);
                                 }
                             }, 500);
@@ -1371,7 +1429,6 @@ class AdminFinanceModule {
                 listId = 'allowances-file-list';
                 selectedFilesContainer = document.getElementById('selectedAllowanceFiles');
                 uploadBtn = document.getElementById('allowances-upload-btn');
-                modal = document.getElementById('allowancesImportModal');
                 break;
             case 'savings':
                 form = document.getElementById('savings-upload-form');
@@ -1379,7 +1436,6 @@ class AdminFinanceModule {
                 listId = 'savings-file-list';
                 selectedFilesContainer = document.getElementById('selectedSavingsFiles');
                 uploadBtn = document.getElementById('savings-upload-btn');
-                modal = document.getElementById('savingsImportModal');
                 break;
             default:
                 return;
@@ -1396,12 +1452,8 @@ class AdminFinanceModule {
         
         this.updateFileList(listId, selectedFilesContainer, uploadBtn, fileInput);
         
-        if (modal) {
-            modal.classList.add('closing');
-            modal.classList.remove('show');
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
-        }
+        // Close the unified import modal
+        closeUnifiedImportModal();
     }
     
     async loadEmployeesData(page = 1) {
@@ -1749,6 +1801,70 @@ class AdminFinanceModule {
                 existingChart.destroy();
             }
 
+            // Helper to shade hex colors (lighten/darken)
+            function shadeHexColor(hex, percent) {
+                if (!hex) return hex;
+                const h = hex.replace('#', '');
+                const num = parseInt(h, 16);
+                let r = (num >> 16) + percent;
+                let g = (num >> 8 & 0x00FF) + percent;
+                let b = (num & 0x0000FF) + percent;
+                r = Math.max(Math.min(255, r), 0);
+                g = Math.max(Math.min(255, g), 0);
+                b = Math.max(Math.min(255, b), 0);
+                return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+            }
+
+            // Plugin to apply vertical gradients per bar to simulate a 3D look
+            const bar3DGradientPlugin = {
+                id: 'bar3DGradientPlugin',
+                beforeDatasetsDraw(chart) {
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    if (!chartArea) return;
+                    chart.data.datasets.forEach((dataset, dsIndex) => {
+                        if (chart.config.type !== 'bar') return;
+                        const meta = chart.getDatasetMeta(dsIndex);
+                        const baseColor = dataset.backgroundColor || '#4f46e5';
+                        const backed = [];
+                        meta.data.forEach((bar, i) => {
+                            const top = bar.y;
+                            const bottom = bar.base || chartArea.bottom;
+                            const gradient = ctx.createLinearGradient(0, top, 0, bottom);
+                            const color = Array.isArray(baseColor) ? baseColor[i] : baseColor;
+                            // Slightly lighter at top, original at bottom
+                            try {
+                                gradient.addColorStop(0, shadeHexColor(color, 30));
+                                gradient.addColorStop(0.6, color);
+                                gradient.addColorStop(1, shadeHexColor(color, -15));
+                            } catch (e) {
+                                // fallback to simple gradient stops
+                                gradient.addColorStop(0, color);
+                                gradient.addColorStop(1, shadeHexColor(color, -10));
+                            }
+                            backed.push(gradient);
+                        });
+                        // Temporarily replace backgroundColor with gradient array
+                        dataset._backupBackgroundColor = dataset.backgroundColor;
+                        dataset.backgroundColor = backed;
+                    });
+                },
+                afterDatasetsDraw(chart) {
+                    // Restore original backgrounds so Chart internals remain consistent
+                    chart.data.datasets.forEach(dataset => {
+                        if (dataset._backupBackgroundColor !== undefined) {
+                            dataset.backgroundColor = dataset._backupBackgroundColor;
+                            delete dataset._backupBackgroundColor;
+                        }
+                    });
+                }
+            };
+
+            // Register plugin locally (Chart keeps a global registry, registration is idempotent)
+            if (typeof Chart.register === 'function') {
+                try { Chart.register(bar3DGradientPlugin); } catch (e) { /* ignore if already registered */ }
+            }
+
             this.chart = new Chart(ctx, {
                 type: this.currentChartType,
                 data: {
@@ -1772,8 +1888,14 @@ class AdminFinanceModule {
                         }
                     },
                     scales: {
+                        x: {
+                            grid: { display: false } // hide vertical grid lines
+                        },
                         y: {
-                            beginAtZero: true
+                            beginAtZero: true,
+                            grid: {
+                                display: false // hide horizontal grid lines
+                            }
                         }
                     }
                 }
@@ -2261,6 +2383,185 @@ class AdminFinanceModule {
             this.downloadFailedLoansExcel(errorRows);
         }
     }
+
+    // Load XLSX library dynamically for styled Excel export
+    async loadXLSXLibrary() {
+        if (window.XLSX) {
+            return window.XLSX;
+        }
+
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            // Use xlsx-js-style for styling support
+            script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+            script.onload = () => resolve(window.XLSX);
+            script.onerror = () => {
+                // Fallback to standard xlsx library if xlsx-js-style fails
+                const fallbackScript = document.createElement('script');
+                fallbackScript.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+                fallbackScript.onload = () => resolve(window.XLSX);
+                fallbackScript.onerror = () => reject(new Error('Failed to load XLSX library'));
+                document.head.appendChild(fallbackScript);
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    // Generic function to download error rows with red font styling
+    async downloadErrorRowsWithRedFont(errorRows, headers, filename, sheetName = 'Errors') {
+        if (!errorRows || errorRows.length === 0) {
+            console.error('No error data available for download');
+            return;
+        }
+
+        try {
+            const XLSX = await this.loadXLSXLibrary();
+
+            // Prepare data with headers
+            const data = [headers];
+            
+            errorRows.forEach(row => {
+                if (Array.isArray(row)) {
+                    // Pad row to match headers length
+                    const rowData = [];
+                    for (let i = 0; i < headers.length; i++) {
+                        rowData.push(row[i] !== undefined && row[i] !== null ? String(row[i]) : '');
+                    }
+                    data.push(rowData);
+                } else if (typeof row === 'object') {
+                    // Extract values based on header order (assuming object keys match headers)
+                    const rowData = headers.map((header, idx) => {
+                        const key = header.toLowerCase().replace(/\s+/g, '_');
+                        const value = row[key] || row[header] || Object.values(row)[idx] || '';
+                        return value !== undefined && value !== null ? String(value) : '';
+                    });
+                    data.push(rowData);
+                }
+            });
+
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Calculate column widths
+            const colWidths = headers.map(header => ({ wch: Math.max(header.length + 5, 15) }));
+            ws['!cols'] = colWidths;
+
+            // Style header row (bold, centered)
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let col = range.s.c; col <= range.e.c; col++) {
+                const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (!ws[cellAddress]) continue;
+                
+                ws[cellAddress].s = {
+                    font: { bold: true, color: { rgb: "000000" } },
+                    fill: { fgColor: { rgb: "FFFF00" } }, // Yellow background for headers
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: {
+                        top: { style: "thin", color: { rgb: "000000" } },
+                        bottom: { style: "thin", color: { rgb: "000000" } },
+                        left: { style: "thin", color: { rgb: "000000" } },
+                        right: { style: "thin", color: { rgb: "000000" } }
+                    }
+                };
+            }
+
+            // Style data rows with RED font color
+            for (let row = 1; row <= range.e.r; row++) {
+                for (let col = range.s.c; col <= range.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                    if (!ws[cellAddress]) {
+                        ws[cellAddress] = { v: '', t: 's' };
+                    }
+                    
+                    ws[cellAddress].s = {
+                        font: { color: { rgb: "FF0000" } }, // RED font color for error rows
+                        alignment: { horizontal: "left", vertical: "center" },
+                        border: {
+                            top: { style: "thin", color: { rgb: "000000" } },
+                            bottom: { style: "thin", color: { rgb: "000000" } },
+                            left: { style: "thin", color: { rgb: "000000" } },
+                            right: { style: "thin", color: { rgb: "000000" } }
+                        }
+                    };
+                }
+            }
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const finalFilename = `${filename}_${timestamp}.xlsx`;
+
+            // Save file
+            XLSX.writeFile(wb, finalFilename);
+
+            this.showToast('Error report downloaded', 'error');
+        } catch (error) {
+            console.error('Error exporting file:', error);
+            // Fallback to simple CSV export if XLSX fails
+            this.downloadErrorRowsCSVFallback(errorRows, headers, filename);
+        }
+    }
+
+    // Fallback CSV download without styling
+    downloadErrorRowsCSVFallback(errorRows, headers, filename) {
+        let csvContent = headers.join(',') + '\n';
+        
+        errorRows.forEach(row => {
+            if (Array.isArray(row)) {
+                const rowData = [];
+                for (let i = 0; i < headers.length; i++) {
+                    const val = row[i] !== undefined && row[i] !== null ? String(row[i]).replace(/"/g, '""') : '';
+                    rowData.push(`"${val}"`);
+                }
+                csvContent += rowData.join(',') + '\n';
+            }
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `${filename}_errors.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        this.showToast('Error report downloaded (CSV fallback)', 'error');
+    }
+
+    // Download Savings errors with red font
+    async downloadSavingsErrorsExcel(errorRows) {
+        const headers = ['Id Number', 'Name', 'Savings', 'Savings Type', 'Remarks'];
+        await this.downloadErrorRowsWithRedFont(errorRows, headers, 'savings_upload_errors', 'Savings Errors');
+    }
+
+    // Download Allowance errors with red font
+    async downloadAllowanceErrorsExcel(errorRows) {
+        const headers = ['Id Number', 'Name', 'Allowance Type', 'Amount', 'Deposit Date', 'Period Covered', 'Remarks'];
+        await this.downloadErrorRowsWithRedFont(errorRows, headers, 'allowance_upload_errors', 'Allowance Errors');
+    }
+
+    // Download OJT Payslip errors with red font
+    async downloadOJTPayslipErrorsExcel(errorRows) {
+        const headers = ['Id Number', 'Regular Day', 'Allowance Day', 'Total Allowance', 'ND Allowance', 'Grand Total', 'Remarks'];
+        await this.downloadErrorRowsWithRedFont(errorRows, headers, 'ojt_payslip_upload_errors', 'OJT Payslip Errors');
+    }
+
+    // Download Principal Balance errors with red font
+    async downloadPrincipalBalanceErrorsExcel(errorRows) {
+        const headers = ['Id Number', 'Name', 'Loan Type', 'Principal Balance', 'Monthly Deduction', 'Remarks'];
+        await this.downloadErrorRowsWithRedFont(errorRows, headers, 'principal_balance_upload_errors', 'Principal Balance Errors');
+    }
+
+    // Download Deduction errors with red font
+    async downloadDeductionErrorsExcel(errorRows) {
+        const headers = ['Id Number', 'Name', 'Loan Type', 'Deduction', 'Remarks'];
+        await this.downloadErrorRowsWithRedFont(errorRows, headers, 'deduction_upload_errors', 'Deduction Errors');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -2669,30 +2970,80 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Consolidated modal close handler
+    function closeModal(modal) {
+        if (!modal) return;
+        
+        // Prevent any reopening by removing show class immediately
+        modal.classList.remove('show');
+        modal.classList.add('closing');
+        
+        // Reset modal state after animation
+        setTimeout(() => {
+            modal.classList.remove('closing');
+            modal.style.display = '';
+            modal.style.opacity = '';
+            modal.style.visibility = '';
+            document.body.style.overflow = '';
+        }, 200);
+    }
+
     const modalCloseHandlers = [
-        { modalId: 'payslipImportModal', closeBtnId: 'closePayslipImportModalBtn', cancelBtnId: 'cancelPayslipImportBtn' },
-        { modalId: 'loansImportModal', closeBtnId: 'closeLoansImportModalBtn', cancelBtnId: 'cancelLoanImportBtn' },
-        { modalId: 'allowancesImportModal', closeBtnId: 'closeAllowancesImportModalBtn', cancelBtnId: 'cancelAllowanceImportBtn' },
-        { modalId: 'savingsImportModal', closeBtnId: 'closeSavingsImportModalBtn', cancelBtnId: 'cancelSavingsImportBtn' }
+        { modalId: 'payslipResultsModal', closeBtnId: 'closePayslipResultsModalBtn', cancelBtnId: null },
+        { modalId: 'exportReportsModal', closeBtnId: 'closeExportModalBtn', cancelBtnId: 'cancelExportBtn' }
     ];
 
     modalCloseHandlers.forEach(({ modalId, closeBtnId, cancelBtnId }) => {
-        const closeBtn = document.getElementById(closeBtnId);
         const modal = document.getElementById(modalId);
-        const cancelBtn = document.getElementById(cancelBtnId);
+        const closeBtn = document.getElementById(closeBtnId);
+        const cancelBtn = cancelBtnId ? document.getElementById(cancelBtnId) : null;
         
-        if (closeBtn && modal) {
-            function closeModalWithAnimation() {
-                modal.classList.add('closing');
-                setTimeout(() => {
-                    modal.classList.remove('show', 'closing');
-                }, 200);
+        if (modal) {
+            // Close button handler
+            if (closeBtn) {
+                closeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    closeModal(modal);
+                    return false;
+                });
             }
-            closeBtn.addEventListener('click', closeModalWithAnimation);
-            modal.querySelector('.modal-overlay').addEventListener('click', closeModalWithAnimation);
+            
+            // Overlay click handler
+            const overlay = modal.querySelector('.modal-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    closeModal(modal);
+                    return false;
+                });
+            }
+            
+            // Cancel button handler - CRITICAL: Prevent all event bubbling
             if (cancelBtn) {
-                cancelBtn.addEventListener('click', closeModalWithAnimation);
+                // Remove any existing listeners by cloning the button
+                const newCancelBtn = cancelBtn.cloneNode(true);
+                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                
+                newCancelBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log('Cancel button clicked for modal:', modalId);
+                    closeModal(modal);
+                    return false;
+                }, true); // Use capture phase
             }
+        }
+    });
+
+    // ESC key to close modals
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal.show').forEach(modal => closeModal(modal));
         }
     });
 
@@ -3000,13 +3351,8 @@ function handleRegularPayslipUpload() {
         return;
     }
 
-    const uploadModal = document.getElementById('regularProbationaryImportModal');
-    if (uploadModal) {
-        uploadModal.classList.add('closing');
-        uploadModal.classList.remove('show');
-        uploadModal.style.display = 'none';
-        document.body.style.overflow = '';
-    }
+    // Close the unified import modal
+    closeUnifiedImportModal();
 
     const toastId = 'payslip-upload-progress-toast';
     const toast = window.adminFinance.createPersistentProgressToast(toastId, 'Uploading payslips: 0%', 'success');
@@ -3342,281 +3688,23 @@ function downloadPayslipErrorReportXLSX(data) {
     XLSX.writeFile(wb, 'payslip_upload_errors.xlsx');
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    const importPopoverSetup = () => {
-        const importBtn = document.getElementById('importBtn');
-        const importPopover = document.getElementById('importPopover');
-        const importOptionsPopover = document.getElementById('importOptionsPopover');
-        const importOptions = document.querySelectorAll('.import-option');
-        const importOptionsGroups = document.querySelectorAll('.import-options-group');
-
-        let currentActiveGroup = null;
-        let popoverTimeout = null;
-
-        function showImportPopover() {
-            if (popoverTimeout) {
-                clearTimeout(popoverTimeout);
-                popoverTimeout = null;
-            }
-            importPopover.classList.add('show');
-        }
-
-        function hideImportPopover() {
-            popoverTimeout = setTimeout(() => {
-                importPopover.classList.remove('show');
-                hideImportOptionsPopover();
-            }, 150);
-        }
-
-        function showImportOptionsPopover(groupType, hoveredButton) {
-            if (popoverTimeout) {
-                clearTimeout(popoverTimeout);
-                popoverTimeout = null;
-            }
-
-            importOptions.forEach(option => {
-                option.classList.remove('active');
-            });
-
-            if (hoveredButton) {
-                hoveredButton.classList.add('active');
-            }
-
-            importOptionsGroups.forEach(group => {
-                group.style.display = 'none';
-            });
-
-            const targetGroup = document.querySelector(`[data-group="${groupType}"]`);
-            if (targetGroup) {
-                targetGroup.style.display = 'block';
-                currentActiveGroup = groupType;
-            }
-
-            if (hoveredButton && importPopover) {
-                const mainPopoverRect = importPopover.getBoundingClientRect();
-                const buttonRect = hoveredButton.getBoundingClientRect();
-
-                const offsetTop = buttonRect.top - mainPopoverRect.top;
-                const finalTop = Math.max(0, offsetTop);
-
-                importOptionsPopover.style.top = `${finalTop}px`;
-
-                setTimeout(() => {
-                    importOptionsPopover.style.transition = 'all 0.2s ease';
-                }, 10);
-            }
-
-            importOptionsPopover.classList.add('show');
-        }
-
-        function hideImportOptionsPopover() {
-            popoverTimeout = setTimeout(() => {
-                importOptionsPopover.classList.remove('show');
-                importOptions.forEach(option => {
-                    option.classList.remove('active');
-                });
-                currentActiveGroup = null;
-            }, 150);
-        }
-
-        if (importBtn) {
-            importBtn.addEventListener('mouseenter', showImportPopover);
-            importBtn.addEventListener('mouseleave', hideImportPopover);
-            importBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (importPopover.classList.contains('show')) {
-                    hideImportPopover();
-                } else {
-                    showImportPopover();
-                }
-            });
-        }
-
-        if (importPopover) {
-            importPopover.addEventListener('mouseenter', showImportPopover);
-            importPopover.addEventListener('mouseleave', hideImportPopover);
-        }
-
-        importOptions.forEach(option => {
-            option.addEventListener('mouseenter', function() {
-                const type = this.dataset.type;
-                showImportOptionsPopover(type, this);
-            });
-
-            option.addEventListener('mouseleave', function() {
-                // Don't hide immediately, let user move to options popover
-            });
-        });
-
-        if (importOptionsPopover) {
-            importOptionsPopover.addEventListener('mouseenter', function() {
-                if (popoverTimeout) {
-                    clearTimeout(popoverTimeout);
-                    popoverTimeout = null;
-                }
-            });
-
-            importOptionsPopover.addEventListener('mouseleave', hideImportOptionsPopover);
-        }
-
-        const radioButtons = document.querySelectorAll('.import-options-popover input[type="radio"]');
-        radioButtons.forEach(radio => {
-            radio.addEventListener('change', function() {
-                if (this.checked) {
-                    importPopover.classList.remove('show');
-                    importOptionsPopover.classList.remove('show');
-
-                    const value = this.value;
-                    if (value.startsWith('payslips_')) {
-                        const subType = value.split('_')[1];
-                        openImportModal('payslips', subType);
-                    } else if (value.startsWith('loans_')) {
-                        const subType = value.split('_')[1];
-                        openImportModal('loans', subType);
-                    } else if (value === 'allowances') {
-                        openImportModal('allowances');
-                    }
-                }
-            });
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!importBtn.contains(e.target) &&
-                !importPopover.contains(e.target) &&
-                !importOptionsPopover.contains(e.target)) {
-                importPopover.classList.remove('show');
-                importOptionsPopover.classList.remove('show');
-            }
-        });
-
-        window.openImportModal = function(type, subType = null) {
-            let modalId;
-
-            switch (type) {
-                case 'payslips':
-                    modalId = 'payslipImportModal';
-                    if (subType === 'ojt') {
-                        const ojtTab = document.querySelector('[data-tab="ojt"]');
-                        const ojtPanel = document.getElementById('tab-ojt');
-                        const regularTab = document.querySelector('[data-tab="regular-probationary"]');
-                        const regularPanel = document.getElementById('tab-regular-probationary');
-
-                        if (ojtTab && ojtPanel && regularTab && regularPanel) {
-                            regularTab.classList.remove('active');
-                            regularPanel.classList.remove('active');
-                            ojtTab.classList.add('active');
-                            ojtPanel.classList.add('active');
-                        }
-                    } else {
-                        const regularTab = document.querySelector('[data-tab="regular-probationary"]');
-                        const regularPanel = document.getElementById('tab-regular-probationary');
-                        const ojtTab = document.querySelector('[data-tab="ojt"]');
-                        const ojtPanel = document.getElementById('tab-ojt');
-
-                        if (regularTab && regularPanel && ojtTab && ojtPanel) {
-                            ojtTab.classList.remove('active');
-                            ojtPanel.classList.remove('active');
-                            regularTab.classList.add('active');
-                            regularPanel.classList.add('active');
-                        }
-                    }
-                    break;
-                case 'loans':
-                    modalId = 'loansImportModal';
-                    break;
-                case 'allowances':
-                    modalId = 'allowancesImportModal';
-                    break;
-                default:
-                    modalId = 'payslipImportModal';
-            }
-
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.add('show');
-            }
-        };
-    };
-
-    importPopoverSetup();
-});
-
-document.addEventListener('DOMContentLoaded', function () {
-    const radioToModal = {
-        'import_payslips_regular': 'regularProbationaryImportModal',
-        'import_payslips_ojt': 'ojtImportModal',
-        'import_loans_principal': 'principalBalanceImportModal',
-        'import_loans_deduction': 'deductionImportModal'
-    };
-    
-    Object.keys(radioToModal).forEach(radioId => {
-        const radio = document.getElementById(radioId);
-        if (radio) {
-            radio.addEventListener('change', function () {
-                if (radio.checked) {
-                    document.querySelectorAll('input[name="import_type"]').forEach(r => {
-                        if (r !== radio) r.checked = false;
-                    });
-                    
-                    Object.values(radioToModal).forEach(modalId => {
-                        const modal = document.getElementById(modalId);
-                        if (modal) modal.classList.remove('show');
-                    });
-                    
-                    const modal = document.getElementById(radioToModal[radioId]);
-                    if (modal) modal.classList.add('show');
-                    
-                    radio.checked = true;
-                }
-            });
-        }
-    });
-});
-
-document.addEventListener('DOMContentLoaded', function () {
-    function closeModal(modal) {
-        if (!modal) return;
-        modal.classList.add('closing');
-        modal.classList.remove('show');
-        modal.addEventListener('animationend', function handler() {
-            modal.classList.remove('closing');
-            modal.removeEventListener('animationend', handler);
-        });
-        setTimeout(() => modal.classList.remove('closing'), 350);
-    }
-
-    document.querySelectorAll('.modal').forEach(modal => {
-        const overlay = modal.querySelector('.modal-overlay');
-        if (overlay) {
-            overlay.addEventListener('click', () => closeModal(modal));
-        }
-        
-        const closeBtn = modal.querySelector('.modal-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => closeModal(modal));
-        }
-        
-        modal.querySelectorAll('button.btn.btn-outline').forEach(btn => {
-            if (btn.textContent.trim().toLowerCase() === 'cancel') {
-                btn.addEventListener('click', () => closeModal(modal));
-            }
-        });
-    });
-
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.modal.show').forEach(modal => closeModal(modal));
-        }
-    });
-});
-
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getFileExtension(filename) {
+    return filename.split('.').pop().toLowerCase();
+}
+
+function getFileIconClass(filename) {
+    const ext = getFileExtension(filename);
+    if (ext === 'pdf') return 'pdf';
+    if (['xlsx', 'xls', 'csv'].includes(ext)) return 'excel';
+    return 'default';
 }
 
 function updateSelectedFilesDisplay(fileInput, listId, containerId) {
@@ -3632,15 +3720,43 @@ function updateSelectedFilesDisplay(fileInput, listId, containerId) {
         for (const file of files) {
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
+            const iconClass = getFileIconClass(file.name);
+            const iconType = iconClass === 'pdf' ? 'fa-file-pdf' : (iconClass === 'excel' ? 'fa-file-excel' : 'fa-file');
             fileItem.innerHTML = `
-                <div class="file-info">
-                    <i class="fas fa-file file-icon"></i>
-                    <span class="file-name">${file.name}</span>
-                    <span class="file-size">(${formatFileSize(file.size)})</span>
+                <div class="file-icon-wrapper ${iconClass}">
+                    <i class="fas ${iconType}"></i>
+                </div>
+                <div class="file-details">
+                    <p class="file-name">${file.name}</p>
+                    <div class="file-meta">
+                        <span>${formatFileSize(file.size)}</span>
+                        <span class="file-status completed"><i class="fas fa-check-circle"></i> Ready</span>
+                    </div>
+                </div>
+                <div class="file-actions">
+                    <button type="button" class="file-action-btn remove" title="Remove file" data-filename="${file.name}">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             `;
             fileList.appendChild(fileItem);
         }
+        
+        // Add remove button functionality
+        fileList.querySelectorAll('.file-action-btn.remove').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filename = this.dataset.filename;
+                // Create a new DataTransfer to filter out the removed file
+                const dt = new DataTransfer();
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    if (fileInput.files[i].name !== filename) {
+                        dt.items.add(fileInput.files[i]);
+                    }
+                }
+                fileInput.files = dt.files;
+                updateSelectedFilesDisplay(fileInput, listId, containerId);
+            });
+        });
     } else {
         selectedFilesContainer.style.display = 'none';
         fileList.innerHTML = '';
@@ -3668,6 +3784,7 @@ document.addEventListener('DOMContentLoaded', function () {
 function updateRegularFileList(fileInput, fileList, removeBtn, uploadBtn) {
     const files = fileInput.files;
     const noFilesSelected = fileList.querySelector('.no-files-selected');
+    const selectedFilesContainer = document.getElementById('selectedRegularFiles');
 
     fileList.querySelectorAll('.file-item').forEach(item => item.remove());
 
@@ -3675,22 +3792,50 @@ function updateRegularFileList(fileInput, fileList, removeBtn, uploadBtn) {
     
     if (files.length > 0) {
         if (noFilesSelected) noFilesSelected.style.display = 'none';
-        removeBtn.style.display = 'inline-block';
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+        if (selectedFilesContainer) selectedFilesContainer.style.display = 'block';
+        
         for (const file of files) {
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
             fileItem.innerHTML = `
-                <div class="file-info">
-                    <i class="fas fa-file-pdf file-icon"></i>
-                    <span class="file-name">${file.name}</span>
-                    <span class="file-size">(${formatFileSize(file.size)})</span>
+                <div class="file-icon-wrapper pdf">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+                <div class="file-details">
+                    <p class="file-name">${file.name}</p>
+                    <div class="file-meta">
+                        <span>${formatFileSize(file.size)}</span>
+                        <span class="file-status completed"><i class="fas fa-check-circle"></i> Ready</span>
+                    </div>
+                </div>
+                <div class="file-actions">
+                    <button type="button" class="file-action-btn remove" title="Remove file" data-filename="${file.name}">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             `;
             fileList.appendChild(fileItem);
         }
+        
+        // Add remove button functionality
+        fileList.querySelectorAll('.file-action-btn.remove').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filename = this.dataset.filename;
+                const dt = new DataTransfer();
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    if (fileInput.files[i].name !== filename) {
+                        dt.items.add(fileInput.files[i]);
+                    }
+                }
+                fileInput.files = dt.files;
+                updateRegularFileList(fileInput, fileList, removeBtn, uploadBtn);
+            });
+        });
     } else {
         if (noFilesSelected) noFilesSelected.style.display = 'flex';
-        removeBtn.style.display = 'none';
+        if (removeBtn) removeBtn.style.display = 'none';
+        if (selectedFilesContainer) selectedFilesContainer.style.display = 'none';
     }
 
     if (uploadBtn) {
@@ -3721,8 +3866,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const regularFileInput = document.getElementById('regular-files');
             const cutoffInput = document.getElementById('regular-cutoff-date');
+            
+            // Get files from either _selectedFiles (drag & drop) or native files property
+            const files = (regularFileInput._selectedFiles && regularFileInput._selectedFiles.length > 0) 
+                ? regularFileInput._selectedFiles 
+                : (regularFileInput.files ? Array.from(regularFileInput.files) : []);
 
-            if (!cutoffInput || !cutoffInput.value || !regularFileInput.files || regularFileInput.files.length === 0) {
+            if (!cutoffInput || !cutoffInput.value || files.length === 0) {
                 if (window.portalUI) {
                     window.portalUI.showNotification('Please select a cutoff date and at least one file.', 'error');
                     setTimeout(() => {
@@ -3736,19 +3886,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            const regularModal = document.getElementById('regularProbationaryImportModal');
-            if (regularModal) {
-                regularModal.classList.remove('show');
-                const modalBackdrop = document.querySelector('.modal-backdrop');
-                if(modalBackdrop) modalBackdrop.remove();
-                document.body.classList.remove('modal-open');
-            }
+            // Close the unified import modal
+            closeUnifiedImportModal();
 
             const formData = new FormData();
             formData.append('cutoff_date', cutoffInput.value);
-            for (let i = 0; i < regularFileInput.files.length; i++) {
-                formData.append('files', regularFileInput.files[i]);
-            }
+            files.forEach(file => {
+                formData.append('files', file);
+            });
 
             fetch(regularForm.action, {
                 method: 'POST',

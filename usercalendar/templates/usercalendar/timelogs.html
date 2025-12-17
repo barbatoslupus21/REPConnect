@@ -105,13 +105,6 @@
                     </label>
                 </div>
 
-                <div class="selected-files" id="selectedFiles" style="display: none;">
-                    <h4>Selected Files:</h4>
-                    <div class="file-list" id="fileList">
-                        <!-- Selected files will be displayed here -->
-                    </div>
-                </div>
-
                 <div class="upload-progress" id="uploadProgress" style="display: none;">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
@@ -250,6 +243,51 @@
             </button>
             <button class="btn btn-outline" onclick="closeModal('addTimelogModal')">
                 Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Validation Errors Modal -->
+<div id="validationErrorsModal" class="modal modal-lg">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Upload Validation Errors</h3>
+            <button class="modal-close" onclick="closeModal('validationErrorsModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="error-summary">
+                <i class="fas fa-exclamation-circle"></i>
+                <p><span id="errorCount">0</span> errors were detected during the import process. Please review and correct the following issues:</p>
+            </div>
+            
+            <div class="error-table-container">
+                <table class="error-table" id="errorTable">
+                    <thead>
+                        <tr>
+                            <th>ID Number</th>
+                            <th>Name</th>
+                            <th>Date and Time</th>
+                            <th>Entry</th>
+                            <th>Error</th>
+                        </tr>
+                    </thead>
+                    <tbody id="errorTableBody">
+                        <!-- Error rows will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="exportErrorBtn">
+                <i class="fas fa-file-excel"></i>
+                Export Errors
+            </button>
+            <button class="btn btn-outline" onclick="closeModal('validationErrorsModal')">
+                Close
             </button>
         </div>
     </div>
