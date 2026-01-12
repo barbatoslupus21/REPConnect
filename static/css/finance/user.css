@@ -1292,11 +1292,16 @@
     padding: 20px;
     position: relative;
     overflow: hidden;
-    border: 1px solid var(--border-color, #e2e8f0);
+    border: 0.5px solid var(--border-color, #e2e8f0);
     display: flex;
     align-items: center;
     gap: 16px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] .finance-stat-card{
+    border: 0.5px solid var(--border-color, #e2e8f0);
+    background: none    ;
 }
 
 .stat-card-decoration {
@@ -1475,6 +1480,17 @@
     transition: all 0.3s ease;
 }
 
+[data-theme="dark"] .finance-card,
+[data-theme="dark"] .finance-card-header,
+[data-theme="dark"] .loan-card-modern,
+[data-theme="dark"] .loan-card-header,
+[data-theme="dark"] .loan-card-footer,
+[data-theme="dark"] .loan-view-btn {
+    border: 0.5px solid var(--border-color, #e2e8f0);
+    background: none;
+}
+
+
 .finance-card-header {
     padding: 20px 24px;
     border-bottom: 1px solid var(--border-color, #e2e8f0);
@@ -1609,6 +1625,12 @@
     background: white;
     border-color: var(--primary-color, #4f46e5);
     transform: translateX(4px);
+}
+
+[data-theme="dark"] .payslip-item:hover,
+[data-theme="dark"] .savings-item:hover {
+    border: 0.5px solid var(--border-color, #e2e8f0);
+    background: none    ;
 }
 
 .payslip-item-left {
@@ -2372,6 +2394,12 @@
     align-items: center;
 }
 
+[data-theme="dark"] .modern-modal .modal-header,
+[data-theme="dark"] .modern-modal .modal-footer {
+    border: 0.5px solid var(--border-color, #e2e8f0);
+    background: none    ;
+}
+
 .modern-modal .modal-header h3,
 .modern-modal .modal-header h4 {
     margin: 0;
@@ -2525,7 +2553,7 @@
     }
     
     .finance-stats-section {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
         gap: 12px;
     }
     
@@ -2561,9 +2589,22 @@
         min-height: 200px;
         max-height: 350px;
     }
+    .loan-card-header {
+        flex-direction: row;
+    }
 }
 
 @media (max-width: 480px) {
+
+    .loan-card-header {
+        flex-direction: row;
+    }
+
+    .finance-stats-section {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
     .finance-page-header {
         padding: 16px;
     }

@@ -362,11 +362,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         section.innerHTML = `
-            <h4>
-                <i class="fas ${getQuestionTypeIcon(question.question_type)}"></i>
-                Question ${question.order}
-            </h4>
-            <div class="question-text">${question.question_text}</div>
+            <div class="question-header" style="margin-bottom: 0 !important;">
+                <span class="question-number">${question.order}.</span>
+                <span class="question-text survey-details-question">${question.question_text}</span>
+            </div>
+            <div class="question-type">
+                <span class="status-pill status-gray">${question.question_type_display}</span>
+            </div>
             ${analysisContent}
         `;
         
@@ -402,8 +404,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         Math.round((option.count / totalResponses) * 100) : 0;
                     return `
                         <div class="answer-option">
+                        <div class="option-text">• ${option.text}</div>
                             <div class="option-info">
-                                <div class="option-text">${option.text}</div>
                             </div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar">
@@ -432,8 +434,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         Math.round((option.count / totalResponses) * 100) : 0;
                     return `
                         <div class="answer-option">
-                            <div class="option-info">
-                                <div class="option-text">${option.text}</div>
+                        <div class="option-info">
+                        <div class="option-text">• ${option.text}</div>
                             </div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar">
@@ -455,13 +457,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         return `
             <div class="rating-scale-analysis">
-                ${question.analysis.ratings.map(rating => `
-                    <div class="rating-item">
-                        <div class="rating-value">${rating.value}</div>
-                        <div class="rating-label">${rating.label || ''}</div>
-                        <div class="rating-count">${rating.count}</div>
-                    </div>
-                `).join('')}
+                ${question.analysis.ratings.map(rating => {
+                    const ratingValue = parseInt(rating.label) || 0;
+                    const stars = Array.from({length: 5}, (_, i) => 
+                        i < ratingValue ? '<i class="fas fa-star star-filled"></i>' : '<i class="far fa-star star-empty"></i>'
+                    ).join('');
+                    return `
+                        <div class="rating-item">
+                            <div class="rating-stars">${stars}</div>
+                            <div class="rating-count">${rating.count}</div>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         `;
     }
@@ -629,7 +636,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show loading state
         tableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-no-data">
+                <td colspan="5" class="table-no-data">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
                         <p>Loading responses...</p>
@@ -653,7 +660,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error loading responses:', error);
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="table-no-data">
+                        <td colspan="5" class="table-no-data">
                             <div class="empty-state">
                                 <i class="fas fa-exclamation-triangle"></i>
                                 <h4>Error Loading Data</h4>
@@ -671,7 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!responses || responses.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="table-no-data">
+                    <td colspan="5" class="table-no-data">
                         <div class="empty-state">
                             <i class="fas fa-inbox"></i>
                             <h4>No Responses Found</h4>
@@ -685,7 +692,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         tableBody.innerHTML = responses.map(response => {
             const hasResponded = response.status === 'completed';
-            const progressPercentage = response.progress || 0;
             
             return `
                 <tr class="responses-table-row ${hasResponded ? 'responded' : 'not-responded'}">
@@ -702,11 +708,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         </span>
                     </td>
                     <td class="hide-column">${response.submitted_at ? formatDateTime(response.submitted_at) : '-'}</td>
-                    <td>
-                        <div class="progress-circle" style="background: conic-gradient(var(--primary-color) ${progressPercentage * 3.6}deg, var(--border-color) 0deg);">
-                            <span>${progressPercentage}%</span>
-                        </div>
-                    </td>
                     <td style="text-align: center;">
                         <button class="btn btn-sm btn-outline view-response-btn" 
                                 data-user-id="${response.user_id}"
@@ -950,7 +951,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
             <div class="response-view-section">
                 <div class="response-question">
-                    <div class="response-question-text">Q${questionNumber}: ${answer.question_text}</div>
+                    <div class="response-question-text">${questionNumber}.  ${answer.question_text}</div>
                     <div class="response-question-type">${formatQuestionType(answer.question_type)}</div>
                 </div>
                 <div class="response-answer">
@@ -1043,13 +1044,36 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatDateTime(dateString) {
         if (!dateString) return '-';
         const date = new Date(dateString);
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        
+        const month = monthNames[date.getMonth()];
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        
+        let hours = date.getHours();
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        
+        return `${month} ${day}, ${year} ${hours}:${minutes}${ampm}`;
     }
     
     function formatDate(dateString) {
         if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString();
+    }
+    
+    function getProgressColorClass(percentage) {
+        if (percentage === 100) return 'progress-green';
+        if (percentage >= 70) return 'progress-yellow';
+        if (percentage >= 50) return 'progress-orange';
+        return 'progress-red';
     }
     
     function formatQuestionType(type) {

@@ -81,8 +81,35 @@ def admin_dashboard(request):
         loans_percent = round(((responses_this_month - responses_last_month) / responses_last_month) * 100, 1)
         loans_positive = responses_this_month >= responses_last_month
     
-    # Recent surveys
-    recent_surveys = Survey.objects.select_related('created_by', 'category').order_by('-created_at').filter(created_by=request.user)
+    # Recent surveys with response counts
+    recent_surveys = Survey.objects.select_related('created_by', 'category').annotate(
+        total_responses=Count('responses', filter=Q(responses__is_complete=True)),
+        completed_users=Count('responses__user', filter=Q(responses__is_complete=True), distinct=True)
+    ).order_by('-created_at').filter(created_by=request.user)
+    
+    # Apply search filter for surveys if provided
+    survey_search = request.GET.get('search', '').strip()
+    if survey_search:
+        recent_surveys = recent_surveys.filter(
+            Q(title__icontains=survey_search) |
+            Q(description__icontains=survey_search) |
+            Q(category__name__icontains=survey_search)
+        )
+    
+    # Pagination for surveys
+    survey_page_number = request.GET.get('page', 1)
+    survey_paginator = Paginator(recent_surveys, 10)
+    tickets = survey_paginator.get_page(survey_page_number)
+    
+    # Add response_rate to each survey
+    for survey in tickets:
+        total_assigned = survey.get_assigned_users().count()
+        if total_assigned > 0:
+            rate = (survey.completed_users / total_assigned) * 100
+            survey.response_rate = min(rate, 100)  # Cap at 100%
+        else:
+            survey.response_rate = 0
+    
     templates_qs = SurveyTemplate.objects.filter(created_by=request.user).order_by("-created_at")
     
     # Apply search filter for templates if provided
@@ -105,14 +132,15 @@ def admin_dashboard(request):
     
     from .forms import SurveyForm
 
-    form = SurveyForm()
+    form = SurveyForm(user=request.user)
     users = EmployeeLogin.objects.filter(is_active=True).order_by('firstname', 'lastname')
 
     context = {
         'total_surveys': total_surveys,
         'active_surveys': active_surveys,
         'total_responses': total_responses,
-        'recent_surveys': recent_surveys,
+        'recent_surveys': tickets,
+        'tickets': tickets,
         'categories': categories,
         'employees_percent': employees_percent,
         'employees_positive': employees_positive,
@@ -147,7 +175,10 @@ def admin_table(request):
         return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
 
     # Build the surveys queryset with optional search
-    surveys = Survey.objects.select_related('created_by', 'category').order_by('-created_at')
+    surveys = Survey.objects.select_related('created_by', 'category').annotate(
+        total_responses=Count('responses', filter=Q(responses__is_complete=True)),
+        completed_users=Count('responses__user', filter=Q(responses__is_complete=True), distinct=True)
+    ).order_by('-created_at').filter(created_by=request.user)
     search = request.GET.get('search', '')
     if search:
         surveys = surveys.filter(
@@ -159,6 +190,15 @@ def admin_table(request):
     paginator = Paginator(surveys, 10)
     page_number = request.GET.get('page') or 1
     page_obj = paginator.get_page(page_number)
+
+    # Add response_rate to each survey
+    for survey in page_obj:
+        total_assigned = survey.get_assigned_users().count()
+        if total_assigned > 0:
+            rate = (survey.completed_users / total_assigned) * 100
+            survey.response_rate = min(rate, 100)  # Cap at 100%
+        else:
+            survey.response_rate = 0
 
     table_html = render_to_string('survey/partials/admin_survey_table.html', {'recent_surveys': page_obj}, request=request)
     pagination_html = render_to_string('survey/partials/admin_survey_pagination.html', {'tickets': page_obj}, request=request)
@@ -291,7 +331,7 @@ def create_survey(request):
         return redirect('user_dashboard')
     
     if request.method == 'POST':
-        form = SurveyForm(request.POST)
+        form = SurveyForm(request.POST, user=request.user)
         if form.is_valid():
             survey = form.save(commit=False)
             survey.created_by = request.user
@@ -357,7 +397,7 @@ def create_survey(request):
             messages.success(request, 'Survey created successfully!')
             return redirect('edit_survey', survey_id=survey.id)
     else:
-        form = SurveyForm()
+        form = SurveyForm(user=request.user)
     
     users = EmployeeLogin.objects.filter(is_active=True).order_by('firstname', 'lastname')
     categories = SurveyCategory.objects.all()
@@ -381,7 +421,7 @@ def edit_survey(request, survey_id):
         return redirect('survey_list')
     
     if request.method == 'POST':
-        form = SurveyForm(request.POST, instance=survey)
+        form = SurveyForm(request.POST, instance=survey, user=request.user)
         if form.is_valid():
             survey = form.save()
             # If visibility changed to 'all', set status active so users can see it
@@ -396,7 +436,7 @@ def edit_survey(request, survey_id):
             messages.success(request, 'Survey updated successfully!')
             return redirect('survey_detail', survey_id=survey.id)
     else:
-        form = SurveyForm(instance=survey)
+        form = SurveyForm(instance=survey, user=request.user)
     
     questions = survey.questions.order_by('order')
     users = EmployeeLogin.objects.filter(is_active=True).order_by('firstname', 'lastname')
@@ -428,7 +468,7 @@ def survey_json(request, survey_id):
         'description': survey.description,
         'category': survey.category.id if survey.category else None,
         'template': survey.template.id if survey.template else None,
-        'deadline': survey.deadline.isoformat() if survey.deadline else None,
+        'deadline': survey.deadline.strftime('%Y-%m-%dT%H:%M') if survey.deadline else None,
         'visibility': survey.visibility,
         'status': survey.status,
         'settings': {
@@ -596,44 +636,31 @@ def survey_chart_timeline(request, survey_id):
     return JsonResponse({'success': True, 'labels': labels, 'values': values})
 
 
-@login_required
-def survey_question_analysis(request, survey_id):
-    survey = get_object_or_404(Survey, id=survey_id)
-    if not (request.user.hr_admin or request.user.iad_admin or request.user.accounting_admin or survey.created_by == request.user):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
 
-    # Basic placeholder: build minimal analysis structure per question
-    questions = []
-    for q in survey.questions.order_by('order'):
-        questions.append({
-            'id': q.id,
-            'order': q.order,
-            'question_text': q.question_text,
-            'question_type': q.question_type,
-            'analysis': {}  # detailed analysis can be added later
-        })
-
-    return JsonResponse({'success': True, 'questions': questions})
-
-
-@login_required
 def survey_responses_data(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id)
     if not (request.user.hr_admin or request.user.iad_admin or request.user.accounting_admin or survey.created_by == request.user):
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
-    qs = SurveyResponse.objects.filter(survey=survey).select_related('user').order_by('-submitted_at')
+    assigned_users = survey.get_assigned_users().order_by('firstname', 'lastname')
+    
     search = request.GET.get('search', '').strip()
     if search:
-        qs = qs.filter(Q(user__firstname__icontains=search) | Q(user__lastname__icontains=search) | Q(user__email__icontains=search))
+        assigned_users = assigned_users.filter(
+            Q(firstname__icontains=search) | Q(lastname__icontains=search) | Q(email__icontains=search)
+        )
 
-    paginator = Paginator(qs, 10)
+    paginator = Paginator(assigned_users, 10)
     page = int(request.GET.get('page', 1))
     page_obj = paginator.get_page(page)
 
     rows = []
-    for r in page_obj.object_list:
-        user = r.user
+    for user in page_obj.object_list:
+        response = SurveyResponse.objects.filter(survey=survey, user=user).first()
+        progress = response.get_completion_percentage() if response else 0
+        status = 'completed' if response and response.is_complete else 'incomplete' if response else 'not started'
+        submitted_at = response.submitted_at if response else None
+        
         name = f"{getattr(user, 'firstname', '')} {getattr(user, 'lastname', '')}".strip()
         
         # Get department from employment_info.department.department_name
@@ -649,9 +676,9 @@ def survey_responses_data(request, survey_id):
             'employee_name': name,
             'employee_id': getattr(user, 'employee_id', '') or '',
             'department': department,
-            'status': 'completed' if r.is_complete else 'incomplete',
-            'submitted_at': r.submitted_at.isoformat() if r.submitted_at else None,
-            'progress': round(r.get_completion_percentage() or 0)
+            'status': status,
+            'submitted_at': submitted_at,
+            'progress': round(progress or 0)
         })
 
     pagination = {
@@ -1922,14 +1949,30 @@ def create_template(request, template_id=None):
                     'settings': data.get('settings', {}),
                 }
 
-                template = SurveyTemplate.objects.create(
-                    name=name,
-                    description=description,
-                    created_by=request.user,
-                    template_data=template_data
-                )
+                # Check if we're editing an existing template
+                if template_id:
+                    # Update existing template
+                    template = get_object_or_404(SurveyTemplate, id=template_id)
+                    # Verify user has permission to edit this template
+                    if template.created_by != request.user and not (request.user.hr_admin or request.user.iad_admin):
+                        return JsonResponse({'error': 'Permission denied'}, status=403)
+                    
+                    template.name = name
+                    template.description = description
+                    template.template_data = template_data
+                    template.save()
+                    
+                    return JsonResponse({'success': True, 'template_id': template.id, 'message': 'Template updated successfully'})
+                else:
+                    # Create new template
+                    template = SurveyTemplate.objects.create(
+                        name=name,
+                        description=description,
+                        created_by=request.user,
+                        template_data=template_data
+                    )
 
-                return JsonResponse({'success': True, 'template_id': template.id})
+                    return JsonResponse({'success': True, 'template_id': template.id, 'message': 'Template created successfully'})
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=400)
 
@@ -2950,7 +2993,8 @@ def survey_question_analysis(request, survey_id):
             'id': question.id,
             'question_text': question.question_text,
             'question_type': question.question_type,
-            'order': question.order,
+            'question_type_display': question.get_question_type_display(),
+            'order': question.order + 1,
             'analysis': get_question_analysis(question)
         }
         analysis_data.append(question_data)

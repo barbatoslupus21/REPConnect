@@ -13,7 +13,7 @@ class EmployeeLogin(AbstractUser):
     username = models.CharField(max_length=20, null=True)
     firstname = models.CharField(max_length=20, null=True)
     lastname = models.CharField(max_length=20, null=True)
-    email = models.EmailField(unique=True, blank=True)
+    email = models.EmailField(blank=True)
     active = models.BooleanField(default=True)
     locked = models.BooleanField(default=False)
     wire_admin = models.BooleanField(default=False)
@@ -32,6 +32,7 @@ class EmployeeLogin(AbstractUser):
     def save(self, *args, **kwargs):
         if not self.avatar:
             self.avatar = 'profile/avatar.svg'
+        self.is_active = self.active and not self.locked
         super().save(*args, **kwargs)
     
     @property

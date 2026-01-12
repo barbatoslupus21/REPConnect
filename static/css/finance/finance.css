@@ -2583,3 +2583,134 @@ body, .profile-container, .profile-card, .profile-main-info, .profile-main-name,
   text-align: center;
   line-height: 1.5;
 }
+
+/* ========================================
+   Upload Progress Modal Styles
+   ======================================== */
+.modal-sm {
+    z-index: 9999;
+}
+
+.modal-sm .modal-content {
+    max-width: 420px;
+    width: 90%;
+}
+
+.modal-overlay.no-close {
+    cursor: default;
+    pointer-events: none;
+}
+
+.upload-progress-modal-content {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.upload-progress-modal-content .modal-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: none;
+}
+
+.upload-progress-modal-content .modal-header h4 {
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.upload-progress-body {
+    padding: var(--space-xl);
+    text-align: center;
+}
+
+.upload-progress-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--space-lg);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse-upload 2s ease-in-out infinite;
+}
+
+.upload-progress-icon i {
+    font-size: 2rem;
+    color: white;
+}
+
+@keyframes pulse-upload {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 15px rgba(59, 130, 246, 0);
+    }
+}
+
+.upload-progress-message {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: var(--space-lg);
+    line-height: 1.5;
+}
+
+.upload-progress-container {
+    margin-bottom: var(--space-md);
+}
+
+.upload-progress-bar-wrapper {
+    width: 100%;
+    height: 12px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
+    border-radius: 10px;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.upload-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: progress-shimmer 1.5s infinite;
+}
+
+@keyframes progress-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.upload-progress-text {
+    margin-top: var(--space-sm);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.upload-progress-status {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin: 0;
+    font-weight: 500;
+}

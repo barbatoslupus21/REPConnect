@@ -153,8 +153,11 @@ class SurveyAdmin {
             surveyForm.addEventListener('submit', function(e) {
                 const titleEl = surveyForm.querySelector('#id_title');
                 const descEl = surveyForm.querySelector('#id_description');
+                const templateEl = surveyForm.querySelector('#id_template');
                 const title = titleEl ? titleEl.value.trim() : '';
                 const desc = descEl ? descEl.value.trim() : '';
+                const template = templateEl ? templateEl.value : '';
+                
                 if (!title) {
                     e.preventDefault();
                     (window.portalUI && window.portalUI.showNotification) ? window.portalUI.showNotification('Please enter a survey title', 'error') : alert('Please enter a survey title');
@@ -165,6 +168,12 @@ class SurveyAdmin {
                     e.preventDefault();
                     (window.portalUI && window.portalUI.showNotification) ? window.portalUI.showNotification('Please enter a survey description', 'error') : alert('Please enter a survey description');
                     if (descEl) descEl.focus();
+                    return;
+                }
+                if (!template) {
+                    e.preventDefault();
+                    (window.portalUI && window.portalUI.showNotification) ? window.portalUI.showNotification('Please select a template', 'error') : alert('Please select a template');
+                    if (templateEl) templateEl.focus();
                     return;
                 }
                 if (visibilitySelect && visibilitySelect.value === 'selected') {
@@ -264,11 +273,17 @@ class SurveyAdmin {
                     const name = t.dataset.tab;
                     if (!name) return;
                     activate(name);
+                    // Update URL hash without scrolling
+                    history.replaceState(null, '', '#' + name);
                 });
             });
 
-            // Initialize the group's active tab
-            let initial = Array.from(tabs).find(t => t.classList.contains('active')) || tabs[0];
+            // Check URL hash to determine initial tab
+            const hash = window.location.hash.slice(1); // Remove the '#' character
+            const tabFromHash = hash && Array.from(tabs).find(t => t.dataset.tab === hash);
+            
+            // Initialize the group's active tab (prioritize URL hash)
+            let initial = tabFromHash || Array.from(tabs).find(t => t.classList.contains('active')) || tabs[0];
             if (initial) activate(initial.dataset.tab);
         });
     }

@@ -115,6 +115,8 @@ class Allowance(models.Model):
     deposit_date = models.DateField(blank=True, null=True)
     # Period covered for allowances without deposit date (e.g., "January 2025", "Q1 2025")
     period_covered = models.CharField(max_length=100, blank=True, null=True)
+    # New field: Flag to indicate if amount is a percentage
+    is_percentage = models.BooleanField(default=False, help_text="If True, amount represents a percentage (e.g., 10 for 10%). Otherwise, it's a fixed amount.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -125,7 +127,9 @@ class Allowance(models.Model):
         display_name = f"{getattr(emp, 'firstname', '')} {getattr(emp, 'lastname', '')}".strip()
         if not display_name or display_name == '':
             display_name = getattr(emp, 'username', None) or getattr(emp, 'idnumber', None) or str(emp.pk)
-        return f"{display_name} - {self.allowance_type.allowance_type}"
+        # Append '%' if it's a percentage
+        amount_display = f"{self.amount}%" if self.is_percentage else f"₱{self.amount}"
+        return f"{display_name} - {self.allowance_type.allowance_type}: {amount_display}"
 
 
 class OJTPayslipData(models.Model):

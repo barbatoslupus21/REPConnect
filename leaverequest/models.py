@@ -157,6 +157,7 @@ class LeaveRequest(models.Model):
 
 class LeaveApprovalAction(models.Model):
     ACTION_CHOICES = [
+        ('updated', 'Updated'),
         ('submitted', 'Submitted'),
         ('approved', 'Approved'),
         ('disapproved', 'Disapproved'),

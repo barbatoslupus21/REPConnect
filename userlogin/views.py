@@ -33,22 +33,30 @@ def userlogin(request):
         password = request.POST.get('password')
 
         try:
-            user = EmployeeLogin.objects.get(username=username)
+            user = EmployeeLogin.objects.get(idnumber=username)
             if user.status != 'approved':
                 messages.error(request, 'Your account is not yet approved and is still in the reviewing process.')
                 context['login_modal'] = True
                 return render(request, 'userlogin/frontpage.html', context)
+            if not user.active:
+                messages.error(request, 'Your account has been deactivated.')
+                context['login_modal'] = True
+                return render(request, 'userlogin/frontpage.html', context)
+            if user.locked:
+                messages.error(request, 'Your account is locked. Please coordinate with Human Resources.')
+                context['login_modal'] = True
+                return render(request, 'userlogin/frontpage.html', context)
+            
+            if user.check_password(password):
+                login(request, user)
+                return redirect('overview')
+            else:
+                messages.error(request, "Login credentials are incorrect.")
+                context['login_modal'] = True
+                return render(request, 'userlogin/frontpage.html', context)
+                
         except EmployeeLogin.DoesNotExist:
             messages.error(request, 'User does not exist.')
-            context['login_modal'] = True
-
-        userLogin = authenticate(request, username=username, password=password)
-
-        if userLogin is not None:
-            login(request, userLogin)
-            return redirect('overview')
-        else:
-            messages.error(request, "Login credentials are incorrect.")
             context['login_modal'] = True
 
     return render(request, 'userlogin/frontpage.html', context)

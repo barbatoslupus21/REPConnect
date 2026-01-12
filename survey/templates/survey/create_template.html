@@ -17,21 +17,20 @@
             <p class="text-muted">Build reusable survey templates for quick survey creation</p>
         </div>
         <div class="page-actions">
-            <a href="{% url 'survey_dashboard' %}" class="btn btn-outline">
+            <a href="{% url 'survey_dashboard' %}#template" class="btn btn-outline">
                 <i class="fas fa-arrow-left"></i>
                 Back to Templates
             </a>
         </div>
     </div>
 
-    <form id="templateForm" method="post" class="template-container" action="{% if edit_template %}{% url 'edit_template' edit_template.id %}{% else %}{% url 'create_template' %}{% endif %}" data-redirect="{% url 'template_list' %}">
+    <form id="templateForm" method="post" class="template-container" action="{% if edit_template %}{% url 'edit_template' edit_template.id %}{% else %}{% url 'create_template' %}{% endif %}" data-redirect="{% url 'survey_dashboard' %}#template">
         {% csrf_token %}
         
         <!-- Template Basic Information -->
         <div class="template-card">
             <div class="card-body">
-                <div class="form-row form-row-2col" style="margin-bottom:0 !important;">
-                    <div class="form-group">
+                <div class="form-group">
                         {# Hidden inputs for name/description; JS will populate these before submit #}
                         <input type="hidden" name="name" id="template_name_hidden" value="{{ form.name.value|default:'' }}">
                         <input type="hidden" name="description" id="template_description_hidden" value="{{ form.description.value|default:'' }}">
@@ -43,17 +42,8 @@
                             <div id="editableTitle" class="template-name" tabindex="0">{% if form.name.value %}{{ form.name.value }}{% else %}Untitled form{% endif %}</div>
                             <div id="editableDesc" class="template-description" tabindex="0">{% if form.description.value %}{{ form.description.value }}{% else %}Form description{% endif %}</div>
                         </div>
-                    </div>
-                    <!-- category removed as requested -->
                 </div>
             </div>
-        </div>
-
-        <div class="add-template-container">
-            <button type="button" class="btn btn-sm btn-outline" id="addQuestionBtn">
-                <i class="fas fa-plus"></i>
-                Add Question
-            </button>
         </div>
 
         <!-- Template Questions Builder -->
@@ -64,6 +54,9 @@
                         <i class="fas fa-question-circle"></i>
                         <h5>No Questions Added</h5>
                         <p>Start building your template by adding questions</p>
+                        <button type="button" class="btn btn-outline" id="addQuestionBtn">
+                            Add Question
+                        </button>
                     </div>
                 </div>
             </div>
@@ -156,7 +149,7 @@
 {% endif %}
 
 <!-- Question Builder Modal -->
-<div class="modal modal-lg" id="questionBuilderModal">
+<div class="modal modal-md" id="questionBuilderModal">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
@@ -178,7 +171,7 @@
                     <textarea class="form-input" name="description" rows="2" placeholder="Additional instructions or help text..."></textarea>
                 </div>
 
-                <div class="form-row form-row-2col row-container">
+                <div class="form-row form-row-2col row-container" style="margin-bottom:10px;">
                     <div class="form-group">
                         <select class="form-input" name="question_type" id="questionTypeSelect" required>
                             <option value="">Select Type</option>
@@ -201,7 +194,7 @@
                         </div>
                         
                         <div>
-                            <button type="button" id="toggleDescriptionBtn" class="btn btn-outline btn-sm" aria-pressed="false">Show description</button>
+                            <button type="button" id="toggleDescriptionBtn" class="btn btn-icon" aria-pressed="false"><i class="fa fa-align-left" aria-hidden="true"></i></button>
                         </div>
                     </div>
                 </div>
@@ -213,7 +206,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline" type="button" data-action="cancel">Cancel</button>
-            <button class="btn btn-primary" type="button" data-action="save" id="saveQuestionBtn">Add Question</button>
+            <button class="btn btn-primary" type="button" data-action="save" id="saveQuestionBtn"><i class="fa fa-plus" aria-hidden="true"></i> Add Question</button>
         </div>
     </div>
 </div>

@@ -443,6 +443,56 @@ document.addEventListener('DOMContentLoaded', function() {
             const initial = parseInt(hiddenInput ? hiddenInput.value : 0, 10) || 0;
             setVisual(initial);
         });
+
+        // Setup matrix rating interactivity for grouped rating scale questions
+        contentArea.querySelectorAll('.rating-matrix-container.user-matrix').forEach(matrixContainer => {
+            matrixContainer.querySelectorAll('.matrix-row').forEach(row => {
+                const starEls = Array.from(row.querySelectorAll('.matrix-star'));
+                if (starEls.length === 0) return;
+                
+                const qName = starEls[0].dataset.questionName;
+                const hiddenInput = row.querySelector(`input[type="hidden"][name="${qName}"]`);
+                
+                function setVisual(value) {
+                    starEls.forEach(s => {
+                        const v = parseInt(s.dataset.value, 10);
+                        if (v <= value) {
+                            s.classList.remove('empty');
+                            s.classList.add('filled');
+                        } else {
+                            s.classList.remove('filled');
+                            s.classList.add('empty');
+                        }
+                    });
+                }
+                
+                // hover preview
+                starEls.forEach(s => {
+                    s.addEventListener('mouseenter', function() {
+                        const v = parseInt(this.dataset.value, 10) || 0;
+                        setVisual(v);
+                    });
+                    s.addEventListener('mouseleave', function() {
+                        // restore from hidden input
+                        const cur = parseInt(hiddenInput ? hiddenInput.value : 0, 10) || 0;
+                        setVisual(cur);
+                    });
+                    s.addEventListener('click', function() {
+                        const v = parseInt(this.dataset.value, 10) || 0;
+                        if (hiddenInput) {
+                            hiddenInput.value = String(v);
+                            // Remove error state from row if exists
+                            row.classList.remove('error');
+                        }
+                        setVisual(v);
+                    });
+                });
+                
+                // initialize visual from hidden value if present
+                const initial = parseInt(hiddenInput ? hiddenInput.value : 0, 10) || 0;
+                setVisual(initial);
+            });
+        });
     }
 
     // Validate required questions, then submit answers via POST
@@ -593,10 +643,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function validateRequiredQuestions() {
         const contentArea = document.getElementById('contentArea');
         if (!contentArea) return { valid: true };
-        const requiredBlocks = contentArea.querySelectorAll('.question-preview[data-required="1"]');
+        
         let allValid = true;
         let firstInvalid = null;
 
+        // Validate regular question blocks
+        const requiredBlocks = contentArea.querySelectorAll('.question-preview[data-required="1"]');
         requiredBlocks.forEach(block => {
             // Clear previous error
             block.classList.remove('error');
@@ -649,12 +701,34 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
+        // Validate matrix rows for required questions
+        const requiredMatrixRows = contentArea.querySelectorAll('.matrix-row[data-required="1"]');
+        requiredMatrixRows.forEach(row => {
+            row.classList.remove('error');
+            const qid = row.getAttribute('data-question-id');
+            const baseName = `question_${qid}`;
+            const hiddenInput = row.querySelector(`input[type="hidden"][name="${baseName}"]`);
+            
+            let valid = false;
+            if (hiddenInput) {
+                valid = !!(hiddenInput.value && hiddenInput.value !== '0' && hiddenInput.value.trim() !== '');
+            }
+            
+            if (!valid) {
+                allValid = false;
+                row.classList.add('error');
+                if (!firstInvalid) firstInvalid = row;
+            }
+        });
+
         // When user edits, clear error state
         const contentAreaEl = document.getElementById('contentArea');
         if (contentAreaEl && !contentAreaEl.dataset.errorClearBound) {
             contentAreaEl.addEventListener('change', (e) => {
                 const qp = e.target.closest('.question-preview');
                 if (qp) qp.classList.remove('error');
+                const mr = e.target.closest('.matrix-row');
+                if (mr) mr.classList.remove('error');
             });
             contentAreaEl.dataset.errorClearBound = '1';
         }
@@ -949,7 +1023,61 @@ document.addEventListener('DOMContentLoaded', function() {
             return [String(raw)];
         }
 
-        return questions.map((question, index) => {
+        // Group consecutive rating scale questions with the same scale
+        function groupConsecutiveRatingQuestions(questions) {
+            const result = [];
+            let i = 0;
+            
+            while (i < questions.length) {
+                const question = questions[i];
+                
+                // Check if this is a rating scale question
+                if (question.type === 'rating_scale') {
+                    const min = question.min_value || 1;
+                    const max = question.max_value || 5;
+                    
+                    // Look for consecutive rating scale questions with the same scale
+                    const group = [{ question, index: i }];
+                    let j = i + 1;
+                    
+                    while (j < questions.length) {
+                        const nextQuestion = questions[j];
+                        if (nextQuestion.type === 'rating_scale' &&
+                            (nextQuestion.min_value || 1) === min &&
+                            (nextQuestion.max_value || 5) === max) {
+                            group.push({ question: nextQuestion, index: j });
+                            j++;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    // If we have 2 or more consecutive rating questions with same scale, group them
+                    if (group.length >= 2) {
+                        result.push({
+                            type: 'rating_matrix',
+                            questions: group,
+                            startIndex: i,
+                            min,
+                            max
+                        });
+                        i = j;
+                    } else {
+                        // Single rating question, render normally
+                        result.push({ type: 'single', question, index: i });
+                        i++;
+                    }
+                } else {
+                    result.push({ type: 'single', question, index: i });
+                    i++;
+                }
+            }
+            
+            return result;
+        }
+
+        // Render a single question
+        function renderSingleQuestion(question, index) {
             const qid = question.id;
             const qName = `question_${qid}`;
             let control = '';
@@ -958,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', function() {
             switch (question.type) {
                 case 'single_choice':
                     control = (opts || []).map(opt => `
-                        <label class="radio-option" style="margin:0; display:flex; align-items:center; gap:12px;">
+                        <label class="radio-option survey-radio-option">
                             <input type="radio" name="${qName}" value="${escapeHtml(opt)}">
                             <span class="radio-circle"></span>
                             <span class="radio-label">${escapeHtml(opt)}</span>
@@ -1024,12 +1152,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 case 'yes_no':
                     control = `
                         <div class="radio-options-vertical">
-                            <label class="radio-option" style="margin:0; display:flex; align-items:center; gap:12px;">
+                            <label class="radio-option survey-radio-option">
                                 <input type="radio" name="${qName}" value="true">
                                 <span class="radio-circle"></span>
                                 <span class="radio-label">Yes</span>
                             </label>
-                            <label class="radio-option" style="margin:0; display:flex; align-items:center; gap:12px;">
+                            <label class="radio-option survey-radio-option">
                                 <input type="radio" name="${qName}" value="false">
                                 <span class="radio-circle"></span>
                                 <span class="radio-label">No</span>
@@ -1053,16 +1181,78 @@ document.addEventListener('DOMContentLoaded', function() {
             return `
                 <div class="question-preview" data-question-id="${qid}" data-required="${question.required ? '1' : '0'}">
                     <div class="question-number">${index + 1}.</div>
-                    <div class="question-type">
-                        <i class="fas ${getQuestionTypeIcon(question.type)}"></i>
-                        ${formatQuestionType(question.type)}
-                    </div>
-                    <div class="question-text">${escapeHtml(question.text)}</div>
+                    <div class="question-text">${escapeHtml(question.text)}</div>   
+                    ${question.required ? '<span class="required-indicator">*</span>' : ''}
                     <div class="question-control">
                         ${control}
                     </div>
                 </div>
             `;
+        }
+
+        // Render a group of rating scale questions as a matrix
+        function renderRatingMatrixGroup(groupData) {
+            const { questions: groupQuestions, min, max } = groupData;
+            const scaleLength = max - min + 1;
+            const headerLabels = Array.from({ length: scaleLength }, (_, i) => min + i);
+            
+            return `
+                <div class="rating-matrix-container user-matrix user-survey">
+                    <div class="rating-matrix">
+                        <table class="rating-matrix-table">
+                            <thead>
+                                <tr>
+                                    <th class="matrix-question-header"></th>
+                                    ${headerLabels.map(val => `
+                                        <th class="matrix-rating-header">
+                                            <span>${val}</span>
+                                        </th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${groupQuestions.map(({ question, index }) => {
+                                    const qid = question.id;
+                                    const qName = `question_${qid}`;
+                                    return `
+                                        <tr class="matrix-row" data-question-id="${qid}" data-required="${question.required ? '1' : '0'}">
+                                            <td class="matrix-question-cell user-scale-cell">
+                                                <div class="matrix-question-number">${index + 1}.</div>
+                                                <div class="matrix-question-content">
+                                                    <span class="matrix-question-text">
+                                                        ${escapeHtml(question.text)}
+                                                        ${question.required ? '<span class="required-indicator">*</span>' : ''}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            ${headerLabels.map(val => `
+                                                <td class="matrix-rating-cell">
+                                                    <i class="fas fa-star matrix-star rating-star empty" 
+                                                       data-value="${val}" 
+                                                       data-question-name="${qName}"
+                                                       aria-hidden="true"></i>
+                                                </td>
+                                            `).join('')}
+                                            <input type="hidden" name="${qName}" value="">
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Group questions and render
+        const groupedQuestions = groupConsecutiveRatingQuestions(questions);
+        
+        return groupedQuestions.map(item => {
+            if (item.type === 'rating_matrix') {
+                return renderRatingMatrixGroup(item);
+            } else {
+                return renderSingleQuestion(item.question, item.index);
+            }
         }).join('');
     }
     
@@ -1099,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="answer-question">
                     <div class="question-number">${index + 1}.</div>
                     <div class="question-text">${answer.question_text || 'Unknown Question'}</div>
+                    ${answer.required ? '<span class="required-indicator">*</span>' : ''}
                 </div>
                 <div class="answer-content">
                     ${formatAnswerDisplay(answer)}

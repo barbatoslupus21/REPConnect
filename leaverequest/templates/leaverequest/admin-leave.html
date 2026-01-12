@@ -170,7 +170,7 @@
                         {% for leave in leave_requests %}
                             <tr data-leave-id="{{ leave.id }}">
                                 <td>
-                                    <span class="control-number">{{ leave.control_number }}</span>
+                                    <span class="control-number">LR-{{ leave.control_number }}</span>
                                 </td>
                                 <td>
                                     <div class="employee-info">
@@ -422,7 +422,7 @@
 </div>        
 
 <!-- Leave Details Modal -->
-<div id="leaveDetailsModal" class="modal modal-lg">
+<div id="leaveDetailsModal" class="modal modal-md">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
@@ -441,7 +441,7 @@
 </div>
 
 <!-- Approval Modal -->
-<div id="approvalModal" class="modal modal-lg">
+<div id="approvalModal" class="modal modal-md">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">

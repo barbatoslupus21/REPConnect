@@ -318,15 +318,9 @@ def leave_detail(request, control_number):
 
     approval_actions = leave_request.approval_actions.all().order_by('action_at')
     
-    from .models import LeaveReason
-    leave_reasons = LeaveReason.objects.filter(leave_type=leave_request.leave_type, is_active=True)
-    
     context = {
         'leave_request': leave_request,
         'approval_actions': approval_actions,
-        'leave_reasons': leave_reasons,
-        'can_edit': (leave_request.employee == request.user and 
-                    leave_request.status == 'routing'),
         'can_cancel': (leave_request.employee == request.user and 
                       leave_request.status in ['routing']),
         'can_approve': (leave_request.current_approver == request.user and 
@@ -364,28 +358,39 @@ def edit_leave(request, control_number):
         return JsonResponse({'success': False, 'message': 'Invalid date format.'})
     reason_text = request.POST.get('reason', '').strip()
     leave_reason_id = request.POST.get('leave_reason')
+    leave_type_id = request.POST.get('leave_type')
+    hrs_requested = request.POST.get('hrs_requested', 0)
+    
+    try:
+        hrs_requested = float(hrs_requested) if hrs_requested else 0
+    except (ValueError, TypeError):
+        hrs_requested = 0
 
-    if not (date_from and date_to and leave_reason_id and reason_text):
+    if not (date_from and date_to and leave_reason_id and reason_text and leave_type_id):
         return JsonResponse({'success': False, 'message': 'All fields are required.'})
 
-    from .models import LeaveReason
+    from .models import LeaveReason, LeaveType
     try:
         leave_request.date_from = date_from
         leave_request.date_to = date_to
         leave_request.reason = reason_text
+        leave_request.leave_type = LeaveType.objects.get(pk=leave_type_id)
         leave_request.leave_reason = LeaveReason.objects.get(pk=leave_reason_id)
+        leave_request.hrs_requested = hrs_requested
         leave_request.save()
 
         LeaveApprovalAction.objects.create(
             leave_request=leave_request,
             approver=request.user,
             sequence=leave_request.approval_actions.count() + 1,
-            status='approved',
-            action='approved',
+            status='routing',
+            action='updated',
             comments='Updated my leave request',
             action_at=timezone.now()
         )
         return JsonResponse({'success': True, 'message': 'Leave request updated successfully!'})
+    except LeaveType.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Invalid leave type selected.'})
     except LeaveReason.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Invalid leave reason selected.'})
     except Exception as e:
@@ -1229,23 +1234,31 @@ def approval_chart_data(request):
             end_date = current_date.replace(month=12, day=31)
             period_label = f"{current_date.year}"
         
-        approval_actions = LeaveApprovalAction.objects.filter(
+        # Get ALL approval actions assigned to this approver within the period
+        # Use created_at for filtering (when the request was routed to this approver)
+        # This includes both pending (routing) and acted-upon requests
+        all_approval_actions = LeaveApprovalAction.objects.filter(
             approver=request.user,
-            action_at__date__gte=start_date,
-            action_at__date__lte=end_date
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
         ).select_related('leave_request__leave_type').exclude(status='cancelled')
         
+        # For distribution chart: show all requests by leave type (including pending)
         leave_types_all = LeaveType.objects.filter(is_active=True).order_by('created_at')
         labels = []
         type_data = []
         colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#f472b6', '#facc15']
         background_colors = []
-        for idx, lt in enumerate(leave_types_all):
-            labels.append(lt.name)
-            cnt = approval_actions.filter(leave_request__leave_type=lt).count()
-            type_data.append(cnt)
-            background_colors.append(colors[idx % len(colors)])
+        color_index = 0
+        for lt in leave_types_all:
+            cnt = all_approval_actions.filter(leave_request__leave_type=lt).count()
+            if cnt > 0:  # Only include leave types with values > 0
+                labels.append(lt.name)
+                type_data.append(cnt)
+                background_colors.append(colors[color_index % len(colors)])
+                color_index += 1
         
+        # For trend chart: use action_at for completed actions, created_at for pending
         leave_types = LeaveType.objects.filter(is_active=True)
         
         time_data = defaultdict(lambda: defaultdict(int))
@@ -1257,8 +1270,10 @@ def approval_chart_data(request):
                 time_labels.append(current_day.day)
                 current_day += timedelta(days=1)
             
-            for action in approval_actions:
-                day_key = action.action_at.date().day
+            for action in all_approval_actions:
+                # Use action_at if available (completed), otherwise use created_at (pending)
+                action_date = action.action_at.date() if action.action_at else action.created_at.date()
+                day_key = action_date.day
                 leave_type_name = action.leave_request.leave_type.name
                 time_data[day_key][leave_type_name] += 1
                 
@@ -1267,9 +1282,11 @@ def approval_chart_data(request):
             while current_month <= end_date:
                 time_labels.append(current_month.strftime('%b'))
                 month_key = current_month.month
-                for action in approval_actions.filter(action_at__month=month_key):
-                    leave_type_name = action.leave_request.leave_type.name
-                    time_data[month_key][leave_type_name] += 1
+                for action in all_approval_actions:
+                    action_date = action.action_at.date() if action.action_at else action.created_at.date()
+                    if action_date.month == month_key:
+                        leave_type_name = action.leave_request.leave_type.name
+                        time_data[month_key][leave_type_name] += 1
                 if current_month.month == 12:
                     current_month = current_month.replace(year=current_month.year + 1, month=1)
                 else:
@@ -1277,14 +1294,17 @@ def approval_chart_data(request):
         else:
             for month in range(1, 13):
                 time_labels.append(calendar.month_abbr[month])
-                for action in approval_actions.filter(action_at__month=month):
-                    leave_type_name = action.leave_request.leave_type.name
-                    time_data[month][leave_type_name] += 1
+                for action in all_approval_actions:
+                    action_date = action.action_at.date() if action.action_at else action.created_at.date()
+                    if action_date.month == month:
+                        leave_type_name = action.leave_request.leave_type.name
+                        time_data[month][leave_type_name] += 1
         
         line_chart_datasets = []
         colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6']
+        color_index = 0
         
-        for i, leave_type in enumerate(leave_types):
+        for leave_type in leave_types:
             if period == 'month':
                 data = [time_data[day].get(leave_type.name, 0) for day in range(1, len(time_labels) + 1)]
             elif period == 'quarter':
@@ -1293,21 +1313,24 @@ def approval_chart_data(request):
             else:
                 data = [time_data[month].get(leave_type.name, 0) for month in range(1, 13)]
             
-            color = colors[i % len(colors)]
-            
-            line_chart_datasets.append({
-                'label': leave_type.name,
-                'data': data,
-                'borderColor': color,
-                'backgroundColor': f"{color}20",
-                'tension': 0.4,
-                'fill': True,
-                'pointRadius': 4,
-                'pointHoverRadius': 6,
-                'pointBackgroundColor': color,
-                'pointBorderColor': '#ffffff',
-                'pointBorderWidth': 2
-            })
+            # Only include leave types that have at least one non-zero value
+            if any(value > 0 for value in data):
+                color = colors[color_index % len(colors)]
+                
+                line_chart_datasets.append({
+                    'label': leave_type.name,
+                    'data': data,
+                    'borderColor': color,
+                    'backgroundColor': f"{color}20",
+                    'tension': 0.4,
+                    'fill': True,
+                    'pointRadius': 4,
+                    'pointHoverRadius': 6,
+                    'pointBackgroundColor': color,
+                    'pointBorderColor': '#ffffff',
+                    'pointBorderWidth': 2
+                })
+                color_index += 1
         
         return JsonResponse({
             'success': True,
@@ -1370,6 +1393,41 @@ def check_approver_api(request):
             'has_approver': False,
             'approver_name': None,
             'error': 'Employment information not found'
+        })
+
+@login_required(login_url="user-login")
+def employee_leave_history_api(request, employee_id):
+    """API endpoint to get leave history for an employee"""
+    try:
+        employee = get_object_or_404(EmployeeLogin, id=employee_id)
+        
+        # Get all leave requests for this employee, ordered by date_prepared descending
+        leave_requests = LeaveRequest.objects.filter(
+            employee=employee
+        ).select_related('leave_type', 'leave_reason').order_by('-date_prepared')
+        
+        leave_history = []
+        for leave in leave_requests:
+            leave_history.append({
+                'control_number': leave.control_number,
+                'leave_type': leave.leave_type.name if leave.leave_type else 'N/A',
+                'leave_reason': leave.leave_reason.reason_text if leave.leave_reason else 'N/A',
+                'date_from': leave.date_from.strftime('%b %d, %Y') if leave.date_from else 'N/A',
+                'date_to': leave.date_to.strftime('%b %d, %Y') if leave.date_to else 'N/A',
+                'reason': leave.reason or 'N/A',
+                'status': leave.status,
+                'status_display': leave.get_status_display(),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'employee_name': f"{employee.firstname} {employee.lastname}",
+            'leave_history': leave_history
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
         })
 
 @login_required(login_url="user-login")

@@ -299,7 +299,7 @@
                     <div class="import-header-section">
                         <div class="import-header-info">
                             <h3 class="import-content-title">Regular Payslip</h3>
-                            <p class="import-content-desc">Upload payslip files for Regular/Probationary employees. Only PDF files are allowed.</p>
+                            <p class="import-content-desc">Upload payslip files for Regular/Probationary employees. Only PDF files are allowed. <strong>Filename format: idnumber_lastname.pdf</strong> (e.g., 960921_mier.pdf or 960921_dela cruz.pdf)</p>
                         </div>
                     </div>
                     
@@ -624,7 +624,7 @@
             <div class="error-help">
                 <h5>Common Issues:</h5>
                 <ul>
-                    <li><strong>Invalid filename format:</strong> Filename must follow pattern: lastname_employeeid.pdf</li>
+                    <li><strong>Invalid filename format:</strong> Filename must follow pattern: idnumber_lastname.pdf (e.g., 960921_mier.pdf or 960921_dela cruz.pdf)</li>
                     <li><strong>Employee not found:</strong> Employee ID in filename doesn't exist in system</li>
                     <li><strong>Wrong employment type:</strong> Only Regular/Probationary employees are allowed</li>
                     <li><strong>Invalid file type:</strong> Only PDF files are accepted</li>
@@ -639,6 +639,31 @@
             <button class="btn btn-outline" id="closeResultsModalBtn">
                 Close
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Progress Modal -->
+<div id="uploadProgressModal" class="modal modal-sm">
+    <div class="modal-overlay no-close"></div>
+    <div class="modal-content upload-progress-modal-content">
+        <div class="modal-header">
+            <h4 id="uploadProgressTitle">Uploading Files</h4>
+        </div>
+        <div class="modal-body upload-progress-body">
+            <div class="upload-progress-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <p class="upload-progress-message">Please do not close this window while the upload is in progress.</p>
+            <div class="upload-progress-container">
+                <div class="upload-progress-bar-wrapper">
+                    <div class="upload-progress-bar" id="uploadProgressBar" style="width: 0%"></div>
+                </div>
+                <div class="upload-progress-text">
+                    <span id="uploadProgressPercent">0%</span>
+                </div>
+            </div>
+            <p class="upload-progress-status" id="uploadProgressStatus">Preparing upload...</p>
         </div>
     </div>
 </div>

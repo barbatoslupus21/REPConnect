@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/leave-reasons/<int:leave_type_id>/', views.leave_reasons_api, name='leave_reasons_api'),
     path('api/holidays-and-exceptions/', views.holidays_and_exceptions_api, name='holidays_and_exceptions_api'),
     path('api/check-approver/', views.check_approver_api, name='check_approver_api'),
+    path('api/employee-leave-history/<int:employee_id>/', views.employee_leave_history_api, name='employee_leave_history_api'),
     
     # Export endpoints
     path('export-report/', views.export_leave_report, name='export_leave_report'),

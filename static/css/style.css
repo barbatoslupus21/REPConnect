@@ -991,7 +991,36 @@ input:checked + .slider:before {
 
 .notification-list {
     max-height: 800px;
-    overflow-y: auto;
+    overflow-y: overlay !important;
+    overflow-x: hidden;
+}
+
+.notification-list::-webkit-scrollbar {
+    width: 8px !important;
+    background: #e0e0e0;
+}
+
+.notification-list::-webkit-scrollbar-track {
+    background: #e0e0e0;
+    border-radius: 4px;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+    background: #6366f1;
+    border-radius: 4px;
+    min-height: 40px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+    background: #4f46e5;
+}
+
+/* Firefox scrollbar */
+@supports (scrollbar-width: thin) {
+    .notification-list {
+        scrollbar-width: thin;
+        scrollbar-color: #6366f1 #e0e0e0;
+    }
 }
 
 .notification-item {
@@ -2338,6 +2367,25 @@ small {
     margin-bottom: 0.5em;
 }
 
+.employee-history-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.employee-history-link:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+.reason-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .info-details {
     margin-top: 0.5em;
     display: flex;
@@ -2636,7 +2684,8 @@ small {
 .form-input {
     width: 100%;
     padding: 10px 14px;
-    font-size: 1rem;
+    font-size: var(--font-size-sm) !important;
+    font-family: poppins, sans-serif;
     border: 1.5px solid #d1d5db;
     border-radius: 8px;
     background: #fff;
@@ -6821,3 +6870,23 @@ body.offcanvas-open {
 .alert.alert-warning i {
     color: #856404;
 }
+
+/* Mobile and Tablet Styles for Notification Popover */
+@media (max-width: 768px) {
+    .notification-popover {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -0%);
+        width: 90vw;
+        max-width: 500px;
+        margin-top: 0;
+    }
+    
+    .notification-list {
+        max-height: 60vh;
+    }
+}
+
+

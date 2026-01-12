@@ -6,29 +6,29 @@
       <div class="text-muted">{{ survey.description|truncatewords:10 }}</div>
     </div>
   </td>
-  <td class="hide-column">
-    {% if survey.category %}
-    <span
-      class="status-pill"
-      style="background-color: {{ survey.category.color }}20; color: {{ survey.category.color }};"
-    >
-      <i class="{{ survey.category.icon }}"></i>
-      {{ survey.category.name }}
-    </span>
-    {% else %}
-    <span class="text-muted">No Category</span>
-    {% endif %}
-  </td>
 
   <td class="hide-column">
     {% if survey.template %}
-    <span class="text-primary">{{ survey.template }}</span>
+    <span class="status-pill status-gray">
+      {{ survey.template.name }}
+    </span>
     {% else %}
-    <span class="text-muted">No template</span>
+    <span class="status-pill status-gray">
+      <i class="fas fa-minus"></i>
+      No template
+    </span>
     {% endif %}
   </td>
 
-  <td>
+  <td style="text-align:center;">
+    <span class="text-primary">{{ survey.total_responses|default:0 }}</span>
+  </td>
+
+  <td style="text-align:center;">
+    <span class="{% if survey.response_rate >= 75 %}text-success{% elif survey.response_rate >= 50 %}text-warning{% else %}text-muted{% endif %}">{{ survey.response_rate|default:0|floatformat:1 }}%</span>
+  </td>
+
+  <td style="text-align:center;">
     <span
       class="status-pill status-{% if survey.status == 'active' %}green{% elif survey.status == 'draft' %}yellow{% elif survey.status == 'closed' %}red{% else %}gray{% endif %}"
     >
@@ -38,13 +38,13 @@
   <td class="hide-column">{{ survey.created_at|date:"M d, Y" }}</td>
   <td style="text-align: center">
       <div style="display:flex; justify-content: center;">
-        <a class="btn btn-icon" href="{% url 'survey_detail' survey.id %}" title="View">
+        <a class="btn btn-sm btn-icon" href="{% url 'survey_detail' survey.id %}" title="View">
           <i class="fas fa-eye"></i>
         </a>
-        <button class="btn btn-icon survey-edit-btn" data-survey-id="{{ survey.id }}" title="Edit">
+        <button class="btn btn-sm btn-icon survey-edit-btn" data-survey-id="{{ survey.id }}" title="Edit">
           <i class="fas fa-edit"></i>
         </button>
-        <button class="btn btn-icon btn-error survey-delete-btn" data-survey-id="{{ survey.id }}" title="Delete">
+        <button class="btn btn-sm btn-icon btn-error survey-delete-btn" data-survey-id="{{ survey.id }}" title="Delete">
           <i class="fas fa-trash"></i>
         </button>
       </div>
@@ -52,7 +52,7 @@
 </tr>
 {% empty %}
 <tr>
-  <td colspan="6" class="text-center">
+  <td colspan="8" class="text-center">
     <div class="empty-state">
       <i class="fa fa-pie-chart"></i>
       <h5>No Survey</h5>

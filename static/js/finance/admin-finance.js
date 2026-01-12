@@ -46,6 +46,113 @@ function closeModalProperly(modalId) {
     return false;
 }
 
+// ========================================
+// Upload Progress Modal Functions
+// ========================================
+function showUploadProgressModal(title = 'Uploading Files') {
+    const modal = document.getElementById('uploadProgressModal');
+    const titleEl = document.getElementById('uploadProgressTitle');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressPercent = document.getElementById('uploadProgressPercent');
+    const progressStatus = document.getElementById('uploadProgressStatus');
+    
+    if (modal) {
+        if (titleEl) titleEl.textContent = title;
+        if (progressBar) progressBar.style.width = '0%';
+        if (progressPercent) progressPercent.textContent = '0%';
+        if (progressStatus) progressStatus.textContent = 'Preparing upload...';
+        
+        modal.style.display = 'flex';
+        setTimeout(() => modal.classList.add('show'), 10);
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function updateUploadProgress(percentage, statusText = null) {
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressPercent = document.getElementById('uploadProgressPercent');
+    const progressStatus = document.getElementById('uploadProgressStatus');
+    
+    if (progressBar) progressBar.style.width = percentage + '%';
+    if (progressPercent) progressPercent.textContent = percentage + '%';
+    if (statusText && progressStatus) progressStatus.textContent = statusText;
+}
+
+function hideUploadProgressModal() {
+    const modal = document.getElementById('uploadProgressModal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }, 300);
+    }
+}
+
+// Generic file upload with progress function
+function uploadFilesWithProgress(options) {
+    const {
+        formData,
+        url,
+        csrfToken,
+        modalTitle,
+        onSuccess,
+        onError
+    } = options;
+    
+    // Close unified import modal and show progress modal
+    closeUnifiedImportModal();
+    showUploadProgressModal(modalTitle || 'Uploading Files');
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('X-CSRFToken', csrfToken);
+    
+    // Track upload progress
+    xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+            const percentage = Math.round((event.loaded / event.total) * 100);
+            let statusText = 'Uploading files...';
+            if (percentage < 30) {
+                statusText = 'Starting upload...';
+            } else if (percentage < 60) {
+                statusText = 'Uploading files...';
+            } else if (percentage < 90) {
+                statusText = 'Almost there...';
+            } else if (percentage < 100) {
+                statusText = 'Finalizing upload...';
+            } else {
+                statusText = 'Processing files...';
+            }
+            updateUploadProgress(percentage, statusText);
+        }
+    };
+    
+    xhr.onload = () => {
+        updateUploadProgress(100, 'Processing complete!');
+        setTimeout(() => {
+            hideUploadProgressModal();
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (onSuccess) onSuccess(data);
+                } catch (e) {
+                    if (onError) onError('Invalid response format');
+                }
+            } else {
+                if (onError) onError('Server error occurred');
+            }
+        }, 500);
+    };
+    
+    xhr.onerror = () => {
+        hideUploadProgressModal();
+        if (onError) onError('Network error occurred');
+    };
+    
+    xhr.send(formData);
+}
+
 // Global function to close the unified import modal
 function closeUnifiedImportModal() {
     const unifiedModal = document.getElementById('unifiedImportModal');
@@ -560,80 +667,46 @@ class AdminFinanceModule {
                     return false;
                 }
 
-                // Close unified import modal immediately when upload starts
-                closeUnifiedImportModal();
-
-                // Create progress toast with spinner
-                const toastId = 'principal-balance-upload-progress-toast';
-                const toast = this.createPersistentProgressToast(toastId, 'Uploading Files... (0%)', 'success');
-
-                // Prepare AJAX request
+                // Prepare FormData
                 const formData = new FormData();
                 files.forEach(file => {
                     formData.append('files', file);
                 });
                 const csrfToken = principalBalanceUploadForm.querySelector('[name=csrfmiddlewaretoken]').value;
 
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', principalBalanceUploadForm.action, true);
-                xhr.setRequestHeader('X-CSRFToken', csrfToken);
+                // Store reference to this for callbacks
+                const self = this;
 
-                // Track upload progress
-                xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const percentage = Math.round((event.loaded / event.total) * 100);
-                        this.updateProgressToastProgress(toastId, { 
-                            percentage, 
-                            message: `Uploading Files... (${percentage}%)` 
-                        });
-                    }
-                };
-
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try {
-                            const data = JSON.parse(xhr.responseText);
-                            
-                            // Mark progress as complete
-                            this.updateProgressToastProgress(toastId, { 
-                                percentage: 100, 
-                                message: 'Uploading Files... (100%)' 
-                            });
-
-                            // Wait a moment then show result
-                            setTimeout(() => {
-                                if (data.success) {
-                                    // Wait for the progress toast to be automatically closed (at 100%)
-                                    // Then show success toast after it's fully removed
-                                    setTimeout(() => {
-                                        this.showToast('Upload successful!', 'success');
-                                        principalBalanceUploadForm.reset();
-                                    }, 650); // 650ms total delay: 300ms for progress toast close + 350ms buffer
-                                } else {
-                                    // Show error toast notification
-                                    this.updateProgressToastError(toastId, 'Upload failed. Some records have errors.', data);
-                                    
-                                    // Auto-download error rows with red font styling
-                                    setTimeout(() => {
-                                        if (data.not_uploaded_rows && Array.isArray(data.not_uploaded_rows) && data.not_uploaded_rows.length > 0) {
-                                            this.downloadPrincipalBalanceErrorsExcel(data.not_uploaded_rows);
-                                        }
-                                    }, 500);
-                                }
-                            }, 500);
-                        } catch (e) {
-                            this.updateProgressToastError(toastId, 'Upload failed. Invalid response format.', null);
+                // Use the progress modal for upload
+                uploadFilesWithProgress({
+                    formData: formData,
+                    url: principalBalanceUploadForm.action,
+                    csrfToken: csrfToken,
+                    modalTitle: 'Uploading Principal Balance',
+                    onSuccess: (data) => {
+                        if (data.success) {
+                            self.showToast('Upload successful!', 'success');
+                            principalBalanceUploadForm.reset();
+                            // Clear file list display
+                            const fileList = document.getElementById('principal-balance-file-list');
+                            const selectedFiles = document.getElementById('selectedPrincipalBalanceFiles');
+                            if (fileList) fileList.innerHTML = '';
+                            if (selectedFiles) selectedFiles.style.display = 'none';
+                            setTimeout(() => window.location.reload(), 2000);
+                        } else {
+                            self.showToast('Upload failed. Some records have errors.', 'error');
+                            // Auto-download error rows with red font styling
+                            if (data.not_uploaded_rows && Array.isArray(data.not_uploaded_rows) && data.not_uploaded_rows.length > 0) {
+                                setTimeout(() => {
+                                    self.downloadPrincipalBalanceErrorsExcel(data.not_uploaded_rows);
+                                }, 500);
+                            }
                         }
-                    } else {
-                        this.updateProgressToastError(toastId, 'Upload failed. Server error occurred.', null);
+                    },
+                    onError: (errorMsg) => {
+                        self.showToast('Upload failed. ' + errorMsg, 'error');
                     }
-                };
-
-                xhr.onerror = () => {
-                    this.updateProgressToastError(toastId, 'Upload failed. Network error occurred.', null);
-                };
-
-                xhr.send(formData);
+                });
             });
         }
 
@@ -681,14 +754,7 @@ class AdminFinanceModule {
                     return false;
                 }
 
-                // Close unified import modal immediately when upload starts
-                closeUnifiedImportModal();
-
-                // Create progress toast with spinner
-                const toastId = 'deduction-upload-progress-toast';
-                const toast = this.createPersistentProgressToast(toastId, 'Uploading Files... (0%)', 'success');
-
-                // Prepare AJAX request
+                // Prepare FormData
                 const formData = new FormData();
                 files.forEach(file => {
                     formData.append('files', file);
@@ -696,66 +762,39 @@ class AdminFinanceModule {
                 formData.append('cutoff_date', cutoffDateInput.value);
                 const csrfToken = deductionUploadForm.querySelector('[name=csrfmiddlewaretoken]').value;
 
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', deductionUploadForm.action, true);
-                xhr.setRequestHeader('X-CSRFToken', csrfToken);
+                // Store reference to this for callbacks
+                const self = this;
 
-                // Track upload progress
-                xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const percentage = Math.round((event.loaded / event.total) * 100);
-                        this.updateProgressToastProgress(toastId, { 
-                            percentage, 
-                            message: `Uploading Files... (${percentage}%)` 
-                        });
-                    }
-                };
-
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try {
-                            const data = JSON.parse(xhr.responseText);
-                            
-                            // Mark progress as complete
-                            this.updateProgressToastProgress(toastId, { 
-                                percentage: 100, 
-                                message: 'Uploading Files... (100%)' 
-                            });
-
-                            // Wait a moment then show result
-                            setTimeout(() => {
-                                if (data.success) {
-                                    // Wait for the progress toast to be automatically closed (at 100%)
-                                    // Then show success toast after it's fully removed
-                                    setTimeout(() => {
-                                        this.showToast('Upload successful!', 'success');
-                                        deductionUploadForm.reset();
-                                    }, 650); // 650ms total delay: 300ms for progress toast close + 350ms buffer
-                                } else {
-                                    // Show error toast notification
-                                    this.updateProgressToastError(toastId, 'Upload failed. Some records have errors.', data);
-                                    
-                                    // Auto-download error rows with red font styling
-                                    setTimeout(() => {
-                                        if (data.added_deductions && Array.isArray(data.added_deductions) && data.added_deductions.length > 0) {
-                                            this.downloadDeductionErrorsExcel(data.added_deductions);
-                                        }
-                                    }, 500);
-                                }
-                            }, 500);
-                        } catch (e) {
-                            this.updateProgressToastError(toastId, 'Upload failed. Invalid response format.', null);
+                // Use the progress modal for upload
+                uploadFilesWithProgress({
+                    formData: formData,
+                    url: deductionUploadForm.action,
+                    csrfToken: csrfToken,
+                    modalTitle: 'Uploading Deductions',
+                    onSuccess: (data) => {
+                        if (data.success) {
+                            self.showToast('Upload successful!', 'success');
+                            deductionUploadForm.reset();
+                            // Clear file list display
+                            const fileList = document.getElementById('deduction-file-list');
+                            const selectedFiles = document.getElementById('selectedDeductionFiles');
+                            if (fileList) fileList.innerHTML = '';
+                            if (selectedFiles) selectedFiles.style.display = 'none';
+                            setTimeout(() => window.location.reload(), 2000);
+                        } else {
+                            self.showToast('Upload failed. Some records have errors.', 'error');
+                            // Auto-download error rows with red font styling
+                            if (data.added_deductions && Array.isArray(data.added_deductions) && data.added_deductions.length > 0) {
+                                setTimeout(() => {
+                                    self.downloadDeductionErrorsExcel(data.added_deductions);
+                                }, 500);
+                            }
                         }
-                    } else {
-                        this.updateProgressToastError(toastId, 'Upload failed. Server error occurred.', null);
+                    },
+                    onError: (errorMsg) => {
+                        self.showToast('Upload failed. ' + errorMsg, 'error');
                     }
-                };
-
-                xhr.onerror = () => {
-                    this.updateProgressToastError(toastId, 'Upload failed. Network error occurred.', null);
-                };
-
-                xhr.send(formData);
+                });
             });
         }
 
@@ -793,57 +832,47 @@ class AdminFinanceModule {
                 const formData = new FormData(savingsUploadForm);
                 formData.set('file', files[0]); // Use single file
 
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', savingsUploadForm.action, true);
-                xhr.setRequestHeader('X-CSRFToken', this.getCSRFToken());
+                // Store reference to this for callbacks
+                const self = this;
 
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            if (response.success) {
-                                window.portalUI.showNotification(response.message, 'success');
-                                if (response.redirect_url) {
-                                    setTimeout(() => {
-                                        window.location.href = response.redirect_url;
-                                    }, 1000);
-                                }
+                // Use the progress modal for upload
+                uploadFilesWithProgress({
+                    formData: formData,
+                    url: savingsUploadForm.action,
+                    csrfToken: this.getCSRFToken(),
+                    modalTitle: 'Uploading Savings',
+                    onSuccess: (response) => {
+                        if (response.success) {
+                            window.portalUI.showNotification(response.message, 'success');
+                            savingsUploadForm.reset();
+                            // Clear file list display
+                            const fileList = document.getElementById('savings-file-list');
+                            const selectedFiles = document.getElementById('selectedSavingsFiles');
+                            if (fileList) fileList.innerHTML = '';
+                            if (selectedFiles) selectedFiles.style.display = 'none';
+                            if (response.redirect_url) {
+                                setTimeout(() => {
+                                    window.location.href = response.redirect_url;
+                                }, 1000);
                             } else {
-                                // Show error toast notification
-                                window.portalUI.showNotification(response.message || 'Upload failed. Some records have errors.', 'error');
-                                
-                                // Auto-download error rows if available
-                                if (response.error_rows && Array.isArray(response.error_rows) && response.error_rows.length > 0) {
-                                    setTimeout(() => {
-                                        this.downloadSavingsErrorsExcel(response.error_rows);
-                                    }, 500);
-                                }
+                                setTimeout(() => window.location.reload(), 2000);
                             }
-                        } catch (e) {
-                            window.portalUI.showNotification('Upload completed successfully', 'success');
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
+                        } else {
+                            // Show error toast notification
+                            window.portalUI.showNotification(response.message || 'Upload failed. Some records have errors.', 'error');
+                            
+                            // Auto-download error rows if available
+                            if (response.error_rows && Array.isArray(response.error_rows) && response.error_rows.length > 0) {
+                                setTimeout(() => {
+                                    self.downloadSavingsErrorsExcel(response.error_rows);
+                                }, 500);
+                            }
                         }
-                    } else {
+                    },
+                    onError: (errorMsg) => {
                         window.portalUI.showNotification('Upload failed. Please try again.', 'error');
                     }
-                    
-                    // Close unified import modal and reset form
-                    closeUnifiedImportModal();
-                    savingsUploadForm.reset();
-                    const fileInput = document.getElementById('savings-files');
-                    if (fileInput) fileInput.value = '';
-                };
-
-                xhr.onerror = () => {
-                    window.portalUI.showNotification('Upload failed. Please check your connection.', 'error');
-                    
-                    // Close unified import modal on error as well
-                    closeUnifiedImportModal();
-                };
-
-                xhr.send(formData);
+                });
             });
         }
 
@@ -879,7 +908,7 @@ class AdminFinanceModule {
                     return false;
                 }
 
-                // Prepare AJAX request
+                // Prepare FormData
                 const formData = new FormData();
                 formData.append('cutoff_date', cutoffDateInput.value);
                 files.forEach(file => {
@@ -887,54 +916,48 @@ class AdminFinanceModule {
                 });
                 const csrfToken = ojtUploadForm.querySelector('[name=csrfmiddlewaretoken]').value;
 
-                fetch(ojtUploadForm.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': csrfToken
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        let message = `Successfully uploaded OJT payslips! Created: ${data.created || 0}, Updated: ${data.updated || 0}`;
-                        this.showToast(message, 'success');
-                        ojtUploadForm.reset();
-                        // Clear file list display
-                        const fileList = document.getElementById('ojt-file-list');
-                        const selectedFiles = document.getElementById('selectedOjtFiles');
-                        if (fileList) fileList.innerHTML = '';
-                        if (selectedFiles) selectedFiles.style.display = 'none';
-                        // Close unified import modal
-                        closeUnifiedImportModal();
-                        // Reload page after 2 seconds to show updated data
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                    } else {
-                        // Show error toast notification
-                        let errorMsg = 'Upload failed. Some records have errors.';
-                        if (data.errors && data.errors.length > 0) {
-                            errorMsg = `Upload failed. ${data.errors.length} record(s) have errors.`;
-                        } else if (data.message) {
-                            errorMsg = data.message;
-                        }
-                        this.showToast(errorMsg, 'error');
-                        
-                        // Auto-download error rows if available
-                        if (data.error_rows && Array.isArray(data.error_rows) && data.error_rows.length > 0) {
+                // Use the progress modal for upload
+                uploadFilesWithProgress({
+                    formData: formData,
+                    url: ojtUploadForm.action,
+                    csrfToken: csrfToken,
+                    modalTitle: 'Uploading OJT Payslips',
+                    onSuccess: (data) => {
+                        if (data.success) {
+                            let message = `Successfully uploaded OJT payslips! Created: ${data.created || 0}, Updated: ${data.updated || 0}`;
+                            this.showToast(message, 'success');
+                            ojtUploadForm.reset();
+                            // Clear file list display
+                            const fileList = document.getElementById('ojt-file-list');
+                            const selectedFiles = document.getElementById('selectedOjtFiles');
+                            if (fileList) fileList.innerHTML = '';
+                            if (selectedFiles) selectedFiles.style.display = 'none';
+                            // Reload page after 2 seconds to show updated data
                             setTimeout(() => {
-                                this.downloadOJTPayslipErrorsExcel(data.error_rows);
-                            }, 500);
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            // Show error toast notification
+                            let errorMsg = 'Upload failed. Some records have errors.';
+                            if (data.errors && data.errors.length > 0) {
+                                errorMsg = `Upload failed. ${data.errors.length} record(s) have errors.`;
+                            } else if (data.message) {
+                                errorMsg = data.message;
+                            }
+                            this.showToast(errorMsg, 'error');
+                            
+                            // Auto-download error rows if available
+                            if (data.error_rows && Array.isArray(data.error_rows) && data.error_rows.length > 0) {
+                                setTimeout(() => {
+                                    this.downloadOJTPayslipErrorsExcel(data.error_rows);
+                                }, 500);
+                            }
                         }
-                        
-                        // Close unified import modal
-                        closeUnifiedImportModal();
+                    },
+                    onError: (errorMsg) => {
+                        console.error('OJT Upload Error:', errorMsg);
+                        this.showToast('Upload failed. Please try again later.', 'error');
                     }
-                })
-                .catch(error => {
-                    console.error('OJT Upload Error:', error);
-                    this.showToast('Upload failed. Please try again later.', 'error');
                 });
             });
         }
@@ -1337,70 +1360,39 @@ class AdminFinanceModule {
             formData.append('files', file);
         });
 
-        const toastId = `${type}-upload-progress-toast`;
-        const toast = this.createPersistentProgressToast(toastId, `Uploading ${type}: 0%`, 'success');
+        // Store reference to this for callbacks
+        const self = this;
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', form.action, true);
-        xhr.setRequestHeader('X-CSRFToken', this.getCSRFToken());
+        // Capitalize first letter for modal title
+        const typeTitle = type.charAt(0).toUpperCase() + type.slice(1);
 
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentage = Math.round((event.loaded / event.total) * 100);
-                this.updateProgressToastProgress(toastId, { 
-                    percentage, 
-                    message: `Uploading ${type}: ${percentage}%` 
-                });
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    const data = JSON.parse(xhr.responseText);
-                    // Mark progress as complete first
-                    this.updateProgressToastProgress(toastId, { 
-                        percentage: 100, 
-                        message: `Uploading ${type}: 100%` 
-                    });
-                    // Wait a moment then show result based on server response
+        // Use the progress modal for upload
+        uploadFilesWithProgress({
+            formData: formData,
+            url: form.action,
+            csrfToken: this.getCSRFToken(),
+            modalTitle: `Uploading ${typeTitle}`,
+            onSuccess: (data) => {
+                if (data.success) {
+                    self.showToast('Upload successful!', 'success');
+                    self.resetForm(type);
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    self.showToast('Upload failed. Some records have errors.', 'error');
+                    // Auto-download error rows with red font styling based on type
                     setTimeout(() => {
-                        if (data.success) {
-                            // Wait for progress toast to auto-close, then show success toast
-                            setTimeout(() => {
-                                this.showToast('Upload successful!', 'success');
-                                this.resetForm(type);
-                            }, 350); // 350ms delay to ensure DOM update and no overlap
-                        } else {
-                            // Show error toast notification
-                            this.updateProgressToastError(
-                                toastId,
-                                'Upload failed. Some records have errors.',
-                                data
-                            );
-                            // Auto-download error rows with red font styling based on type
-                            setTimeout(() => {
-                                if (type === 'allowances' && data.error_rows && Array.isArray(data.error_rows) && data.error_rows.length > 0) {
-                                    this.downloadAllowanceErrorsExcel(data.error_rows);
-                                } else if (data.added_loans && Array.isArray(data.added_loans) && data.added_loans.length > 0) {
-                                    this.downloadErrorRowsExcel(data.added_loans);
-                                }
-                            }, 500);
+                        if (type === 'allowances' && data.error_rows && Array.isArray(data.error_rows) && data.error_rows.length > 0) {
+                            self.downloadAllowanceErrorsExcel(data.error_rows);
+                        } else if (data.added_loans && Array.isArray(data.added_loans) && data.added_loans.length > 0) {
+                            self.downloadErrorRowsExcel(data.added_loans);
                         }
                     }, 500);
-                } catch (e) {
-                    this.updateProgressToastError(toastId, 'Upload failed. Invalid response format.', null);
                 }
-            } else {
-                this.updateProgressToastError(toastId, 'Upload failed. Server error occurred.', null);
+            },
+            onError: (errorMsg) => {
+                self.showToast('Upload failed: ' + errorMsg, 'error');
             }
-        };
-
-        xhr.onerror = () => {
-            this.updateProgressToastError(toastId, 'Upload failed: A network error occurred.');
-        };
-
-        xhr.send(formData);
+        });
     }
     
     resetForm(type) {
@@ -2561,6 +2553,12 @@ class AdminFinanceModule {
     async downloadDeductionErrorsExcel(errorRows) {
         const headers = ['Id Number', 'Name', 'Loan Type', 'Deduction', 'Remarks'];
         await this.downloadErrorRowsWithRedFont(errorRows, headers, 'deduction_upload_errors', 'Deduction Errors');
+    }
+
+    // Download Regular Payslip errors with red font
+    async downloadRegularPayslipErrorsExcel(errorRows) {
+        const headers = ['Filename', 'Error'];
+        await this.downloadErrorRowsWithRedFont(errorRows, headers, 'regular_payslip_upload_errors', 'Regular Payslip Errors');
     }
 }
 
@@ -3886,51 +3884,97 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            // Close the unified import modal
-            closeUnifiedImportModal();
-
             const formData = new FormData();
             formData.append('cutoff_date', cutoffInput.value);
             files.forEach(file => {
                 formData.append('files', file);
             });
 
-            fetch(regularForm.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    if(window.portalUI) {
-                        window.portalUI.showNotification(data.message || 'Payslips uploaded successfully!', 'success', true, 5000);
+            // Use the progress modal for upload
+            uploadFilesWithProgress({
+                formData: formData,
+                url: regularForm.action,
+                csrfToken: document.querySelector('[name=csrfmiddlewaretoken]').value,
+                modalTitle: 'Uploading Regular Payslips',
+                onSuccess: (data) => {
+                    if (data.success) {
+                        if(window.portalUI) {
+                            window.portalUI.showNotification(data.message || 'Payslips uploaded successfully!', 'success', true, 5000);
+                        } else {
+                            alert(data.message || 'Payslips uploaded successfully!');
+                        }
+                        setTimeout(() => window.location.reload(), 2000);
                     } else {
-                        alert(data.message || 'Payslips uploaded successfully!');
+                        // Show error notification
+                        let errorMessage = data.message || 'Upload failed. Some files have errors.';
+                        if (data.errors && data.errors.length > 0) {
+                            errorMessage = `Upload failed. ${data.errors.length} file(s) have errors.`;
+                        }
+                        if(window.portalUI) {
+                            window.portalUI.showNotification(errorMessage, 'error', true, 8000);
+                        } else {
+                            alert(errorMessage);
+                        }
+                        
+                        // Auto-download error report if there are errors
+                        if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+                            // Convert errors to rows format for Excel download
+                            const errorRows = data.errors.map(err => {
+                                if (typeof err === 'object' && err.filename) {
+                                    return [err.filename, err.error || err.message || 'Unknown error'];
+                                } else if (typeof err === 'string') {
+                                    // Try to parse "filename: error" format
+                                    const parts = err.split(':');
+                                    if (parts.length >= 2) {
+                                        return [parts[0].trim(), parts.slice(1).join(':').trim()];
+                                    }
+                                    return ['Unknown', err];
+                                }
+                                return ['Unknown', String(err)];
+                            });
+                            
+                            setTimeout(() => {
+                                if (window.adminFinance && window.adminFinance.downloadRegularPayslipErrorsExcel) {
+                                    window.adminFinance.downloadRegularPayslipErrorsExcel(errorRows);
+                                } else {
+                                    // Fallback: Download simple CSV if adminFinance not available
+                                    downloadRegularPayslipErrorsCSV(errorRows);
+                                }
+                            }, 500);
+                        }
                     }
-                    setTimeout(() => window.location.reload(), 2000);
-                } else {
-                    let errorMessage = data.message;
-                    if (data.errors && data.errors.length > 0) {
-                        errorMessage += ` Errors: ${data.errors.join(', ')}`;
-                    }
+                },
+                onError: (errorMsg) => {
+                    console.error('Upload error:', errorMsg);
                     if(window.portalUI) {
-                        window.portalUI.showNotification(errorMessage, 'error', true, 5000);
+                        window.portalUI.showNotification('An unexpected error occurred during upload.', 'error', true, 5000);
                     } else {
-                        alert(errorMessage);
+                        alert('An unexpected error occurred during upload.');
                     }
-                }
-            })
-            .catch(error => {
-                console.error('Upload error:', error);
-                if(window.portalUI) {
-                    window.portalUI.showNotification('An unexpected error occurred during upload.', 'error', true, 5000);
-                } else {
-                    alert('An unexpected error occurred during upload.');
                 }
             });
         });
     }
 });
+
+// Fallback function for downloading regular payslip errors as CSV
+function downloadRegularPayslipErrorsCSV(errorRows) {
+    let csvContent = 'Filename,Error\n';
+    errorRows.forEach(row => {
+        const filename = row[0] ? String(row[0]).replace(/"/g, '""') : '';
+        const error = row[1] ? String(row[1]).replace(/"/g, '""') : '';
+        csvContent += `"${filename}","${error}"\n`;
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    a.download = `regular_payslip_upload_errors_${timestamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}

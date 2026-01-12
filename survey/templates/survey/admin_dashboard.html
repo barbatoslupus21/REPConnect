@@ -18,79 +18,6 @@
         </div>
     </header>
 
-    <div class="dashboard-stats-container">
-        <div class="dashboard-stats">
-            <div class="modern-stats-grid">
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon blue">
-                            <i class="fas fa-poll"></i>
-                        </div>
-                    </div>
-                    <div class="modern-stat-label">Total Surveys</div>
-                    <div class="modern-stat-value">{{ total_surveys }}</div>
-                    <div class="modern-stat-change {% if employees_positive %}positive{% else %}negative{% endif %}">
-                        <span class="modern-stat-change-icon">
-                            <i class="fas {% if employees_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
-                        </span>
-                        {{ employees_percent }}%
-                        <span class="modern-stat-change-text">vs prev. month</span>
-                    </div>
-                </div>
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon green">
-                            <i class="fas fa-play"></i>
-                        </div>
-                    </div>
-                    <div class="modern-stat-label">Active Surveys</div>
-                    <div class="modern-stat-value">{{ active_surveys }}</div>
-                    <div class="modern-stat-change {% if payslips_positive %}positive{% else %}negative{% endif %}">
-                        <span class="modern-stat-change-icon">
-                            <i class="fas {% if payslips_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
-                        </span>
-                        {{ payslips_percent }}%
-                        <span class="modern-stat-change-text">vs prev. month</span>
-                    </div>
-                </div>
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon orange">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                    </div>
-                    <div class="modern-stat-label">Total Responses</div>
-                    <div class="modern-stat-value">{{ total_responses }}</div>
-                    <div class="modern-stat-change {% if loans_positive %}positive{% else %}negative{% endif %}">
-                        <span class="modern-stat-change-icon">
-                            <i class="fas {% if loans_positive %}fa-arrow-up{% else %}fa-arrow-down{% endif %}"></i>
-                        </span>
-                        {{ loans_percent }}%
-                        <span class="modern-stat-change-text">vs prev. month</span>
-                    </div>
-                </div>
-                <div class="modern-stat-card">
-                    <div class="modern-stat-header">
-                        <div class="modern-stat-icon red">
-                            <i class="fas fa-users"></i>
-                        </div>
-                    </div>
-                    <div class="modern-stat-label">Response Rate</div>
-                    <div class="modern-stat-value">
-                        {% if total_surveys > 0 %}
-                            {{ total_responses|floatformat:0 }}%
-                        {% else %}
-                            0%
-                        {% endif %}
-                    </div>
-                    <div class="modern-stat-change">
-                        <span class="modern-stat-change-text">vs prev. month</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="tabs-horizontal">
             <div class="tab-list">
                 <button class="tab active" data-tab="survey">Survey</button>
@@ -110,7 +37,7 @@
                     </form>
                 </div>
                 <div class="table-actions-right" style="position:relative;">
-                    <button class="btn btn-action" id="createSurveyBtn">
+                    <button class="btn btn-primary" id="createSurveyBtn">
                         <i class="fas fa-plus"></i>
                         Create Survey
                     </button>
@@ -122,9 +49,10 @@
                         <thead>
                             <tr>
                                 <th>Title</th>
-                                <th class="hide-column">Category</th>
                                 <th class="hide-column">Template</th>
-                                <th>Status</th>
+                                <th style="text-align:center;">Responses</th>
+                                <th style="text-align:center;">Response Rate</th>
+                                <th style="text-align:center;">Status</th>
                                 <th class="hide-column">Created</th>
                                 <th style="text-align:center;">Actions</th>
                             </tr>
@@ -188,7 +116,7 @@
                     </form>
                 </div>
                 <div class="table-actions-right" style="position:relative;">
-                    <a class="btn btn-action" href="{% url 'create_template' %}">
+                    <a class="btn btn-primary" href="{% url 'create_template' %}">
                         <i class="fas fa-plus"></i>
                         Create Template
                     </a>
@@ -256,7 +184,7 @@
 </div>
 
 <!-- Create Survey modal -->
-<div id="createSurveyModal" class="modal modal-lg">
+<div id="createSurveyModal" class="modal modal-md">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
@@ -276,27 +204,24 @@
             </div>
 
             <div class="tab-panel active" id="create-basic-tab">
-                <div class="new-survey-container">
-                    <div class="card-body">
-                        <div class="form-row form-row-2col">
-                            <div class="form-group">
-                                <label class="form-label">Survey Title <span style="color:red;">*</span></label>
+                <div class="card-body" style="border:none !important;">
+                        <div class="form-group">
+                                <label class="form-label">Survey Title</label>
                                 {{ form.title }}
                                 {% if form.title.errors %}
                                     <div class="field-error show">{{ form.title.errors.0 }}</div>
                                 {% endif %}
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Category</label>
-                                {{ form.category }}
-                                {% if form.category.errors %}
-                                    <div class="field-error show">{{ form.category.errors.0 }}</div>
+                        </div>
+                        <div class="form-group">
+                                <label class="form-label">Template</label>
+                                {{ form.template }}
+                                {% if form.template.errors %}
+                                    <div class="field-error show">{{ form.template.errors.0 }}</div>
                                 {% endif %}
-                            </div>
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label">Description <span style="color:red;">*</span></label>
+                            <label class="form-label">Description</label>
                             {{ form.description }}
                             {% if form.description.errors %}
                                 <div class="field-error show">{{ form.description.errors.0 }}</div>
@@ -305,27 +230,25 @@
 
                         <div class="form-row form-row-2col">
                             <div class="form-group">
-                                <label class="form-label">Use Template (Optional)</label>
-                                {{ form.template }}
-                                {% if form.template.errors %}
-                                    <div class="field-error show">{{ form.template.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="form-group">
                                 <label class="form-label">Deadline (Optional)</label>
                                 {{ form.deadline }}
                                 {% if form.deadline.errors %}
                                     <div class="field-error show">{{ form.deadline.errors.0 }}</div>
                                 {% endif %}
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">Status</label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                    <div class="field-error show">{{ form.status.errors.0 }}</div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
-                </div>
             </div>
 
             <div class="tab-panel" id="create-visibility-tab">
-                <div class="new-survey-container">
-                    <div class="card-body">
+                <div class="card-body" style="border:none !important;">
                         <div class="form-group">
                             <label class="form-label">Who can access this survey?</label>
                             {{ form.visibility }}
@@ -360,23 +283,11 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
                 </div>
             </div>
 
             <div class="tab-panel" id="create-settings-tab">
-                <div class="new-survey-container">
-                    <div class="card-body">
-                        <div class="form-row form-row-2col">
-                            <div class="form-group">
-                                <label class="form-label">Status</label>
-                                {{ form.status }}
-                                {% if form.status.errors %}
-                                    <div class="field-error show">{{ form.status.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-
+                <div class="card-body" style="border:none !important;">
                         <div class="settings-grid">
                             <div class="setting-item">
                                 <label class="standard-checkbox">
@@ -433,7 +344,6 @@
                                 </label>
                             </div>
                         </div>
-                    </div>
                 </div>
             </div>
 

@@ -55,12 +55,25 @@ class SurveyForm(forms.ModelForm):
         }
     
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         self.fields['category'].queryset = SurveyCategory.objects.all()
-        self.fields['template'].queryset = SurveyTemplate.objects.filter(is_active=True)
+        if user:
+            self.fields['template'].queryset = SurveyTemplate.objects.filter(is_active=True, created_by=user)
+        else:
+            self.fields['template'].queryset = SurveyTemplate.objects.filter(is_active=True)
         self.fields['category'].empty_label = "Select Category (Optional)"
-        self.fields['template'].empty_label = "Select Template (Optional)"
-
+        self.fields['template'].empty_label = "Select Template"        
+        # Make template required
+        self.fields['template'].required = True
+        
+        # Remove required attribute from widgets to prevent default red borders
+        self.fields['title'].widget.attrs.pop('required', None)
+        self.fields['description'].widget.attrs.pop('required', None)
+        self.fields['template'].widget.attrs.pop('required', None)
+        
+        # Set default status to 'active'
+        self.fields['status'].initial = 'active'
 class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
@@ -106,7 +119,7 @@ class SurveyTemplateForm(forms.ModelForm):
             }),
             'description': forms.Textarea(attrs={
                 'class': 'form-input',
-                'rows': 4,
+                'rows': 1,
                 'placeholder': 'Enter template description...'
             }),
             'template_data': forms.HiddenInput(),

@@ -412,6 +412,9 @@ def process_ojt_excel(file, cut_off):
         with transaction.atomic():
             for row_idx, row in enumerate(data_rows, start=2):
                 try:
+                    # Skip completely empty rows
+                    if not row or all(cell is None or (isinstance(cell, str) and cell.strip() == '') for cell in row):
+                        continue
 
                     employee_id = row[0] if row and len(row) > 0 else None
                     if not employee_id:
@@ -810,22 +813,23 @@ def regular_payslip_upload(request):
                     processed += 1
                     continue
 
-                # Parse filename: "lastname_idnumber.pdf"
+                # Parse filename: "idnumber_lastname.pdf" (e.g., "960921_mier.pdf" or "960921_dela cruz.pdf")
+                # Lastname can contain spaces, the important part is the idnumber
                 import re
-                filename_pattern = r'^([A-Za-z]+)_([A-Za-z0-9]+)\.pdf$'
-                match = re.match(filename_pattern, file.name)
+                filename_pattern = r'^([A-Za-z0-9]+)_(.+)\.pdf$'
+                match = re.match(filename_pattern, file.name, re.IGNORECASE)
                 if not match:
-                    errors.append({'filename': file.name, 'error': 'Invalid filename format. Expected: lastname_idnumber.pdf'})
+                    errors.append({'filename': file.name, 'error': 'Invalid filename format. Expected: idnumber_lastname.pdf (e.g., 960921_mier.pdf)'})
                     processed += 1
                     continue
-                lastname, employee_id = match.groups()
+                employee_id, lastname = match.groups()
 
-                # Find employee
+                # Find employee by ID number (the important validation)
                 from userlogin.models import EmployeeLogin
                 try:
                     employee = EmployeeLogin.objects.get(idnumber=employee_id)
                 except EmployeeLogin.DoesNotExist:
-                    errors.append({'filename': file.name, 'error': f'Employee with ID {employee_id} not found'})
+                    errors.append({'filename': file.name, 'error': f'Employee with ID {employee_id} not found in the system'})
                     processed += 1
                     continue
 
@@ -861,8 +865,21 @@ def regular_payslip_upload(request):
                 for_all=True
             )
 
+        # Determine overall success status
+        # If all uploads failed, return success: False
+        # If some succeeded, return success: True with error details
+        if success_count == 0 and len(errors) > 0:
+            return JsonResponse({
+                'success': False,
+                'message': f'Upload failed. {len(errors)} file(s) have errors.',
+                'success_count': success_count,
+                'error_count': len(errors),
+                'errors': errors,
+                'successful_uploads': successful_uploads
+            })
+
         return JsonResponse({
-            'success': True,
+            'success': True if success_count > 0 else False,
             'message': f'Payslips uploaded: {success_count}, Errors: {len(errors)}',
             'success_count': success_count,
             'error_count': len(errors),
@@ -1117,7 +1134,10 @@ def process_loan_principal_excel(file):
         with transaction.atomic():
             for row_idx, row in enumerate(data_rows, start=2):
                 try:
-                    if not row or len(row) < 4:
+                    # Skip completely empty rows
+                    if not row or all(cell is None or (isinstance(cell, str) and cell.strip() == '') for cell in row):
+                        continue
+                    if len(row) < 4:
                         continue
                     employee_id = row[0]
                     employee_name = row[1]
@@ -1234,8 +1254,11 @@ def process_loan_deduction_excel(file, cutoff_date):
         with transaction.atomic():
             for row_idx, row in enumerate(data_rows, start=2):
                 try:
+                    # Skip completely empty rows
+                    if not row or all(cell is None or (isinstance(cell, str) and cell.strip() == '') for cell in row):
+                        continue
                     # Expecting: Id Number, Name, Loan Type, Deduction
-                    if not row or len(row) < 4:
+                    if len(row) < 4:
                         continue
                     employee_id = row[0]
                     name = row[1]  # not used for lookup
@@ -1686,6 +1709,7 @@ def process_allowance_file(file):
                 name = str(row.get('Name', '')).strip()
                 allowance_type_name = str(row.get('Allowance Type', '')).strip()
                 amount_val = row.get('Amount', 0)
+                is_percentage_value = str(row.get('Is Percentage', 'No')).strip().lower()
                 deposit_date_value = row.get('Deposit Date', '')
                 period_covered_value = row.get('Period Covered', '')
                 
@@ -1696,27 +1720,30 @@ def process_allowance_file(file):
                 except EmployeeLogin.DoesNotExist:
                     remark = f"Employee not found for ID: {idnumber}"
                     errors.append(remark)
-                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, is_percentage_value, deposit_date_value, period_covered_value, remark])
                     continue
                 if not allowance_type_name:
                     remark = f"Allowance type is required for employee {idnumber}"
                     errors.append(remark)
-                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, is_percentage_value, deposit_date_value, period_covered_value, remark])
                     continue
                 try:
                     allowance_type = AllowanceType.objects.get(allowance_type=allowance_type_name)
                 except AllowanceType.DoesNotExist:
                     remark = f"Allowance type '{allowance_type_name}' not found"
                     errors.append(f"{remark} for employee {idnumber}")
-                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, is_percentage_value, deposit_date_value, period_covered_value, remark])
                     continue
                 try:
                     amount = float(amount_val or 0)
                 except Exception:
                     remark = f"Invalid amount value"
                     errors.append(f"{remark} for employee {idnumber}")
-                    error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
+                    error_rows.append([idnumber, name, allowance_type_name, amount_val, is_percentage_value, deposit_date_value, period_covered_value, remark])
                     continue
+                
+                # Handle is_percentage - convert Yes/No to boolean
+                is_percentage = is_percentage_value in ['yes', 'y', 'true', '1']
                 
                 # Handle deposit date - keep as null if empty, otherwise parse
                 deposit_date = None
@@ -1727,7 +1754,7 @@ def process_allowance_file(file):
                     except Exception:
                         remark = f"Invalid deposit date '{deposit_date_value}'"
                         errors.append(f"{remark} for employee {idnumber}")
-                        error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
+                        error_rows.append([idnumber, name, allowance_type_name, amount_val, is_percentage_value, deposit_date_value, period_covered_value, remark])
                         continue
                 
                 # Handle period covered - optional field
@@ -1739,13 +1766,14 @@ def process_allowance_file(file):
                     employee=employee,
                     allowance_type=allowance_type,
                     amount=amount,
+                    is_percentage=is_percentage,
                     deposit_date=deposit_date,
                     period_covered=period_covered
                 )
             except Exception as e:
                 remark = str(e)
                 errors.append(f"Error processing row {index + 2}: {remark}")
-                error_rows.append([idnumber, name, allowance_type_name, amount_val, deposit_date_value, period_covered_value, remark])
+                error_rows.append([idnumber, name, allowance_type_name, amount_val, is_percentage_value, deposit_date_value, period_covered_value, remark])
                 success = False
         return success, errors, error_rows
     except Exception as e:
@@ -1761,7 +1789,7 @@ def export_allowance_template(request):
     worksheet = workbook.active
     worksheet.title = "Allowance Import"
 
-    headers = ['Id Number', 'Name', 'Allowance Type', 'Amount', 'Deposit Date', 'Period Covered']
+    headers = ['Id Number', 'Name', 'Allowance Type', 'Amount', 'Is Percentage', 'Deposit Date', 'Period Covered']
     header_font = Font(bold=True, color='000000')
     header_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
     border = Border(
@@ -1794,35 +1822,73 @@ def export_allowance_template(request):
         worksheet.add_data_validation(dv)
         dv.add('C2:C1000')
 
+    # Data validation for Is Percentage (Yes/No dropdown)
+    is_percentage_dv = DataValidation(
+        type="list",
+        formula1='"Yes,No"',
+        allow_blank=False
+    )
+    is_percentage_dv.error = 'Please select Yes or No from the dropdown list!'
+    is_percentage_dv.errorTitle = 'Invalid Selection'
+    is_percentage_dv.prompt = 'Select Yes if amount is a percentage, No if fixed amount'
+    is_percentage_dv.promptTitle = 'Is Percentage'
+    worksheet.add_data_validation(is_percentage_dv)
+    is_percentage_dv.add('E2:E1000')
+
     worksheet.column_dimensions['A'].width = 15
     worksheet.column_dimensions['B'].width = 30
     worksheet.column_dimensions['C'].width = 25
     worksheet.column_dimensions['D'].width = 18
-    worksheet.column_dimensions['E'].width = 18
-    worksheet.column_dimensions['F'].width = 20
+    worksheet.column_dimensions['E'].width = 15
+    worksheet.column_dimensions['F'].width = 18
+    worksheet.column_dimensions['G'].width = 20
 
-    # Add sample data row
+    # Add sample data rows
     sample_row = 2
-    sample_data = ['960001', 'John Doe', '', '2000', '2025-07-31', '']
-    for col_num, value in enumerate(sample_data, 1):
+    # Sample 1: Fixed amount allowance
+    sample_data_1 = ['960001', 'John Doe', '', '2000', 'No', '2025-07-31', '']
+    for col_num, value in enumerate(sample_data_1, 1):
         cell = worksheet.cell(row=sample_row, column=col_num, value=value)
         cell.border = border
         if col_num == 4:
             cell.alignment = Alignment(horizontal='right')
+        if col_num == 5:
+            cell.alignment = center_alignment
+
+    # Sample 2: Percentage allowance
+    sample_row_2 = 3
+    sample_data_2 = ['960002', 'Jane Smith', '', '10', 'Yes', '', 'January 2025']
+    for col_num, value in enumerate(sample_data_2, 1):
+        cell = worksheet.cell(row=sample_row_2, column=col_num, value=value)
+        cell.border = border
+        if col_num == 4:
+            cell.alignment = Alignment(horizontal='right')
+        if col_num == 5:
+            cell.alignment = center_alignment
 
     # Add instructions
-    instructions_row = 4
+    instructions_row = 5
     instruction_text = [
         "INSTRUCTIONS:",
         "1. Fill in the Id Number (Employee ID)",
         "2. Fill in the Name (Employee Name)",
         "3. Select Allowance Type from dropdown ONLY - do not type manually!",
-        "4. Enter Deposit Date in YYYY-MM-DD format (e.g., 2025-07-31) OR leave empty",
-        "5. If no Deposit Date, enter Period Covered (e.g., 'January 2025', 'Q1 2025')",
-        "6. Save file and upload through the system",
+        "4. Enter Amount value (numeric only, no symbols)",
+        "5. Select 'Is Percentage' from dropdown:",
+        "   - 'Yes': The Amount is a percentage (e.g., 10 means 10% of base salary)",
+        "   - 'No': The Amount is a fixed value (e.g., 2000 means ₱2,000)",
+        "6. Enter Deposit Date in YYYY-MM-DD format (e.g., 2025-07-31) OR leave empty",
+        "7. If no Deposit Date, enter Period Covered (e.g., 'January 2025', 'Q1 2025')",
+        "8. Save file and upload through the system",
         "",
         "IMPORTANT: You must select allowance type from dropdown menu only!",
         "Typing allowance type manually will cause upload errors.",
+        "",
+        "HOW 'IS PERCENTAGE' WORKS:",
+        "- When 'Is Percentage' = Yes: The amount represents a percentage.",
+        "  Example: Amount = 10 with Is Percentage = Yes means 10% of base salary.",
+        "- When 'Is Percentage' = No: The amount is a fixed peso value.",
+        "  Example: Amount = 2000 with Is Percentage = No means ₱2,000 flat allowance.",
         "",
         "NOTE: Deposit Date must be in YYYY-MM-DD format (e.g., 2025-07-31).",
         "NOTE: Use Period Covered for balance allowances without a specific deposit date."

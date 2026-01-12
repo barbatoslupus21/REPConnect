@@ -2,31 +2,33 @@
 <link rel="stylesheet" href="{% static 'css/leave/leave.css' %}">
 
 <div class="leave-detail-content">
+    <!-- Header Section - Like Job Order Details -->
+    <div class="detail-header-section">
+        <div class="detail-header-left">
+            <span class="detail-control-number">LR-{{ leave_request.control_number }}</span>
+            <span class="status-badge status-{{ leave_request.status }}">{{ leave_request.get_status_display }}</span>
+        </div>
+        <div class="detail-header-right">
+            <span class="detail-submitted-date">Submitted: {{ leave_request.date_prepared|date:"M d, Y" }}</span>
+        </div>
+    </div>
+
     <!-- Leave Details Section -->
     <div class="detail-section">
-        <div class="detail-header">
+        <div class="detail-section-header">
             <h4>Basic Information</h4>
-
-            {% if can_edit or request.user != leave_request.employee %}
-            <button type="button" class="btn btn-icon" id="editLeaveBtn">
-                    <i class="fas fa-edit"></i>
-            </button>
-            {% endif %}
         </div>
+        
         <!-- View Mode -->
         <div id="detailViewMode">
             <div class="employee-info-grid">
                 <div>
-                    <div class="info-label">Control Number:</div>
-                    <div class="info-value">{{ leave_request.control_number }}</div>
-                </div>
-                <div>
-                    <div class="info-label">Date Prepared:</div>
-                    <div class="info-value">{{ leave_request.date_prepared|date:"M d, Y" }}</div>
-                </div>
-                <div>
                     <div class="info-label">Requested By:</div>
-                    <div class="info-value">{{ leave_request.employee.firstname }} {{ leave_request.employee.lastname }}</div>
+                    <div class="info-value">
+                        <a href="#" class="employee-history-link" data-action="view-leave-history" data-employee-id="{{ leave_request.employee.id }}" data-employee-name="{{ leave_request.employee.firstname }} {{ leave_request.employee.lastname }}">
+                            {{ leave_request.employee.firstname }} {{ leave_request.employee.lastname }}
+                        </a>
+                    </div>
                 </div>
                 <div>
                     <div class="info-label">Department/Line:</div>
@@ -41,6 +43,10 @@
                     <div class="info-value">{{ leave_request.date_to|date:"M d, Y" }}</div>
                 </div>
                 <div>
+                    <div class="info-label">Duration:</div>
+                    <div class="info-value">{{ leave_request.days_requested|floatformat:0 }} day{% if leave_request.days_requested != 1 %}s{% endif %}, {{ leave_request.hrs_requested|floatformat:0 }} hour{% if leave_request.hrs_requested != 1 %}s{% endif %}</div>
+                </div>
+                <div>
                     <div class="info-label">Leave Type:</div>
                     <div class="info-value">{{ leave_request.leave_type.name }}</div>
                 </div>
@@ -52,74 +58,20 @@
                     <div class="info-label">Reason:</div>
                     <div class="info-value">{{ leave_request.reason }}</div>
                 </div>
-                <div>
-                    <div class="info-label">Duration:</div>
-                    <div class="info-value">{{ leave_request.duration_display }}</div>
-                </div>
-                <div>
-                    <div class="info-label">Status:</div>
-                    <div class="status-badge status-{{ leave_request.status }}">{{ leave_request.get_status_display }}</div>
-                </div>
             </div>
-            
-            
         </div>
-        
-        <!-- Edit Mode -->
-        {% if can_edit %}
-        <div id="detailEditMode" style="display: none;">
-            <form id="editLeaveForm" data-control-number="{{ leave_request.control_number }}">
-                {% csrf_token %}
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="edit_date_from" class="form-label">Date From *</label>
-                        <input type="date" name="date_from" id="edit_date_from" class="form-input" 
-                               value="{{ leave_request.date_from|date:'Y-m-d' }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit_date_to" class="form-label">Date To *</label>
-                        <input type="date" name="date_to" id="edit_date_to" class="form-input" 
-                               value="{{ leave_request.date_to|date:'Y-m-d' }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit_leave_reason" class="form-label">Reason Category *</label>
-                        <select name="leave_reason" id="edit_leave_reason" class="form-input" required>
-                            <option value="">Select Leave Reason</option>
-                            {% for reason in leave_reasons %}
-                            <option value="{{ reason.id }}" {% if reason.id == leave_request.leave_reason.id %}selected{% endif %}>
-                                {{ reason.reason_text }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group form-full-width">
-                        <label for="edit_reason" class="form-label">Reason for Leave *</label>
-                        <textarea name="reason" id="edit_reason" class="form-input" rows="4" required>{{ leave_request.reason }}</textarea>
-                    </div>
-                </div>
-                
-                <div class="edit-form-actions">
-                    <button type="button" class="btn btn-outline" id="cancelEditBtn">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Save Changes
-                    </button>
-                </div>
-            </form>
-        </div>
-        {% endif %}
-    </div>
-    <hr class="employee-info-divider">
-    <!-- Approval Timeline Section -->
+
+    <!-- Approval Status Section - Like Job Order Details -->
     <div class="detail-section">
-        <h4>Approval Timeline</h4>
+        <div class="detail-section-header">
+            <h4>Approval Status</h4>
+        </div>
         
         {% if approval_actions %}
-            <div class="timeline">
+            <div class="approval-timeline">
                 {% for action in approval_actions %}
-                <div class="timeline-item">
-                    <div class="timeline-marker status-{{ action.status }}">
+                <div class="approval-timeline-item {% if forloop.last %}last{% endif %}">
+                    <div class="approval-timeline-marker status-{{ action.status }}">
                         {% if action.status == 'approved' %}
                             <i class="fa fa-check-circle"></i>
                         {% elif action.status == 'disapprove' %}
@@ -129,26 +81,38 @@
                         {% elif action.status == 'cancelled' %}
                             <i class="fa fa-exclamation-circle"></i>
                         {% else %}
-                            <i class="fa fa-question-circle"></i>
+                            <i class="fa fa-check-circle"></i>
                         {% endif %}
                     </div>
-                    <div class="timeline-content">
-                        <div class="timeline-header">
-                            <span class="timeline-date">{{ action.action_at|date:"d M" }}</span>
-                            <span class="timeline-time">{{ action.action_at|date:"H:i" }}</span>
-                        </div>
-                        <div class="timeline-details">
-                            <div class="user-header">
-                                <img src="{{action.approver.avatar.url}}" alt="User Avatar" class="avatar" />
-                                <div class="timeline-user-details">
-                                    <span class="approver-name">{% if action.approver %}{% endif %}{{action.approver.firstname}} {{action.approver.lastname}}</span>
-                                    <span class="approver-position">{{action.approver.employment_info.position.position}}</span>
-                                </div>
-                            </div>
-                            {% if action.comments %}
-                                <div class="timeline-comments">{{ action.comments }}</div>
+                    <div class="approval-timeline-content">
+                        <div class="approval-timeline-title">
+                            {{ action.approver.firstname }}, {{ action.approver.lastname }} - 
+                            {% if action.status == 'approved' %}
+                                Approved
+                            {% elif action.status == 'disapprove' %}
+                                Disapproved
+                            {% elif action.status == 'routing' %}
+                                Pending Approval
+                            {% elif action.status == 'cancelled' %}
+                                Cancelled
+                            {% else %}
+                                Submitted
                             {% endif %}
                         </div>
+                        <div class="approval-timeline-subtitle">
+                            {% if action.status == 'routing' %}
+                                Waiting for {{ action.approver.firstname }}, {{ action.approver.lastname }}'s approval
+                            {% else %}
+                                {% if action.action == 'submitted' %}
+                                    Submitted by {{ action.approver.firstname }}, {{ action.approver.lastname }} on {{ action.action_at|date:"M d, Y" }}, {{ action.action_at|date:"g:i A" }}
+                                {% else %}
+                                    {{ action.get_status_display }} by {{ action.approver.firstname }}, {{ action.approver.lastname }} on {{ action.action_at|date:"M d, Y" }}, {{ action.action_at|date:"g:i A" }}
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        {% if action.comments and action.comments != 'Updated my leave request' %}
+                            <div class="approval-timeline-comments">"{{ action.comments }}"</div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -156,12 +120,8 @@
         {% else %}
             <div class="empty-state">
                 <i class="fas fa-history"></i>
-                <p>No approval timeline available.</p>
+                <p>No approval status available.</p>
             </div>
         {% endif %}
     </div>
 </div>
-
-<style>
-
-</style>

@@ -136,7 +136,7 @@ class TemplateBuilder {
             descContainer.style.overflow = '';
             descContainer.style.maxHeight = '';
             toggleBtn.setAttribute('aria-pressed', 'false');
-            toggleBtn.textContent = 'Show description';
+            toggleBtn.innerHTML = '<i class="fa fa-align-left" aria-hidden="true"></i>';
         }
         
         if (editIndex >= 0) {
@@ -158,7 +158,7 @@ class TemplateBuilder {
             // Add mode
             this.currentEditingIndex = -1;
             title.textContent = 'Add Question';
-            saveBtn.textContent = 'Add Question';
+            saveBtn.innerHTML = '<i class="fa fa-plus" aria-hidden="true"></i> Add Question';
             
             // Set default required state
             form.required.checked = document.getElementById('defaultRequired').checked;
@@ -183,11 +183,11 @@ class TemplateBuilder {
                 if (pressed) {
                     this.slideUp(descContainer2, 220);
                     toggleBtn2.setAttribute('aria-pressed', 'false');
-                    toggleBtn2.textContent = 'Show description';
+                    toggleBtn2.innerHTML = '<i class="fa fa-align-left" aria-hidden="true"></i>';
                 } else {
                     this.slideDown(descContainer2, 220);
                     toggleBtn2.setAttribute('aria-pressed', 'true');
-                    toggleBtn2.textContent = 'Hide description';
+                    toggleBtn2.innerHTML = '<i class="fa fa-align-justify" aria-hidden="true"></i>';
                 }
             };
         }
@@ -272,12 +272,13 @@ class TemplateBuilder {
         const options = questionData?.options || ['Option 1', 'Option 2'];
         // Build option rows with a leading control (radio or checkbox) depending on question type.
         const isSingle = (questionData?.question_type === 'single_choice') || false;
+        const showDeleteBtn = options.length > 2;
         return `
             <div class="form-group">
-                <label class="form-label">Options *</label>
+                <label class="form-label" style="font-style: italic; color: var(--text-secondary); font-weight: normal; font-size: var(--font-size-sm);">Add the possible answers respondents can choose from.</label>
                 <div class="options-container" id="optionsContainer">
                     ${options.map((option, index) => `
-                        <div class="option-item" style="display:flex; align-items:center; gap:12px;">
+                        <div class="option-item" style="display:flex; align-items:center; gap:12px; animation: optionSlideIn 0.3s ease-out;">
                             ${isSingle ? `
                                 <label class="radio-option" style="margin:0;">
                                     <input type="radio" name="preview_radio" class="option-radio-input">
@@ -291,7 +292,7 @@ class TemplateBuilder {
                             `}
 
                             <input type="text" class="form-input option-input" value="${option}" placeholder="Option ${index + 1}" required style="flex:1;">
-                            <button type="button" class="btn btn-sm btn-icon btn-error remove-option-btn">
+                            <button type="button" class="btn btn-sm btn-icon btn-error remove-option-btn" style="opacity: ${showDeleteBtn ? '1' : '0'}; pointer-events: ${showDeleteBtn ? 'auto' : 'none'}; transform: scale(${showDeleteBtn ? '1' : '0.8'}); transition: opacity 0.25s ease, transform 0.25s ease, pointer-events 0s;">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </div>
@@ -313,7 +314,7 @@ class TemplateBuilder {
 
             <div class="form-group" style="margin-top:12px;">
                 <label class="form-label">Preview</label>
-                <div class="rating-preview" style="padding: 12px; background: #f8f9fa; border-radius: 6px;">
+                <div class="rating-preview">
                     <div style="margin-bottom: 8px; color: #6c757d; font-size: 14px;">Rating scale preview:</div>
                     <div class="rating-stars-preview" style="display: flex; justify-content: center; gap: 12px; align-items: center;">
                         ${Array.from({length: max - min + 1}, (_, i) => {
@@ -437,14 +438,16 @@ class TemplateBuilder {
         optionItem.style.display = 'flex';
         optionItem.style.alignItems = 'center';
         optionItem.style.gap = '12px';
+        optionItem.style.animation = 'optionSlideIn 0.3s ease-out';
 
+        // Initially hidden delete button, will be shown after appending if count > 2
         optionItem.innerHTML = isSingle ? `
             <label class="radio-option" style="margin:0;">
                 <input type="radio" name="preview_radio" class="option-radio-input">
                 <span class="radio-circle"></span>
             </label>
             <input type="text" class="form-input option-input" placeholder="Option ${optionCount}" required style="flex:1;">
-            <button type="button" class="btn btn-sm btn-icon btn-error remove-option-btn">
+            <button type="button" class="btn btn-sm btn-icon btn-error remove-option-btn" style="opacity: 0; pointer-events: none; transform: scale(0.8); transition: opacity 0.25s ease, transform 0.25s ease, pointer-events 0s;">
                 <i class="fas fa-trash"></i>
             </button>
         ` : `
@@ -453,7 +456,7 @@ class TemplateBuilder {
                 <span class="checkmark"></span>
             </label>
             <input type="text" class="form-input option-input" placeholder="Option ${optionCount}" required style="flex:1;">
-            <button type="button" class="btn btn-sm btn-icon btn-error remove-option-btn">
+            <button type="button" class="btn btn-sm btn-icon btn-error remove-option-btn" style="opacity: 0; pointer-events: none; transform: scale(0.8); transition: opacity 0.25s ease, transform 0.25s ease, pointer-events 0s;">
                 <i class="fas fa-trash"></i>
             </button>
         `;
@@ -465,17 +468,40 @@ class TemplateBuilder {
             this.removeOption(optionItem);
         });
         
-    // focus the text input inside the new option row
-    optionItem.querySelector('.option-input')?.focus();
+        // Update delete button visibility for all options
+        this.updateDeleteButtonsVisibility();
+        
+        // focus the text input inside the new option row
+        optionItem.querySelector('.option-input')?.focus();
     }
     
     removeOption(optionItem) {
         const container = document.getElementById('optionsContainer');
         if (container.children.length > 2) {
-            optionItem.remove();
+            // Add fade out animation before removing
+            optionItem.style.animation = 'optionSlideOut 0.25s ease-out forwards';
+            setTimeout(() => {
+                optionItem.remove();
+                // Update delete button visibility after removal
+                this.updateDeleteButtonsVisibility();
+            }, 250);
         } else {
             window.portalUI.showNotification('At least 2 options are required', 'error');
         }
+    }
+    
+    updateDeleteButtonsVisibility() {
+        const container = document.getElementById('optionsContainer');
+        if (!container) return;
+        
+        const optionCount = container.children.length;
+        const showDeleteBtn = optionCount > 2;
+        
+        container.querySelectorAll('.remove-option-btn').forEach(btn => {
+            btn.style.opacity = showDeleteBtn ? '1' : '0';
+            btn.style.pointerEvents = showDeleteBtn ? 'auto' : 'none';
+            btn.style.transform = showDeleteBtn ? 'scale(1)' : 'scale(0.8)';
+        });
     }
     
     saveQuestion() {
@@ -553,45 +579,207 @@ class TemplateBuilder {
         const emptyState = document.getElementById('emptyQuestionsState');
         
         if (this.questions.length === 0) {
-            emptyState.style.display = 'flex';
+            // Clear all content except empty state, then show empty state
+            container.innerHTML = '';
+            const newEmptyState = document.createElement('div');
+            newEmptyState.className = 'empty-questions-state';
+            newEmptyState.id = 'emptyQuestionsState';
+            newEmptyState.innerHTML = `
+                <i class="fas fa-question-circle"></i>
+                <h5>No Questions Added</h5>
+                <p>Start building your template by adding questions</p>
+                <button type="button" class="btn btn-outline" id="addQuestionBtn">
+                    Add Question
+                </button>
+            `;
+            container.appendChild(newEmptyState);
+            newEmptyState.style.display = 'flex';
+            
+            // Re-bind the add question button
+            document.getElementById('addQuestionBtn').addEventListener('click', () => {
+                this.showQuestionModal();
+            });
             return;
         }
         
-        emptyState.style.display = 'none';
+        // Group consecutive rating scale questions with the same scale
+        const groupedQuestions = this.groupConsecutiveRatingQuestions();
         
-        container.innerHTML = this.questions.map((question, index) => `
-            <div class="question-builder-item" data-index="${index}">
-                <div class="question-item-header">
-                    <div class="question-number">${index + 1}</div>
-                    <div class="question-content">
-                        <div class="question-text">
-                            ${question.question_text}
-                            ${question.required ? '<span class="required-indicator">*</span>' : ''}
+        // Build the questions HTML without the empty state
+        container.innerHTML = `
+            <div class="add-question-header">
+                <button type="button" class="btn btn-outline" id="addQuestionBtnTop">
+                    <i class="fas fa-plus"></i>
+                    Add Question
+                </button>
+            </div>
+        ` + groupedQuestions.map(item => {
+            if (item.type === 'rating_matrix') {
+                return this.renderRatingMatrixGroup(item.questions, item.startIndex);
+            } else {
+                const question = item.question;
+                const index = item.index;
+                return `
+                    <div class="question-builder-item" data-index="${index}">
+                        <div class="question-item-header">
+                            <div class="question-number">${index + 1}</div>
+                            <div class="question-content">
+                                <div class="question-text">
+                                    ${question.question_text}
+                                    ${question.required ? '<span class="required-indicator">*</span>' : ''}
+                                </div>
+                                ${question.description ? `<div class="question-description">${question.description}</div>` : ''}
+                                <div class="question-type-badge">${this.getQuestionTypeDisplay(question.question_type)}</div>
+                            </div>
+                            <div class="question-actions">
+                                <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.editQuestion(${index})" title="Edit Question">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-icon btn-error" onclick="templateBuilder.deleteQuestion(${index})" title="Delete Question">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.moveQuestion(${index}, -1)" title="Move Up" ${index === 0 ? 'disabled' : ''}>
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.moveQuestion(${index}, 1)" title="Move Down" ${index === this.questions.length - 1 ? 'disabled' : ''}>
+                                    <i class="fas fa-arrow-down"></i>
+                                </button>
+                            </div>
                         </div>
-                        ${question.description ? `<div class="question-description">${question.description}</div>` : ''}
-                        <div class="question-type-badge">${this.getQuestionTypeDisplay(question.question_type)}</div>
+                        
+                        <div class="question-preview">
+                            ${this.renderQuestionPreview(question)}
+                        </div>
                     </div>
-                    <div class="question-actions">
-                        <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.editQuestion(${index})" title="Edit Question">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-icon btn-error" onclick="templateBuilder.deleteQuestion(${index})" title="Delete Question">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.moveQuestion(${index}, -1)" title="Move Up" ${index === 0 ? 'disabled' : ''}>
-                            <i class="fas fa-arrow-up"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.moveQuestion(${index}, 1)" title="Move Down" ${index === this.questions.length - 1 ? 'disabled' : ''}>
-                            <i class="fas fa-arrow-down"></i>
-                        </button>
-                    </div>
-                </div>
+                `;
+            }
+        }).join('');
+        
+        // Bind event for the top add question button
+        const addQuestionBtnTop = document.getElementById('addQuestionBtnTop');
+        if (addQuestionBtnTop) {
+            addQuestionBtnTop.addEventListener('click', () => {
+                this.showQuestionModal();
+            });
+        }
+    }
+    
+    // Group consecutive rating scale questions with the same min/max values
+    groupConsecutiveRatingQuestions() {
+        const result = [];
+        let i = 0;
+        
+        while (i < this.questions.length) {
+            const question = this.questions[i];
+            
+            // Check if this is a rating scale question
+            if (question.question_type === 'rating_scale') {
+                const min = question.min_value || 1;
+                const max = question.max_value || 5;
                 
-                <div class="question-preview">
-                    ${this.renderQuestionPreview(question)}
+                // Look for consecutive rating scale questions with the same scale
+                const group = [{ question, index: i }];
+                let j = i + 1;
+                
+                while (j < this.questions.length) {
+                    const nextQuestion = this.questions[j];
+                    if (nextQuestion.question_type === 'rating_scale' &&
+                        (nextQuestion.min_value || 1) === min &&
+                        (nextQuestion.max_value || 5) === max) {
+                        group.push({ question: nextQuestion, index: j });
+                        j++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                // If we have 2 or more consecutive rating questions with same scale, group them
+                if (group.length >= 2) {
+                    result.push({
+                        type: 'rating_matrix',
+                        questions: group,
+                        startIndex: i,
+                        min,
+                        max
+                    });
+                    i = j;
+                } else {
+                    // Single rating question, render normally
+                    result.push({ type: 'single', question, index: i });
+                    i++;
+                }
+            } else {
+                result.push({ type: 'single', question, index: i });
+                i++;
+            }
+        }
+        
+        return result;
+    }
+    
+    // Render a group of rating scale questions as a matrix
+    renderRatingMatrixGroup(questions, startIndex) {
+        const min = questions[0].question.min_value || 1;
+        const max = questions[0].question.max_value || 5;
+        const scaleLength = max - min + 1;
+        
+        // Generate header labels (column headers)
+        const headerLabels = Array.from({ length: scaleLength }, (_, i) => min + i);
+        
+        return `
+            <div class="rating-matrix-container" data-start-index="${startIndex}">
+                <div class="rating-matrix">
+                    <table class="rating-matrix-table">
+                        <thead>
+                            <tr>
+                                <th class="matrix-question-header"></th>
+                                ${headerLabels.map(val => `
+                                    <th class="matrix-rating-header">
+                                        <span>${val}</span>
+                                    </th>
+                                `).join('')}
+                                <th class="matrix-actions-header">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${questions.map(({ question, index }) => `
+                                <tr class="matrix-row" data-index="${index}">
+                                    <td class="matrix-question-cell">
+                                        <div class="matrix-question-number">${index + 1}</div>
+                                        <div class="matrix-question-content">
+                                            <span class="matrix-question-text">
+                                                ${question.question_text}
+                                                ${question.required ? '<span class="required-indicator">*</span>' : ''}
+                                            </span>
+                                            ${question.description ? `<span class="matrix-question-desc">${question.description}</span>` : ''}
+                                        </div>
+                                    </td>
+                                    ${headerLabels.map(val => `
+                                        <td class="matrix-rating-cell">
+                                            <i class="fas fa-star matrix-star" data-value="${val}"></i>
+                                        </td>
+                                    `).join('')}
+                                    <td class="matrix-actions-cell">
+                                        <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.editQuestion(${index})" title="Edit Question">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-icon btn-error" onclick="templateBuilder.deleteQuestion(${index})" title="Delete Question">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.moveQuestion(${index}, -1)" title="Move Up" ${index === 0 ? 'disabled' : ''}>
+                                            <i class="fas fa-arrow-up"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-icon" onclick="templateBuilder.moveQuestion(${index}, 1)" title="Move Down" ${index === this.questions.length - 1 ? 'disabled' : ''}>
+                                            <i class="fas fa-arrow-down"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        `).join('') + emptyState.outerHTML;
+        `;
     }
     
     renderQuestionPreview(question) {
@@ -774,9 +962,65 @@ class TemplateBuilder {
         const newIndex = index + direction;
         if (newIndex < 0 || newIndex >= this.questions.length) return;
         
-        // Swap questions
-        [this.questions[index], this.questions[newIndex]] = [this.questions[newIndex], this.questions[index]];
-        this.updateQuestionsDisplay();
+        const container = document.getElementById('questionsContainer');
+        const items = container.querySelectorAll('.question-builder-item');
+        const currentItem = items[index];
+        const targetItem = items[newIndex];
+        
+        if (!currentItem || !targetItem) {
+            // Fallback: just swap without animation
+            [this.questions[index], this.questions[newIndex]] = [this.questions[newIndex], this.questions[index]];
+            this.updateQuestionsDisplay();
+            return;
+        }
+        
+        // FLIP Animation: First, Last, Invert, Play
+        // Step 1: Record FIRST positions
+        const currentRect = currentItem.getBoundingClientRect();
+        const targetRect = targetItem.getBoundingClientRect();
+        
+        // Calculate the distance each item needs to travel
+        const deltaY = targetRect.top - currentRect.top;
+        
+        // Step 2: Apply transforms to animate the swap visually
+        // Current item moves to target position
+        currentItem.style.transition = 'none';
+        currentItem.style.transform = `translateY(0)`;
+        currentItem.style.zIndex = '10';
+        currentItem.style.position = 'relative';
+        
+        // Target item moves to current position  
+        targetItem.style.transition = 'none';
+        targetItem.style.transform = `translateY(0)`;
+        targetItem.style.position = 'relative';
+        
+        // Force reflow
+        currentItem.offsetHeight;
+        
+        // Step 3: Animate to swapped positions
+        currentItem.style.transition = 'transform 0.3s ease-out';
+        targetItem.style.transition = 'transform 0.3s ease-out';
+        
+        currentItem.style.transform = `translateY(${deltaY}px)`;
+        targetItem.style.transform = `translateY(${-deltaY}px)`;
+        
+        // Step 4: After animation completes, update the DOM
+        setTimeout(() => {
+            // Clear inline styles
+            currentItem.style.transition = '';
+            currentItem.style.transform = '';
+            currentItem.style.zIndex = '';
+            currentItem.style.position = '';
+            targetItem.style.transition = '';
+            targetItem.style.transform = '';
+            targetItem.style.position = '';
+            
+            // Swap questions in the data array
+            [this.questions[index], this.questions[newIndex]] = [this.questions[newIndex], this.questions[index]];
+            
+            // Update the display with new order
+            this.updateQuestionsDisplay();
+        }, 300);
     }
     
     showTemplatePreview() {

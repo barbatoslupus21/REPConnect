@@ -195,8 +195,8 @@
                             <i class="fas fa-gift"></i>
                         </div>
                         <div class="card-header-text">
-                            <h3>Allowances</h3>
-                            <span>Benefits & Compensation</span>
+                            <h3>Benefits</h3>
+                            <span>Allowances, Benefits, and Bonuses</span>
                         </div>
                     </div>
                 </div>
@@ -227,7 +227,7 @@
                                             <i class="fas fa-check-circle"></i> Active
                                         {% endif %}
                                     </span>
-                                    <span class="savings-amount {% if allowance.deposit_date %}withdrawn{% endif %}">₱{{ allowance.amount|floatformat:2 }}</span>
+                                    <span class="savings-amount {% if allowance.deposit_date %}withdrawn{% endif %}">{% if not allowance.is_percentage %}₱{% endif %}{{ allowance.amount|floatformat:2 }}{% if allowance.is_percentage %}%{% endif %}</span>
                                 </div>
                             </div>
                             {% endfor %}

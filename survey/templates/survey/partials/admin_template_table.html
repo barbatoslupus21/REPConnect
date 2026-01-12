@@ -1,7 +1,7 @@
 {% for template in templates %}
 <tr>
   <td>{{ template.name }}</td>
-  <td class="hide-column">{{ template.description }}</td>
+  <td class="hide-column">{% if template.description %}{{ template.description }}{% else %}-{% endif %}</td>
   <td style="text-align:center;">
     {% if template.is_active %}
       <span class="status-pill status-green" >Active</span>

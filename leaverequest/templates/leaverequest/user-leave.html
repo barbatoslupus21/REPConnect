@@ -246,7 +246,7 @@
                             {% for leave in my_requests_page_obj %}
                             <tr>
                                 <td class="leave-hide-column">
-                                    <span class="control-number">{{ leave.control_number }}</span>
+                                    <span class="control-number">LR-{{ leave.control_number }}</span>
                                 </td>
                                 <td class="leave-hide-column">{{ leave.date_prepared|date:"M d, Y" }}</td>
                                 <td>{{ leave.leave_type.name }}</td>
@@ -328,7 +328,6 @@
 
         {% if is_approver %}
         <div id="approvals" class="tab-panel">
-            {% if pending_approvals %}
             <div class="overview-two-column">
                     <div class="chart-grid">
                         <div class="chart-card">
@@ -401,7 +400,7 @@
                                 {% for approval in pending_approvals %}
                                     <tr>
                                         <td class="leave-hide-column">
-                                            <span class="control-number">{{ approval.leave_request.control_number }}</span>
+                                            <span class="control-number">LR-{{ approval.leave_request.control_number }}</span>
                                         </td>
                                         <td>
                                             <div class="employee-info">
@@ -491,13 +490,6 @@
                     {% endif %}
                 </div>
             </div>
-            {% else %}
-            <div class="empty-state">
-                <i class="fa fa-folder-open"></i>
-                <h5>No leave requests</h5>
-                <p>No pending approvals at this time.</p>
-            </div>
-            {% endif %}
         </div>
         {% endif %}
     </div>
@@ -518,11 +510,11 @@
             <div class="modal-body">
                 <div class="form-row form-row-2col">
                     <div class="form-group">
-                        <label for="id_date_from">Date From *</label>
+                        <label for="id_date_from">Date From <span style="color: red;">*</span></label>
                         <input type="date" name="date_from" id="id_date_from" class="form-control" required>
                     </div>
                     <div class="form-group">
-                        <label for="id_date_to">Date To *</label>
+                        <label for="id_date_to">Date To <span style="color: red;">*</span></label>
                         <input type="date" name="date_to" id="id_date_to" class="form-control" required>
                     </div>
                 </div>
@@ -545,7 +537,7 @@
 
                 <div class="form-row form-row-2col">
                     <div class="form-group">
-                        <label for="id_leave_type">Leave Type *</label>
+                        <label for="id_leave_type">Leave Type <span style="color: red;">*</span></label>
                         <select name="leave_type" id="id_leave_type" class="form-control" required>
                             <option value="">Select Leave Type</option>
                             {% for leave_type in leave_types %}
@@ -554,7 +546,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="id_leave_reason">Reason Category *</label>
+                        <label for="id_leave_reason">Reason Category <span style="color: red;">*</span></label>
                         <select name="leave_reason" id="id_leave_reason" class="form-control" required disabled>
                             <option value="">Select Leave Reason</option>
                             {% for leave_reason in leave_reasons %}
@@ -564,7 +556,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="id_reason">Reason for Leave *</label>
+                    <label for="id_reason">Reason for Leave <span style="color: red;">*</span></label>
                     <textarea name="reason" id="id_reason" class="form-control" rows="4" placeholder="Please provide the reason for your leave request..." required></textarea>
                 </div>
                 <input type="hidden" name="hrs_requested" id="id_hrs_requested" value="0">
@@ -581,7 +573,7 @@
 </div>
 
 <!-- Leave Details Modal -->
-<div id="leaveDetailsModal" class="modal modal-lg">
+<div id="leaveDetailsModal" class="modal modal-md">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
@@ -595,12 +587,13 @@
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="leaveDetailsModal">Close</button>
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="leaveDetailsModal">Cancel</button>
         </div>
     </div>
 </div>
 
 <!-- Approval Modal -->
-<div id="approvalModal" class="modal modal-lg">
+<div id="approvalModal" class="modal modal-md">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
@@ -671,6 +664,25 @@
         <div class="modal-footer">
             <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="cancelConfirmModal">No</button>
             <button type="button" class="btn btn-error" id="confirmCancelBtn">Yes, Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Leave History Modal -->
+<div id="leaveHistoryModal" class="modal modal-md">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="leaveHistoryModalTitle">Leave History</h3>
+            <button class="modal-close" data-action="close-modal" data-modal="leaveHistoryModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="leaveHistoryContent">
+            <!-- Content loaded via AJAX -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-action="close-modal" data-modal="leaveHistoryModal">Close</button>
         </div>
     </div>
 </div>

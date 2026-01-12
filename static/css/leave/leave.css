@@ -3124,25 +3124,25 @@
 .status-routing {
     background: rgba(245, 158, 11, 0.1);
     color: var(--leave-routing-color);
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    border: 0.5px solid var(--leave-routing-color);
 }
 
 .status-approved {
     background: rgba(16, 185, 129, 0.1);
     color: var(--leave-approved-color);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    border: 0.5px solid var(--leave-approved-color);
 }
 
 .status-disapproved {
     background: rgba(239, 68, 68, 0.1);
     color: var(--leave-disapproved-color);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    border: 0.5px solid var(--leave-disapproved-color);
 }
 
 .status-cancelled {
     background: rgba(107, 114, 128, 0.1);
     color: var(--leave-cancelled-color);
-    border: 1px solid rgba(107, 114, 128, 0.3);
+    border: 0.5px solid var(--leave-cancelled-color);
 }
 
 /* Quick Actions */
@@ -5062,8 +5062,16 @@
 
 .alert-warning {
     background-color: #fef3c7;
-    border-color: #f59e0b;
+    border-color: 0.5px solid #f59e0b;
     color: #92400e;
+}
+
+[data-theme="dark"] .alert-warning {
+    background: none;
+}
+
+[data-theme="dark"] .alert-warning p {
+    color: var(--warning-color) !important;
 }
 
 .text-warning {
@@ -5139,7 +5147,13 @@
 }
 
 .detail-section {
-    margin-bottom: 2rem;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-section:last-child {
+    margin-bottom: 16px;
+    border-bottom: none;
 }
 
 .detail-section h4{
@@ -5571,4 +5585,254 @@
         flex: 1;
         text-align: center;
     }
+}
+
+.detail-header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 0.5px solid #e5e7eb;
+}
+
+[data-theme="dark"] .detail-header-section {
+  border-bottom: 0.5px solid var(--border-color);
+}
+
+.detail-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.detail-control-number {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+[data-theme="dark"] .detail-control-number {
+  color: white !important;
+}
+
+.detail-header-right {
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.detail-submitted-date {
+    color: #6b7280;
+}
+
+/* Section Header */
+.detail-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+
+.detail-section-header h4 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: #1f2937;
+}
+
+[data-theme="dark"] .detail-section-header h4 {
+  color: white !important;
+}
+
+/* Approval Timeline Styles - Like Job Order */
+.approval-timeline {
+    position: relative;
+    padding-left: 0;
+}
+
+.approval-timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.approval-timeline-item:not(.last)::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 28px;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--text-muted);
+}
+
+.approval-timeline-item.last {
+    padding-bottom: 0;
+}
+
+.approval-timeline-marker {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    z-index: 1;
+}
+
+.approval-timeline-marker.status-approved {
+    background-color: #10b981;
+    color: white;
+}
+
+.approval-timeline-marker.status-disapprove {
+    background-color: #ef4444;
+    color: white;
+}
+
+.approval-timeline-marker.status-routing {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.approval-timeline-marker.status-cancelled {
+    background-color: #6b7280;
+    color: white;
+}
+
+.approval-timeline-marker i {
+    font-size: 12px;
+}
+
+.approval-timeline-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.approval-timeline-title {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 1rem;
+    margin-bottom: 2px;
+}
+
+[data-theme="dark"] .approval-timeline-title {
+  color: var(--text-muted) !important;
+}
+
+.approval-timeline-subtitle {
+    color: #6b7280;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.approval-timeline-comments {
+    margin-top: 8px;
+    padding: 12px;
+    background-color: #fafafa;
+    border-radius: var(--radius-lg);
+    font-size: 0.85rem;
+    color: #4b5563;
+    font-style: italic;
+}
+
+[data-theme="dark"] .approval-timeline-comments {
+  color: var(--text-muted) !important;
+  border: 0.5px solid #4b5563;
+  background: none;
+}
+
+.info-value{
+    font-size: 1rem;
+    font-weight: 500;
+    color: #4b5563;
+}
+
+/* Leave History Cards */
+.leave-history-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.leave-history-card {
+    background: var(--card-bg, #fff);
+    border: 0.5px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+[data-theme="dark"] .leave-history-card {
+  border: 0.5px solid var(--border-color, #e0e0e0);
+  background: none !important;
+}
+
+.leave-history-card-row {
+    display: flex;
+    align-items: center;
+    padding: var(--space-xs) 0;
+}
+
+.leave-history-header {
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.leave-history-control {
+    font-weight: 600;
+    color: var(--primary-color, #007bff);
+    font-size: 0.95rem;
+}
+
+.leave-history-type {
+    background: var(--light-bg, #f8f9fa);
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .leave-history-type {
+  color: var(--text-muted);
+  border-radius: var(--radius-lg);
+  border: 0.5px solid #4b5563;
+  background: none;
+}
+
+.leave-history-header .status-badge {
+    margin-left: auto;
+}
+
+.leave-history-label {
+    font-weight: 500;
+    color: var(--text-muted, #6c757d);
+    min-width: 130px;
+    font-size: 0.9rem;
+}
+
+.leave-history-value {
+    flex: 1;
+    font-size: 1rem;
+    word-break: break-word;
+}
+
+[data-theme="dark"] .leave-history-value {
+  color: var(--text-muted) !important;
+}
+
+.leave-history-value-info {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    word-break: break-word;
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .leave-history-value-info {
+  color: #4b5563 !important;
 }

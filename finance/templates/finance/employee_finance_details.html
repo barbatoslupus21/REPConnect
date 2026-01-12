@@ -143,7 +143,7 @@
                                                     {% endif %}
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-icon delete-payslip-btn" 
+                                                    <button type="button" class="btn btn-sm btn-icon btn-error delete-payslip-btn" 
                                                         data-payslip-id="{{ payslip.id }}"
                                                         data-employee-id="{{ payslip.employee.id }}"
                                                         data-cutoff-date="{{ payslip.cutoff_date }}"
@@ -270,7 +270,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="status-badge {% if loan.is_active %}active{% else %}inactive{% endif %}">
+                                                <span class="status-badge {% if loan.is_active %}status-connected{% else %}status-disabled{% endif %}">
                                                     {% if loan.is_active %}Active{% else %}Inactive{% endif %}
                                                 </span>
                                             </td>
@@ -279,7 +279,7 @@
                                                 <button class="btn btn-sm btn-icon view-loan-btn" title="View Loan" data-loan-id="{{ loan.id }}">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-icon delete-loan-btn" title="Delete Loan" data-loan-id="{{ loan.id }}">
+                                                <button class="btn btn-sm btn-icon btn-error delete-loan-btn" title="Delete Loan" data-loan-id="{{ loan.id }}">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </td>
@@ -342,7 +342,7 @@
                                     <td>{% if allowance.period_covered %}{{ allowance.period_covered }}{% else %}-{% endif %}</td>
                                     <td>{{ allowance.created_at|date:"M d, Y H:i" }}</td>
                                     <td>
-                                        <button class="btn btn-sm btn-icon delete-allowance-btn" title="Delete Allowance" data-allowance-id="{{ allowance.id }}">
+                                        <button class="btn btn-sm btn-icon btn-error delete-allowance-btn" title="Delete Allowance" data-allowance-id="{{ allowance.id }}">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -395,23 +395,21 @@
                             <tbody>
                                 {% for saving in savings %}
                                 <tr>
-                                    <td>Personal Savings</td>
+                                    <td>{{ saving.savings_type }}</td>
                                     <td>₱{{ saving.amount|floatformat:2 }}</td>
                                     <td>
                                         {% if not saving.is_withdrawn %}
-                                            <span class="status-badge active">Active</span>
+                                            <span class="status-badge status-connected">Active</span>
                                         {% else %}
-                                            <span class="status-badge inactive">Withdrawn</span>
+                                            <span class="status-badge status-disabled">Withdrawn</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ saving.updated_at|date:"M d, Y H:i" }}</td>
                                     <td>
                                         {% if not saving.is_withdrawn %}
-                                            <button class="btn btn-sm btn-icon withdraw-savings-btn" title="Withdraw Savings" data-savings-id="{{ saving.id }}">
+                                            <button class="btn btn-sm btn-icon btn-error withdraw-savings-btn" title="Withdraw Savings" data-savings-id="{{ saving.id }}">
                                                 <i class="fas fa-money-bill-wave"></i>
                                             </button>
-                                        {% else %}
-                                            <span class="text-muted">Withdrawn</span>
                                         {% endif %}
                                     </td>
                                 </tr>

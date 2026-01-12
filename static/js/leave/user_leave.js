@@ -89,6 +89,9 @@ class LeaveUserInterface {
             case 'close-modal':
                 this.closeModal(actionEl.getAttribute('data-modal'));
                 break;
+            case 'view-leave-history':
+                this.viewLeaveHistory(actionEl);
+                break;
         }
     }
 
@@ -1045,10 +1048,10 @@ class LeaveUserInterface {
                     hrsRangeElement.textContent = this.getHoursRange();
                 }
 
-                // Hide edit button
+                // Hide edit button (preserve when single-day editing allowed)
                 const editButton = document.querySelector('.hours-edit-btn');
                 if (editButton) {
-                    editButton.style.display = 'none';
+                    editButton.style.display = this.canEditHours ? 'flex' : 'none';
                 }
             }, 300);
         } else {
@@ -1058,10 +1061,10 @@ class LeaveUserInterface {
                 hrsRangeElement.textContent = this.getHoursRange();
             }
 
-            // Hide edit button
+            // Hide edit button (preserve when single-day editing allowed)
             const editButton = document.querySelector('.hours-edit-btn');
             if (editButton) {
-                editButton.style.display = 'none';
+                editButton.style.display = this.canEditHours ? 'flex' : 'none';
             }
         }
     }
@@ -1258,7 +1261,6 @@ class LeaveUserInterface {
             const data = await response.json();
             if (data.success) {
                 document.getElementById('leaveDetailsContent').innerHTML = data.html;
-                this.initializeEditMode();
                 this.openModal('leaveDetailsModal');
             } else {
                 this.showToast(data.message || 'Error loading leave details', 'error');
@@ -1269,81 +1271,61 @@ class LeaveUserInterface {
         }
     }
 
-    initializeEditMode() {
-        const viewMode = document.getElementById('detailViewMode');
-        const editMode = document.getElementById('detailEditMode');
-        const editBtn = document.getElementById('editLeaveBtn');
-        const cancelBtn = document.getElementById('cancelEditBtn');
-        const editForm = document.getElementById('editLeaveForm');
-        const FADE_DURATION = 300;
+    async viewLeaveHistory(element) {
+        const employeeId = element.getAttribute('data-employee-id');
+        const employeeName = element.getAttribute('data-employee-name');
         
-        if (editBtn) {
-            editBtn.addEventListener('click', () => {
-                // Fade out view mode
-                viewMode.classList.add('fade-out');
-                setTimeout(() => {
-                    viewMode.style.display = 'none';
-                    viewMode.classList.remove('fade-out');
-                    // Hide edit button
-                    editBtn.style.display = 'none';
-                    // Show edit mode
-                    editMode.style.display = 'block';
-                    editMode.classList.add('fade-in');
-                    setTimeout(() => editMode.classList.remove('fade-in'), FADE_DURATION);
-                }, FADE_DURATION);
-            });
-        }
-        
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => {
-                // Fade out edit mode
-                editMode.classList.add('fade-out');
-                setTimeout(() => {
-                    editMode.style.display = 'none';
-                    editMode.classList.remove('fade-out');
-                    // Show edit button again
-                    if (editBtn) editBtn.style.display = 'inline-block';
-                    // Show view mode
-                    viewMode.style.display = 'block';
-                    viewMode.classList.add('fade-in');
-                    setTimeout(() => viewMode.classList.remove('fade-in'), FADE_DURATION);
-                }, FADE_DURATION);
-            });
-        }
-        
-        if (editForm) {
-            editForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                await this.saveLeaveEdit(editForm);
-            });
-        }
-    }
+        if (!employeeId) return;
 
-    async saveLeaveEdit(form) {
-        const controlNumber = form.getAttribute('data-control-number');
-        const formData = new FormData(form);
-        
         try {
-            const response = await fetch(`/leave/edit/${controlNumber}/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': this.getCookie('csrftoken'),
-                }
-            });
+            const response = await fetch(`/leave/api/employee-leave-history/${employeeId}/`);
+            if (!response.ok) throw new Error('Failed to fetch leave history');
             
             const data = await response.json();
-            
             if (data.success) {
-                this.showToast('Leave request updated successfully', 'success');
-                this.closeModal('leaveDetailsModal');
-                setTimeout(() => window.location.reload(), 1500);
+                // Update modal title
+                document.getElementById('leaveHistoryModalTitle').textContent = `${data.employee_name}'s Leave History`;
+                
+                // Build the leave history content
+                let content = '';
+                if (data.leave_history.length === 0) {
+                    content = `
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-times"></i>
+                            <h4>No leave history</h4>
+                            <p>This employee has no leave requests.</p>
+                        </div>
+                    `;
+                } else {
+                    content = `
+                        <div class="leave-history-cards">
+                            ${data.leave_history.map(leave => `
+                                <div class="leave-history-card">
+                                    <div class="leave-history-card-row leave-history-header">
+                                        <span class="leave-history-control">LR-${leave.control_number}</span>
+                                        <span class="leave-history-type">${leave.leave_type}</span>
+                                        <span class="status-badge status-${leave.status}">${leave.status_display}</span>
+                                    </div>
+                                    <div class="leave-history-card-row">
+                                        <span class="leave-history-value">${leave.reason}</span>
+                                    </div>
+                                    <div class="leave-history-card-row">
+                                        <span class="leave-history-value-info">${leave.leave_reason} • ${leave.date_from} - ${leave.date_to}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('leaveHistoryContent').innerHTML = content;
+                this.openModal('leaveHistoryModal');
             } else {
-                this.showToast(data.message || 'Error updating leave request', 'error');
+                this.showToast(data.error || 'Error loading leave history', 'error');
             }
         } catch (error) {
-            console.error('Error updating leave:', error);
-            this.showToast('Error updating leave request', 'error');
+            console.error('Error loading leave history:', error);
+            this.showToast('Error loading leave history', 'error');
         }
     }
 
@@ -1491,8 +1473,13 @@ class LeaveUserInterface {
     }
 
     async refreshApprovals() {
-        // Could implement AJAX refresh of approvals table
+        // Reload approval charts when tab becomes visible
         console.log('Refreshing approvals...');
+        // Charts need to be redrawn when the tab becomes visible
+        // because they may have been initialized while hidden
+        setTimeout(() => {
+            this.loadApprovalChartData();
+        }, 100);
     }
 
     async refreshData() {
@@ -2369,8 +2356,10 @@ class LeaveUserInterface {
                 throw new Error(`HTTP error ${response.status}`);
             }
             const data = await response.json();
-            console.log('Approval chart data response:', data);
+            console.log('Approval chart data response:', JSON.stringify(data, null, 2));
             if (data.success) {
+                console.log('Status chart data:', data.status_chart);
+                console.log('Line chart data:', data.line_chart);
                 this.createApprovalDistributionChart(data.status_chart);
                 this.createApprovalRequestChart(data.line_chart);
                 this.updateApprovalPeriodLabels(data.period_label);
@@ -2396,7 +2385,12 @@ class LeaveUserInterface {
 
     createApprovalDistributionChart(data) {
         const ctx = document.getElementById('LeaveDistributionChart');
-        if (!ctx) return;
+        if (!ctx) {
+            console.log('LeaveDistributionChart canvas not found');
+            return;
+        }
+
+        console.log('Creating approval distribution chart with data:', data);
 
         // Destroy existing chart
         if (this.approvalDistributionChart) {
@@ -2406,10 +2400,15 @@ class LeaveUserInterface {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         const textColor = isDark ? '#f8fafc' : '#0f172a';
         
+        // Ensure data has required properties with defaults
+        const labels = data.labels || [];
+        const values = data.data || [];
+        const bgColors = data.backgroundColor || ['#6366f1', '#10b981', '#f59e0b', '#ef4444'];
+        
         // Update center text for approval chart (sum of all types)
         const centerNumber = document.querySelector('#LeaveDistributionChart').closest('.donut-chart-wrapper').querySelector('.donut-center-number');
         const centerLabel = document.querySelector('#LeaveDistributionChart').closest('.donut-chart-wrapper').querySelector('.donut-center-label');
-        const totalActions = data.data.reduce((sum, v) => sum + v, 0);
+        const totalActions = values.reduce((sum, v) => sum + v, 0);
         if (centerNumber) {
             centerNumber.textContent = totalActions.toLocaleString();
         }
@@ -2418,23 +2417,28 @@ class LeaveUserInterface {
         }
 
         // Create custom legend for approval actions
-        this.createApprovalCustomLegend(data);
+        this.createApprovalCustomLegend({ labels, data: values, backgroundColor: bgColors });
 
-        // Handle case where all data is zero
-        const chartData = data.data.slice();
-        const hasData = chartData.some(value => value > 0);
+        // Handle case where there's no data at all
+        let chartLabels = labels;
+        let chartData = values.slice();
+        let chartColors = bgColors;
+        const hasData = chartData.length > 0 && chartData.some(value => value > 0);
         
         if (!hasData) {
-            chartData.fill(1);
+            // Show placeholder when no data
+            chartLabels = ['No Data'];
+            chartData = [1];
+            chartColors = [isDark ? '#334155' : '#e2e8f0'];
         }
 
         this.approvalDistributionChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: data.labels,
+                labels: chartLabels,
                 datasets: [{
                     data: chartData,
-                    backgroundColor: data.backgroundColor,
+                    backgroundColor: chartColors,
                     borderWidth: 2,
                     borderColor: isDark ? '#1e293b' : '#ffffff',
                     hoverBorderWidth: 3,
@@ -2458,7 +2462,8 @@ class LeaveUserInterface {
                         borderWidth: 1,
                         callbacks: {
                             label: function(context) {
-                                const percentage = ((context.parsed / data.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                const total = values.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
                                 return `${context.label}: ${context.parsed} (${percentage}%)`;
                             }
                         }
@@ -2546,7 +2551,12 @@ class LeaveUserInterface {
 
     createApprovalRequestChart(data) {
         const ctx = document.getElementById('leaveRequestChart');
-        if (!ctx) return;
+        if (!ctx) {
+            console.log('leaveRequestChart canvas not found');
+            return;
+        }
+
+        console.log('Creating approval request chart with data:', data);
 
         // Destroy existing chart
         if (this.approvalRequestChart) {
@@ -2557,11 +2567,15 @@ class LeaveUserInterface {
         const textColor = isDark ? '#f8fafc' : '#0f172a';
         const gridColor = isDark ? '#334155' : '#e2e8f0';
 
+        // Ensure data has required properties with defaults
+        const labels = data.labels || [];
+        const datasets = data.datasets || [];
+
         this.approvalRequestChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: data.labels,
-                datasets: data.datasets
+                labels: labels,
+                datasets: datasets
             },
             options: {
                 responsive: true,

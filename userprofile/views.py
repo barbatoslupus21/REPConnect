@@ -408,7 +408,18 @@ def update_profile_section(request):
                     # Update Personal Information
                     personal_info.middle_name = request.POST.get('middle_name', '').strip() or None
                     personal_info.nickname = request.POST.get('nickname', '').strip() or None
-                    personal_info.work_email = request.POST.get('work_email', '').strip() or None
+                    
+                    # Check work_email for duplicates in active accounts
+                    work_email = request.POST.get('work_email', '').strip() or None
+                    if work_email:
+                        # Check if work_email already exists in active accounts (excluding current user)
+                        if PersonalInformation.objects.filter(work_email=work_email, user__active=True).exclude(user=user).exists():
+                            return JsonResponse({
+                                'success': False,
+                                'message': 'This work email address is already in use by another active account.'
+                            })
+                    personal_info.work_email = work_email
+                    
                     personal_info.gender = request.POST.get('gender', '').strip() or None
                     birth_date_str = request.POST.get('birth_date')
                     if birth_date_str:
@@ -481,6 +492,12 @@ def update_profile_section(request):
                     if last_name:
                         user.lastname = last_name
                     if email:
+                        # Check if email already exists in active accounts (excluding current user)
+                        if EmployeeLogin.objects.filter(email=email, active=True).exclude(id=user.id).exists():
+                            return JsonResponse({
+                                'success': False,
+                                'message': 'This email address is already in use by another active account.'
+                            })
                         user.email = email
                     
                     user.save()
@@ -1132,9 +1149,9 @@ def process_employee_import(import_id):
                     logger.error(f"Row {index + 1}: Missing required fields: {missing_fields}")
                     raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
 
-                if EmployeeLogin.objects.filter(email=row['email']).exists():
-                    logger.error(f"Row {index + 1}: Employee with email {row['email']} already exists")
-                    raise ValueError(f"Employee with email {row['email']} already exists")
+                if EmployeeLogin.objects.filter(email=row['email'], active=True).exists():
+                    logger.error(f"Row {index + 1}: Employee with email {row['email']} already exists in an active account")
+                    raise ValueError(f"Employee with email {row['email']} already exists in an active account")
 
                 if EmployeeLogin.objects.filter(idnumber=row['idnumber']).exists():
                     logger.error(f"Row {index + 1}: Employee with ID number {row['idnumber']} already exists")
